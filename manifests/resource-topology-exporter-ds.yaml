@@ -1,0 +1,88 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rte-handler
+rules:
+# - apiGroups: ["apiextensions.k8s.io"]
+#   resources: ["customresourcedefinitions"]
+#   verbs: ["*"]
+- apiGroups: ["k8s.cncf.io"]
+  resources: ["noderesourcetopologies"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get","list","watch","update"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+# - apiGroups: [""]
+#   resources:
+#   - configmaps
+#   - secrets
+#   - pods
+#   - services
+#   - serviceaccounts
+#   - serviceaccounts/token
+#   - endpoints
+#   - events
+#   verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: handle-rte
+subjects:
+- kind: ServiceAccount
+  name: rte-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: rte-handler
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rte-account
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: resource-topology-exporter-ds
+spec:
+  selector:
+      matchLabels:
+        name: resource-topology
+  template:
+    metadata:
+      labels:
+        name: resource-topology
+    spec:
+      #hostNetwork: true
+      serviceAccountName: rte-account
+      containers:
+      - name: resource-topology-exporter-container
+        image: quay.io/swsehgal/resource-topology-exporter:latest
+#        command:
+#        - /usr/local/bin/resource-topology-exporter
+#        - --sleep-interval=1s
+        command:
+        - sleep
+        args:
+        - "1000000"
+        volumeMounts:
+          - name: host-sys
+            mountPath: "/host-sys"
+          - name: host-run
+            mountPath: "/host-run"
+      volumes:
+      - name: host-sys
+        hostPath:
+          path: "/sys"
+      - name: host-run
+        hostPath:
+          path: "/run"

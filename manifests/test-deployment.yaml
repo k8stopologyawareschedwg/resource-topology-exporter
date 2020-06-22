@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: resource-topology-exporter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  namespace: resource-topology-exporter
+spec:
+  selector:
+      matchLabels:
+        name: test # Label selector that determines which Pods belong to the DaemonSet
+  template:
+    metadata:
+      labels:
+        name: test # Pod template's label selector
+    spec:
+      # hostNetwork: true
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      containers:
+      - name: test-deployment-1-container-1
+        image: nginx
+        args:
+        - sleep
+        - "1000000"
+        resources:
+          limits:
+            cpu: 1
+            memory: 200Mi
+            example.com/deviceA: 1
+            example.com/deviceB: 1
+          requests:
+            cpu: 1
+            memory: 200Mi
+            example.com/deviceA: 1
+            example.com/deviceB: 1
+      - name: test-deployment-1-container-2
+        image: nginx
+        args:
+        - sleep
+        - "1000000"
+        resources:
+          limits:
+            cpu: 1
+            memory: 200Mi
+          requests:
+            cpu: 1
+            memory: 200Mi

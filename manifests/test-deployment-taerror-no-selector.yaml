@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploymen-taerror
+spec:
+  selector:
+      matchLabels:
+        name: test # Label selector that determines which Pods belong to the DaemonSet
+  template:
+    metadata:
+      labels:
+        name: test # Pod template's label selector
+    spec:
+      #hostNetwork: true
+      containers:
+      - name: test-container-1
+        image: nginx
+        args:
+        - sleep
+        - "1000000"
+        resources:
+          limits:
+            cpu: 1
+            memory: 200Mi
+            example.com/deviceA: 3
+          requests:
+            cpu: 1
+            memory: 200Mi
+            example.com/deviceA: 3
+      - name: test-container-2
+        image: nginx
+        args:
+        - sleep
+        - "1000000"
+        resources:
+          limits:
+            cpu: 1
+            memory: 200Mi
+          requests:
+            cpu: 1
+            memory: 200Mi
