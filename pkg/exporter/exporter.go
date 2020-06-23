@@ -31,6 +31,9 @@ func (e *crdExporter) Run() error {
 func (e *crdExporter) Update() error {
 	log.Printf("Exporter Update called NodeResources is: %+v", e.NodeResources)
 
-	CreateCustomResourceDefinition(e.NodeResources)
+	err := UpdateCustomResourceDefinition(e.NodeResources)
+	if err != nil {
+		return fmt.Errorf("Unable to update CRD: %v", err)
+	}
 	return nil
 }
