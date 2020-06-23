@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"log"
+	"os"
 )
 
 func CreateCustomResourceDefinition(resources []v1alpha1.NUMANodeResource) {
@@ -31,9 +32,13 @@ func CreateCustomResourceDefinition(resources []v1alpha1.NUMANodeResource) {
 		log.Fatalf("Can't get resource topology interface!")
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Failed to get Hostname:%v", err)
+	}
 	resTopo, err := resourceTopology.Create(&v1alpha1.NodeResourceTopology{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "node-test1",
+			Name: hostname,
 		},
 		Nodes: resources,
 	}, metav1.CreateOptions{})
