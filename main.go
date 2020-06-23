@@ -29,6 +29,11 @@ func main() {
 		log.Fatalf("Failed to initialize NfdWorker instance: %v", err)
 	}
 
+	crdExporter, err := exporter.NewExporter()
+	if err != nil {
+		log.Fatalf("Failed to initialize crdExporter instance: %v", err)
+	}
+
 	for {
 		if err = instance.Run(); err != nil {
 			log.Fatalf("ERROR: %v", err)
@@ -48,8 +53,7 @@ func main() {
 		}
 		log.Printf("allocatedResourcesNumaInfo:%v", spew.Sdump(allocatedResourcesNumaInfo))
 
-		crdExporter := exporter.NewExporter(allocatedResourcesNumaInfo)
-		if err = crdExporter.Run(); err != nil {
+		if err = crdExporter.CreateOrUpdate("default", allocatedResourcesNumaInfo); err != nil {
 			log.Fatalf("ERROR: %v", err)
 		}
 
