@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/docopt/docopt-go"
-	"github.com/swatisehgal/resource-topology-exporter/pkg/exporter"
-	"github.com/swatisehgal/resource-topology-exporter/pkg/finder"
-	"k8s.io/api/core/v1"
 	"log"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/docopt/docopt-go"
+
+	"github.com/swatisehgal/resource-topology-exporter/pkg/exporter"
+	"github.com/swatisehgal/resource-topology-exporter/pkg/finder"
+	"github.com/swatisehgal/resource-topology-exporter/pkg/pciconf"
 )
 
 const (
@@ -22,9 +24,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to parse command line: %v", err)
 	}
+	if args.SRIOVConfigFile == "" {
+		log.Fatalf("missing SRIOV device plugin configuration file path")
+	}
+
+	var pci2ResMap pciconf.PCIResourceMap
+	log.Printf("getting SRIOV configuration from file: %s", args.SRIOVConfigFile)
+	pci2ResMap, err = pciconf.GetFromSRIOVConfigFile(args.SysfsRoot, args.SRIOVConfigFile)
+	if err != nil {
+		log.Fatalf("failed to read the PCI -> Resource mapping: %v", err)
+	}
 
 	// Get new finder instance
-	instance, err := finder.NewFinder(args)
+	instance, err := finder.NewFinder(args, pci2ResMap)
 	if err != nil {
 		log.Fatalf("Failed to initialize NfdWorker instance: %v", err)
 	}
@@ -35,25 +47,16 @@ func main() {
 	}
 
 	for {
-		if err = instance.Run(); err != nil {
-			log.Fatalf("ERROR: %v", err)
+		podResources, err := instance.Scan()
+		if err != nil {
+			log.Printf("CRI scan failed: %v\n", err)
+			continue
 		}
 
-		allocatedCpusNumaInfo := instance.GetAllocatedCPUs()
-		log.Printf("allocatedCpusNumaInfo:%v", allocatedCpusNumaInfo)
-		allocatedResourcesNumaInfo := instance.GetAllocatedDevices()
+		perNumaResources := instance.Aggregate(podResources)
+		log.Printf("allocatedResourcesNumaInfo:%v", spew.Sdump(perNumaResources))
 
-		for _, allocatedResourceNumaInfo := range allocatedResourcesNumaInfo {
-			for _, cpuNUMANodeResource := range allocatedCpusNumaInfo {
-				if cpuNUMANodeResource.NUMAID == allocatedResourceNumaInfo.NUMAID {
-					allocatedResourceNumaInfo.Resources[v1.ResourceName("cpu")] = cpuNUMANodeResource.Resources[v1.ResourceName("cpu")]
-				}
-
-			}
-		}
-		log.Printf("allocatedResourcesNumaInfo:%v", spew.Sdump(allocatedResourcesNumaInfo))
-
-		if err = crdExporter.CreateOrUpdate("default", allocatedResourcesNumaInfo); err != nil {
+		if err = crdExporter.CreateOrUpdate("default", perNumaResources); err != nil {
 			log.Fatalf("ERROR: %v", err)
 		}
 
@@ -64,24 +67,38 @@ func main() {
 // argsParse parses the command line arguments passed to the program.
 // The argument argv is passed only for testing purposes.
 func argsParse(argv []string) (finder.Args, error) {
-	args := finder.Args{}
-	usage := fmt.Sprintf(`%s.
-  Usage:
-  %s [--sleep-interval=<seconds>] [--cri-path=<path>]
+	args := finder.Args{
+		CRIEndpointPath: "/host-run/containerd/containerd.sock",
+		SleepInterval:   time.Duration(3 * time.Second),
+		SysfsRoot:       "/host-sys",
+	}
+	usage := fmt.Sprintf(`Usage:
+  %s [--sleep-interval=<seconds>] [--cri-path=<path>] [--watch-namespace=<namespace>] [--sysfs=<mountpoint>] [--sriov-config-file=<path>]
   %s -h | --help
   Options:
-  -h --help                   Show this screen.
-  --cri-path=<path>           CRI Enddpoint file path to use.
-                              [Default: /host-run/containerd/containerd.sock]
-  --sleep-interval=<seconds>  Time to sleep between updates. [Default: 3s]`,
+  -h --help                       Show this screen.
+  --cri-path=<path>               CRI Endpoint file path to use. [Default: %v]
+  --sleep-interval=<seconds>      Time to sleep between updates. [Default: %v]
+  --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
+  --sysfs=<mountpoint>            Mount point of the sysfs. [Default: %v]
+  --sriov-config-file=<path>      SRIOV device plugin config file path.`,
 		ProgramName,
 		ProgramName,
-		ProgramName,
+		args.CRIEndpointPath,
+		args.SleepInterval,
+		args.SysfsRoot,
 	)
 
-	arguments, _ := docopt.ParseArgs(usage, argv, fmt.Sprintf("%s", ProgramName))
+	arguments, _ := docopt.ParseArgs(usage, argv, ProgramName)
 	var err error
 	// Parse argument values as usable types.
+	if ns, ok := arguments["--watch-namespace"].(string); ok {
+		args.Namespace = ns
+	}
+	if path, ok := arguments["--sriov-config-file"].(string); ok {
+		args.SRIOVConfigFile = path
+	}
+	args.SysfsRoot = arguments["--sysfs"].(string)
 	args.CRIEndpointPath = arguments["--cri-path"].(string)
 	args.SleepInterval, err = time.ParseDuration(arguments["--sleep-interval"].(string))
 	if err != nil {

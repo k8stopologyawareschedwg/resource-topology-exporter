@@ -1,6 +1,11 @@
 COMMONENVVAR=GOOS=linux GOARCH=amd64
 BUILDENVVAR=CGO_ENABLED=0
 
+RUNTIME ?= podman
+REPOOWNER ?= swsehgal
+IMAGENAME ?= resource-topology-exporter
+IMAGETAG ?= latest
+
 .PHONY: all
 all: build
 
@@ -21,12 +26,17 @@ govet:
 .PHONY: image
 image: build
 	@echo "building image"
-	docker build -f images/Dockerfile -t quay.io/swsehgal/resource-topology-exporter:latest .
+	$(RUNTIME) build -f images/Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
+
+.PHONY: crd
+crd:
+	@echo "deploying crd"
+	kubectl create -f manifests/crd-v1alpha1.yaml
 
 .PHONY: push
 push: image
 	@echo "pushing image"
-	docker push quay.io/swsehgal/resource-topology-exporter:latest
+	$(RUNTIME) push quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
 .PHONY: deploy
 deploy: push

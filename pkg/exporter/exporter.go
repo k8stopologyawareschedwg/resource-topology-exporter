@@ -65,14 +65,10 @@ func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMA
 		return err
 	}
 
-	nrtMutated := v1alpha1.NodeResourceTopology{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            e.hostname,
-			ResourceVersion: nrt.ObjectMeta.ResourceVersion,
-		},
-		Nodes: resources,
-	}
-	nrtUpdated, err := e.cli.TopocontrollerV1alpha1().NodeResourceTopologies(namespace).Update(&nrtMutated, metav1.UpdateOptions{})
+	nrtMutated := nrt.DeepCopy()
+	nrtMutated.Nodes = resources
+
+	nrtUpdated, err := e.cli.TopocontrollerV1alpha1().NodeResourceTopologies(namespace).Update(nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
