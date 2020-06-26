@@ -70,7 +70,10 @@ There is currently work going on in the community as part of the the Vertical Po
 
 ## Installation
 
-1. Update the image name and/or docker repository in the Makefile
+1. You can use the following environment variables to configure the exporter image name:
+   - `REPOOWNER`: name of the repository on which the image will be pushed (example: `quay.io/$REPOOWNER/...`)
+   - `IMAGENAME`: name of the image to build
+   - `IMAGETAG`: name of the image tag to use
 2. To deploy the exporter run:
 
 ```bash
