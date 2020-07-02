@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	defaultTimeout = 5 * time.Second
-	ns             = "resource-topology-exporter"
+	defaultTimeout   = 5 * time.Second
+	ns               = "resource-topology-exporter"
+	deviceNamePrefix = "EXAMPLECOMDEVICE"
 )
 
 type Args struct {
@@ -297,13 +298,16 @@ func (f *criFinder) updateInfo() error {
 func getDevices(envs []*runtime.KeyValue) map[devicePluginResourceName][]*DeviceInfo {
 	devices := make(map[devicePluginResourceName][]*DeviceInfo)
 	for _, env := range envs {
-		if !strings.HasPrefix(env.Key, "example.com/device") {
+		if !strings.HasPrefix(env.Key, deviceNamePrefix) {
 			continue
 		}
 		k := strings.Split(env.Key, "_")
-		devInfo := NewDeviceInfo(k[1], k[2], env.Value)
+		deviceName := strings.Replace(k[0], "COM", ".COM/", -1)
+		deviceName = strings.ToLower(deviceName)
+		deviceFile := "/dev/" + strings.ToLower(k[2])
+		devInfo := NewDeviceInfo(k[1], deviceFile, env.Value)
 		var devPluginName devicePluginResourceName
-		devPluginName = devicePluginResourceName(k[0])
+		devPluginName = devicePluginResourceName(deviceName)
 		devices[devPluginName] = append(devices[devPluginName], devInfo)
 	}
 	return devices
