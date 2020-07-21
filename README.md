@@ -96,3 +96,13 @@ make deploy-pod
 
 NOTE
 This exporter assumes the cluster has devices configured using [Sample device plugin](https://github.com/swatisehgal/sample-device-plugin)
+
+## Limitations
+
+Due to the current (2020, July) limitations of both CRI and podresources APIs for the purposes of the resource-topology-exporter,
+we have explicit support for most commonly used device plugins.
+
+### SRIOV device plugin
+0. RTE - and SRIOV device plugin - always expect the PF device to be listed in the configuration. VFs are detected automatically.
+1. the device capacity is calculated assuming VFs are created ahead of time; IOW RTE assumes the VFs are not created dynamically.
+

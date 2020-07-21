@@ -1,7 +1,7 @@
 COMMONENVVAR=GOOS=linux GOARCH=amd64
 BUILDENVVAR=CGO_ENABLED=0
 
-RUNTIME ?= docker
+RUNTIME ?= podman
 REPOOWNER ?= swsehgal
 IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest

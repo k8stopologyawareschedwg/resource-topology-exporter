@@ -2,25 +2,27 @@ package finder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 	"log"
 	"net"
-	"path"
 	"strconv"
 	"strings"
 	"time"
 
-	"encoding/json"
+	"github.com/davecgh/go-spew/spew"
+
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
-	v1alpha1 "github.com/swatisehgal/resource-topology-exporter/pkg/apis/topocontroller/v1alpha1"
 	"google.golang.org/grpc"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pb "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
-	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 	"k8s.io/kubernetes/pkg/kubelet/util"
+
+	"github.com/fromanirh/numalign/pkg/topologyinfo/cpus"
+	"github.com/fromanirh/numalign/pkg/topologyinfo/pcidev"
+	v1alpha1 "github.com/swatisehgal/resource-topology-exporter/pkg/apis/topocontroller/v1alpha1"
 )
 
 const (
@@ -32,20 +34,28 @@ const (
 type Args struct {
 	CRIEndpointPath string
 	SleepInterval   time.Duration
+	Namespace       string
+	SysfsRoot       string
+	SRIOVConfigFile string
 }
 
 type CRIFinder interface {
-	Run() error
-	GetPodsData() []*PodResourceData
-	GetAllocatedCPUs() []v1alpha1.NUMANodeResource
-	GetAllocatedDevices() []v1alpha1.NUMANodeResource
+	Scan() ([]PodResources, error)
+	Aggregate(podResData []PodResources) []v1alpha1.NUMANodeResource
 }
 
 type criFinder struct {
-	args     Args
-	conn     *grpc.ClientConn
-	client   pb.RuntimeServiceClient
-	podsData []*PodResourceData
+	args   Args
+	conn   *grpc.ClientConn
+	client pb.RuntimeServiceClient
+	// we may want to move to cadvisor past PoC stage
+	pciDevs         *pcidev.PCIDevices
+	cpus            *cpus.CPUs
+	cpuID2NUMAID    map[int]int
+	pciAddr2NUMAID  map[string]int
+	perNUMACapacity map[int]map[v1.ResourceName]int64
+	// pciaddr -> resourcename
+	pci2ResourceMap map[string]string
 }
 
 type ContainerInfo struct {
@@ -60,77 +70,90 @@ type ContainerInfo struct {
 	RuntimeSpec    *runtimespec.Spec   `json:"runtimeSpec"`
 }
 
-func (f *criFinder) Run() error {
-	err := f.UpdateCRIInfo()
+func makePCI2ResourceMap(numaNodes int, pciDevs *pcidev.PCIDevices, pciResMapConf map[string]string) (map[int]map[v1.ResourceName]int64, map[string]string, map[string]int) {
+	pciAddr2NUMAID := make(map[string]int)
+	pci2Res := make(map[string]string)
+
+	perNUMACapacity := make(map[int]map[v1.ResourceName]int64)
+	for nodeNum := 0; nodeNum < numaNodes; nodeNum++ {
+		perNUMACapacity[nodeNum] = make(map[v1.ResourceName]int64)
+
+		for _, pciDev := range pciDevs.Items {
+			if pciDev.NUMANode() != nodeNum {
+				continue
+			}
+			sriovDev, ok := pciDev.(pcidev.SRIOVDeviceInfo)
+			if !ok {
+				continue
+			}
+
+			if !sriovDev.IsVFn {
+				continue
+			}
+
+			resName, ok := pciResMapConf[sriovDev.ParentFn]
+			if !ok {
+				continue
+			}
+
+			pci2Res[sriovDev.Address()] = resName
+			pciAddr2NUMAID[sriovDev.Address()] = nodeNum
+			perNUMACapacity[nodeNum][v1.ResourceName(resName)]++
+		}
+	}
+	return perNUMACapacity, pci2Res, pciAddr2NUMAID
+}
+
+func NewFinder(args Args, pciResMapConf map[string]string) (CRIFinder, error) {
+	finderInstance := &criFinder{
+		args:            args,
+		perNUMACapacity: make(map[int]map[v1.ResourceName]int64),
+	}
+	var err error
+
+	// first scan the sysfs
+	// CAUTION: these resources are expected to change rarely - if ever. So we are intentionally do this once during the process lifecycle.
+	finderInstance.cpus, err = cpus.NewCPUs(finderInstance.args.SysfsRoot)
 	if err != nil {
-		return fmt.Errorf("Unable to update CRIInfo: %v", err)
-
+		return nil, fmt.Errorf("error scanning the system CPUs: %v", err)
+	}
+	for nodeNum, cpuList := range finderInstance.cpus.NUMANodeCPUs {
+		log.Printf("detected system CPU: NUMA cell %d cpus = %v\n", nodeNum, cpuList)
 	}
 
-	return nil
-}
+	for nodeNum := 0; nodeNum < finderInstance.cpus.NUMANodes; nodeNum++ {
+	}
 
-func (f *criFinder) GetPodsData() []*PodResourceData {
-	return f.podsData
-}
+	finderInstance.pciDevs, err = pcidev.NewPCIDevices(finderInstance.args.SysfsRoot)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning the system PCI devices: %v", err)
+	}
+	for _, pciDev := range finderInstance.pciDevs.Items {
+		log.Printf("detected system PCI device = %s\n", pciDev.String())
+	}
 
-func (f *criFinder) GetAllocatedCPUs() []v1alpha1.NUMANodeResource {
-	allocatedCpusNumaInfo := map[string][]string{}
-	for _, podData := range f.GetPodsData() {
-		podcpusNumaInfo := podData.GetAllocatedCPUs()
-		for k, cpuList := range podcpusNumaInfo {
-			for _, cpu := range cpuList {
-				allocatedCpusNumaInfo[k] = append(allocatedCpusNumaInfo[k], cpu)
-			}
+	// helper maps
+	var pciDevMap map[int]map[v1.ResourceName]int64
+	pciDevMap, finderInstance.pci2ResourceMap, finderInstance.pciAddr2NUMAID = makePCI2ResourceMap(finderInstance.cpus.NUMANodes, finderInstance.pciDevs, pciResMapConf)
+	finderInstance.cpuID2NUMAID = make(map[int]int)
+	for nodeNum, cpus := range finderInstance.cpus.NUMANodeCPUs {
+		for _, cpu := range cpus {
+			finderInstance.cpuID2NUMAID[cpu] = nodeNum
 		}
 	}
-	cpuResourceList := getCPUResourceList(allocatedCpusNumaInfo)
-	return cpuResourceList
-}
 
-func (f *criFinder) GetAllocatedDevices() []v1alpha1.NUMANodeResource {
-	allocatedDevsNumaInfo := map[string]map[devicePluginResourceName]int{}
-	for _, podData := range f.GetPodsData() {
-		podDevsNumaInfo := podData.GetAllocatedDevices()
-
-		for numaId, devs := range podDevsNumaInfo {
-			for res, n := range devs {
-				if allocatedDevsNumaInfo[numaId] == nil {
-					count := map[devicePluginResourceName]int{res: 0}
-					allocatedDevsNumaInfo[numaId] = count
-				}
-				allocatedDevsNumaInfo[numaId][res] += n
-			}
+	// initialize with the capacities
+	for nodeNum := 0; nodeNum < finderInstance.cpus.NUMANodes; nodeNum++ {
+		finderInstance.perNUMACapacity[nodeNum] = make(map[v1.ResourceName]int64)
+		for resName, count := range pciDevMap[nodeNum] {
+			finderInstance.perNUMACapacity[nodeNum][resName] = count
 		}
-	}
-	deviceResourceList := getDeviceResourceList(allocatedDevsNumaInfo)
-	return deviceResourceList
-}
 
-func getDeviceResourceList(allocatedDevsNumaInfo map[string]map[devicePluginResourceName]int) []v1alpha1.NUMANodeResource {
-	var deviceNumaResources []v1alpha1.NUMANodeResource = make([]v1alpha1.NUMANodeResource, 0)
-	for numaId, devs := range allocatedDevsNumaInfo {
-		res := v1.ResourceList{}
-		numaInt, _ := strconv.Atoi(numaId)
-		for resourceName, n := range devs {
-			res[v1.ResourceName(resourceName)] = *resource.NewQuantity(int64(n), resource.DecimalSI)
-		}
-		deviceNumaResources = append(deviceNumaResources, v1alpha1.NUMANodeResource{NUMAID: numaInt, Resources: res})
+		cpus := finderInstance.cpus.NUMANodeCPUs[nodeNum]
+		finderInstance.perNUMACapacity[nodeNum][v1.ResourceCPU] = int64(len(cpus))
 	}
-	return deviceNumaResources
-}
 
-func getCPUResourceList(allocatedCpusNumaInfo map[string][]string) []v1alpha1.NUMANodeResource {
-	var cpuNumaResources []v1alpha1.NUMANodeResource = make([]v1alpha1.NUMANodeResource, 0)
-	for k, v := range allocatedCpusNumaInfo {
-		numaId, _ := strconv.Atoi(k)
-		res := v1.ResourceList{v1.ResourceName("cpu"): *resource.NewQuantity(int64(len(v)), resource.DecimalSI)}
-		cpuNumaResources = append(cpuNumaResources, v1alpha1.NUMANodeResource{NUMAID: numaId, Resources: res})
-	}
-	return cpuNumaResources
-}
-func NewFinder(args Args) (CRIFinder, error) {
-	finderInstance := &criFinder{args: args}
+	// now we can connext to CRI
 	addr, dialer, err := getAddressAndDialer(finderInstance.args.CRIEndpointPath)
 	if err != nil {
 		return nil, err
@@ -143,6 +166,12 @@ func NewFinder(args Args) (CRIFinder, error) {
 
 	finderInstance.client = pb.NewRuntimeServiceClient(finderInstance.conn)
 	log.Printf("connected to '%v'!", finderInstance.args.CRIEndpointPath)
+	if finderInstance.args.Namespace != "" {
+		log.Printf("watching namespace %q", finderInstance.args.Namespace)
+	} else {
+		log.Printf("watching all namespaces")
+	}
+
 	return finderInstance, nil
 }
 
@@ -150,19 +179,7 @@ func getAddressAndDialer(endpoint string) (string, func(addr string, timeout tim
 	return util.GetAddressAndDialer(endpoint)
 }
 
-func (f *criFinder) UpdateCRIInfo() error {
-	var err error
-	log.Printf("Inside Update CRI Info")
-	err = f.updateInfo()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (f *criFinder) listContainersResponse() (*pb.ListContainersResponse, error) {
-	log.Printf("ListContainers CRI call\n")
-
 	st := &pb.ContainerStateValue{}
 	st.State = pb.ContainerState_CONTAINER_RUNNING
 	filter := &pb.ContainerFilter{}
@@ -182,7 +199,6 @@ func (f *criFinder) listContainersResponse() (*pb.ListContainersResponse, error)
 
 func (f *criFinder) containerStatsResponse(c *pb.Container) (*pb.ContainerStatsResponse, error) {
 	//ContainerStats
-	log.Printf("ContainerStats CRI call\n")
 	ContStatsReq := &pb.ContainerStatsRequest{
 		ContainerId: c.Id,
 	}
@@ -196,7 +212,6 @@ func (f *criFinder) containerStatsResponse(c *pb.Container) (*pb.ContainerStatsR
 
 func (f *criFinder) containerStatusResponse(c *pb.Container) (*pb.ContainerStatusResponse, error) {
 	//ContainerStatus
-	log.Printf("ContainerStatus CRI call\n")
 	ContStatusReq := &pb.ContainerStatusRequest{
 		ContainerId: c.Id,
 		Verbose:     true,
@@ -209,11 +224,52 @@ func (f *criFinder) containerStatusResponse(c *pb.Container) (*pb.ContainerStatu
 	return ContStatusResp, nil
 }
 
+type ResourceInfo struct {
+	Name v1.ResourceName
+	Data []string
+}
+
+type ContainerResources struct {
+	Name      string
+	Resources []ResourceInfo
+}
+
+type PodResources struct {
+	Name       string
+	Namespace  string
+	Containers []ContainerResources
+}
+
+func (cpf *criFinder) updateNUMAMap(numaData map[int]map[v1.ResourceName]int64, ri ResourceInfo) {
+	if ri.Name == v1.ResourceCPU {
+		for _, cpuIDStr := range ri.Data {
+			cpuID, err := strconv.Atoi(cpuIDStr)
+			if err != nil {
+				// TODO: log
+				continue
+			}
+			nodeNum, ok := cpf.cpuID2NUMAID[cpuID]
+			if !ok {
+				// TODO: log
+				continue
+			}
+			numaData[nodeNum][ri.Name]--
+		}
+		return
+	}
+	for _, pciAddr := range ri.Data {
+		nodeNum, ok := cpf.pciAddr2NUMAID[pciAddr]
+		if !ok {
+			// TODO: log
+			continue
+		}
+		numaData[nodeNum][ri.Name]--
+	}
+}
+
 func (cpf *criFinder) listPodSandBoxResponse() (*pb.ListPodSandboxResponse, error) {
 	//ListPodSandbox
-	log.Printf(" ListPodSandbox CRI call\n")
 	podState := &pb.PodSandboxStateValue{}
-	log.Printf("PodSandboxStateValue: %v", podState)
 	podState.State = pb.PodSandboxState_SANDBOX_READY
 	filter := &pb.PodSandboxFilter{}
 	filter.State = podState
@@ -228,107 +284,183 @@ func (cpf *criFinder) listPodSandBoxResponse() (*pb.ListPodSandboxResponse, erro
 	return PodSbResponse, nil
 }
 
-func (f *criFinder) updateInfo() error {
+func (f *criFinder) isWatchable(podSb *pb.PodSandbox) bool {
+	if f.args.Namespace == "" {
+		return true
+	}
+	//TODO:  add an explicit check for guaranteed pods
+	return f.args.Namespace == podSb.Metadata.Namespace
+}
+
+func (f *criFinder) Scan() ([]PodResources, error) {
 	//PodSandboxStatus
-	log.Printf("PodSandboxStatus CRI call\n")
 	podSbResponse, err := f.listPodSandBoxResponse()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var podResData []*PodResourceData = make([]*PodResourceData, 0)
+	var podResData []PodResources
 	for _, podSb := range podSbResponse.GetItems() {
-		// Assumption here is that all the pods in the default namespace are being considered (assuming they are guranteed)
-		//TODO:  add an explicit check for guaranteed pods
-		if podSb.Metadata.Namespace != ns {
+		if !f.isWatchable(podSb) {
+			log.Printf("SKIP pod %q\n", podSb.Metadata.Name)
 			continue
 		}
-		contsData := []ContainerData{}
+
+		log.Printf("querying pod %q\n", podSb.Metadata.Name)
 		ListContResponse, err := f.listContainersResponse()
 		if err != nil {
-			return err
+			log.Printf("fail to list containers for pod %q: err: %v", podSb.Metadata.Name, err)
+			continue
+		}
+
+		podRes := PodResources{
+			Name:      podSb.Metadata.Name,
+			Namespace: podSb.Metadata.Namespace,
 		}
 		for _, c := range ListContResponse.GetContainers() {
 			if c.PodSandboxId != podSb.Id {
 				continue
 			}
+
+			log.Printf("querying pod %q container %q\n", podSb.Metadata.Name, c.Metadata.Name)
+
 			ContStatusResp, err := f.containerStatusResponse(c)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			log.Printf("container name is %v\n", ContStatusResp.Status.Metadata.Name)
+			contRes := ContainerResources{
+				Name: ContStatusResp.Status.Metadata.Name,
+			}
+			log.Printf("got status for pod %q container %q\n", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name)
+
 			var ci ContainerInfo
-			b := []byte(ContStatusResp.Info["info"])
-			err = json.Unmarshal(b, &ci)
-			l, _ := json.Marshal(ci.RuntimeSpec.Linux)
-			var linux runtimespec.Linux
-			err = json.Unmarshal(l, &linux)
-			res, _ := json.Marshal(linux.Resources)
-			var linuxResources runtimespec.LinuxResources
-			err = json.Unmarshal(res, &linuxResources)
-
-			//device stuff here
-
-			d, _ := json.Marshal(ci.Config.Devices)
-
-			log.Printf("Config devices %v \n", string(d))
-			devs := getDevices(ci.Config.Envs)
-			setCPU, err := cpuset.Parse(linuxResources.CPU.Cpus)
+			err = json.Unmarshal([]byte(ContStatusResp.Info["info"]), &ci)
 			if err != nil {
-				fmt.Errorf("unable to parse %v as CPUSet: %v", linuxResources.CPU.Cpus, err)
-			}
-			cpus, err := getCPUs(setCPU)
-			if err != nil {
-				fmt.Errorf("unable to getCPU , err: %v", err)
-			}
-			resources := NewResources(cpus, devs)
-			contData := NewContainerData(ContStatusResp.Status.Metadata.Name, resources)
-			contsData = append(contsData, *contData)
-			for i, c := range contsData {
-				cdata, _ := json.Marshal(c)
-				log.Printf("cdata[%v]: %v\n", i, string(cdata))
-			}
-		} //GetContainers ends here
-		podData := NewPodResourceData(podSb.Id, podSb.Metadata.Uid, podSb.Metadata.Name, podSb.Metadata.Namespace, contsData)
-		podResData = append(podResData, podData)
-	} // getItems PodSbEnds here
-	f.podsData = podResData
-	return nil
-}
-
-func getDevices(envs []*runtime.KeyValue) map[devicePluginResourceName][]*DeviceInfo {
-	devices := make(map[devicePluginResourceName][]*DeviceInfo)
-	for _, env := range envs {
-		if !strings.HasPrefix(env.Key, deviceNamePrefix) {
-			continue
-		}
-		k := strings.Split(env.Key, "_")
-		deviceName := strings.Replace(k[0], "COM", ".COM/", -1)
-		deviceName = strings.ToLower(deviceName)
-		deviceFile := "/dev/" + strings.ToLower(k[2])
-		devInfo := NewDeviceInfo(k[1], deviceFile, env.Value)
-		var devPluginName devicePluginResourceName
-		devPluginName = devicePluginResourceName(deviceName)
-		devices[devPluginName] = append(devices[devPluginName], devInfo)
-	}
-	return devices
-}
-
-func getCPUs(setCPU cpuset.CPUSet) (map[string]string, error) {
-	cpuInfo := make(map[string]string)
-	for _, cpu := range setCPU.ToSlice() {
-		pathSuffix := fmt.Sprintf("bus/cpu/devices/cpu%d", cpu)
-		cpuPath := path.Join(hostSysFs, pathSuffix)
-		cpuDirs, err := ioutil.ReadDir(cpuPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read CPU directory %v:%v ", cpuDirs, err)
-		}
-		for _, cpuDir := range cpuDirs {
-			if !strings.HasPrefix(cpuDir.Name(), "node") {
+				log.Printf("pod %q container %q: cannot parse status info: %v", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, err)
 				continue
 			}
-			numaNodeId := strings.TrimPrefix(cpuDir.Name(), "node")
-			cpuInfo[fmt.Sprintf("%d", cpu)] = numaNodeId
+
+			var linuxResources *runtimespec.LinuxResources
+			if ci.RuntimeSpec.Linux != nil && ci.RuntimeSpec.Linux.Resources != nil {
+				linuxResources = ci.RuntimeSpec.Linux.Resources
+			}
+			if linuxResources == nil {
+				log.Printf("pod %q container %q: missing linux resource infos", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name)
+				continue
+			}
+
+			env := getContainerEnvironmentVariables(ci)
+			if env == nil {
+				log.Printf("pod %q container %q: missing environment infos", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name)
+				continue
+			}
+
+			cpuList, err := cpuset.Parse(linuxResources.CPU.Cpus)
+			if err != nil {
+				log.Printf("pod %q container %q unable to parse %v as CPUSet: %v", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, linuxResources.CPU.Cpus, err)
+				continue
+			}
+			contRes.Resources = append(contRes.Resources, makeCPUResource(cpuList)...)
+			if ci.Config != nil && ci.Config.Envs != nil {
+				contRes.Resources = append(contRes.Resources, makePCIDeviceResource(env, f.pci2ResourceMap)...)
+			}
+
+			log.Printf("pod %q container %q contData=%s\n", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, spew.Sdump(contRes))
+			podRes.Containers = append(podRes.Containers, contRes)
+		}
+
+		podResData = append(podResData, podRes)
+	}
+	return podResData, nil
+}
+
+func (cpf *criFinder) Aggregate(podResData []PodResources) []v1alpha1.NUMANodeResource {
+	var perNumaRes []v1alpha1.NUMANodeResource
+
+	perNuma := make(map[int]map[v1.ResourceName]int64)
+	for nodeNum, nodeRes := range cpf.perNUMACapacity {
+		perNuma[nodeNum] = make(map[v1.ResourceName]int64)
+		for resName, resCap := range nodeRes {
+			perNuma[nodeNum][resName] = resCap
 		}
 	}
-	return cpuInfo, nil
+
+	for _, podRes := range podResData {
+		for _, contRes := range podRes.Containers {
+			for _, res := range contRes.Resources {
+				cpf.updateNUMAMap(perNuma, res)
+			}
+		}
+	}
+
+	for nodeNum, resList := range perNuma {
+		numaRes := v1alpha1.NUMANodeResource{
+			NUMAID:    nodeNum,
+			Resources: make(v1.ResourceList),
+		}
+		for name, intQty := range resList {
+			numaRes.Resources[name] = *resource.NewQuantity(intQty, resource.DecimalSI)
+		}
+		perNumaRes = append(perNumaRes, numaRes)
+	}
+	return perNumaRes
+}
+
+func makeCPUResource(cpus cpuset.CPUSet) []ResourceInfo {
+	var ret []string
+	for _, cpuID := range cpus.ToSlice() {
+		ret = append(ret, fmt.Sprintf("%d", cpuID))
+	}
+	return []ResourceInfo{
+		ResourceInfo{
+			Name: v1.ResourceCPU,
+			Data: ret,
+		},
+	}
+}
+
+func makePCIDeviceResource(env map[string]string, pci2ResMap map[string]string) []ResourceInfo {
+	var resInfos []ResourceInfo
+	for key, value := range env {
+		if !strings.HasPrefix(key, "PCIDEVICE_") {
+			continue
+		}
+
+		pciAddrs := strings.Split(value, ",")
+		// the assumption here that all the address per variable are bound to the same resource name
+
+		resName, ok := pci2ResMap[pciAddrs[0]]
+		if !ok {
+			continue
+		}
+
+		resInfos = append(resInfos, ResourceInfo{
+			Name: v1.ResourceName(resName),
+			Data: pciAddrs,
+		})
+	}
+	return resInfos
+}
+
+func getContainerEnvironmentVariables(ci ContainerInfo) map[string]string {
+	envVars := make(map[string]string)
+
+	if ci.RuntimeSpec != nil && ci.RuntimeSpec.Process != nil && ci.RuntimeSpec.Process.Env != nil {
+		for _, entry := range ci.RuntimeSpec.Process.Env {
+			items := strings.SplitN(entry, "=", 2)
+			if len(items) == 2 {
+				envVars[items[0]] = items[1]
+			}
+		}
+		return envVars
+	}
+
+	if ci.Config != nil && ci.Config.Envs != nil {
+		for _, env := range ci.Config.Envs {
+			envVars[env.Key] = env.Value
+		}
+		return envVars
+	}
+
+	// nothing else to try, give up and fail!
+	return nil
 }
