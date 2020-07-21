@@ -51,8 +51,9 @@ deploy: push
 .PHONY: deploy-pod
 deploy-pod:
 	@echo "deploying Guaranteed Pod"
-	kubectl create -f manifests/test-deployment.yaml
-	kubectl create -f manifests/test-deployment-2.yaml
+	kubectl create -f manifests/test-sriov-pod.yaml
+	kubectl create -f manifests/test-sriov-pod-2.yaml
+	kubectl create -f manifests/test-sriov-pod-3.yaml
 
 .PHONY: deploy-taerror
 deploy-taerror:
@@ -64,5 +65,6 @@ clean-binaries:
 
 clean: clean-binaries
 	kubectl delete -f manifests/resource-topology-exporter-ds.yaml
-	kubectl delete -f manifests/test-deployment.yaml
-	kubectl delete -f manifests/test-deployment-2.yaml
+	kubectl delete -f manifests/test-sriov-pod.yaml
+	kubectl delete -f manifests/test-sriov-pod-2.yaml
+	kubectl delete -f manifests/test-sriov-pod-3.yaml

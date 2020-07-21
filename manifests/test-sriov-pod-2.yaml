@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-pod-2
+  namespace: rte
+  annotations:
+    k8s.v1.cni.cncf.io/networks: worker-node,worker-node
+spec:
+  nodeName: cnfd2-worker-0.fci1.kni.lab.eng.bos.redhat.com
+  containers:
+  - name: sample-container
+    image: centos
+    imagePullPolicy: IfNotPresent
+    command: ["sleep", "infinity"]
+    resources:
+      requests:
+        openshift.io/sriov: 2
+        cpu: 2
+        memory: 200Mi
+      limits:
+        openshift.io/sriov: 2
+        cpu: 2
+        memory: 200Mi

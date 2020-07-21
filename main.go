@@ -68,16 +68,18 @@ func main() {
 // The argument argv is passed only for testing purposes.
 func argsParse(argv []string) (finder.Args, error) {
 	args := finder.Args{
-		CRIEndpointPath: "/host-run/containerd/containerd.sock",
-		SleepInterval:   time.Duration(3 * time.Second),
-		SysfsRoot:       "/host-sys",
-		SRIOVConfigFile: "/etc/sriov-config/config.json",
+		ContainerRuntime: "containerd",
+		CRIEndpointPath:  "/host-run/containerd/containerd.sock",
+		SleepInterval:    time.Duration(3 * time.Second),
+		SysfsRoot:        "/host-sys",
+		SRIOVConfigFile:  "/etc/sriov-config/config.json",
 	}
 	usage := fmt.Sprintf(`Usage:
-  %s [--sleep-interval=<seconds>] [--cri-path=<path>] [--watch-namespace=<namespace>] [--sysfs=<mountpoint>] [--sriov-config-file=<path>]
+  %s [--sleep-interval=<seconds>] [--cri-path=<path>] [--watch-namespace=<namespace>] [--sysfs=<mountpoint>] [--sriov-config-file=<path>] [--container-runtime=<runtime>]
   %s -h | --help
   Options:
   -h --help                       Show this screen.
+  --container-runtime=<runtime>   Container Runtime to be used (containerd|cri-o). [Default: %v]
   --cri-path=<path>               CRI Endpoint file path to use. [Default: %v]
   --sleep-interval=<seconds>      Time to sleep between updates. [Default: %v]
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
@@ -85,6 +87,7 @@ func argsParse(argv []string) (finder.Args, error) {
   --sriov-config-file=<path>      SRIOV device plugin config file path. [Default: %v]`,
 		ProgramName,
 		ProgramName,
+		args.ContainerRuntime,
 		args.CRIEndpointPath,
 		args.SleepInterval,
 		args.SysfsRoot,
@@ -101,6 +104,11 @@ func argsParse(argv []string) (finder.Args, error) {
 		args.SRIOVConfigFile = path
 	}
 	args.SysfsRoot = arguments["--sysfs"].(string)
+	runtime := arguments["--container-runtime"].(string)
+	if !(runtime == "containerd" || runtime == "cri-o") {
+		return args, fmt.Errorf("invalid --container-runtime specified")
+	}
+	args.ContainerRuntime = runtime
 	args.CRIEndpointPath = arguments["--cri-path"].(string)
 	args.SleepInterval, err = time.ParseDuration(arguments["--sleep-interval"].(string))
 	if err != nil {
