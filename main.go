@@ -71,6 +71,7 @@ func argsParse(argv []string) (finder.Args, error) {
 		CRIEndpointPath: "/host-run/containerd/containerd.sock",
 		SleepInterval:   time.Duration(3 * time.Second),
 		SysfsRoot:       "/host-sys",
+		SRIOVConfigFile: "/etc/sriov-config/config.json",
 	}
 	usage := fmt.Sprintf(`Usage:
   %s [--sleep-interval=<seconds>] [--cri-path=<path>] [--watch-namespace=<namespace>] [--sysfs=<mountpoint>] [--sriov-config-file=<path>]
@@ -81,12 +82,13 @@ func argsParse(argv []string) (finder.Args, error) {
   --sleep-interval=<seconds>      Time to sleep between updates. [Default: %v]
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
   --sysfs=<mountpoint>            Mount point of the sysfs. [Default: %v]
-  --sriov-config-file=<path>      SRIOV device plugin config file path.`,
+  --sriov-config-file=<path>      SRIOV device plugin config file path. [Default: %v]`,
 		ProgramName,
 		ProgramName,
 		args.CRIEndpointPath,
 		args.SleepInterval,
 		args.SysfsRoot,
+		args.SRIOVConfigFile,
 	)
 
 	arguments, _ := docopt.ParseArgs(usage, argv, ProgramName)

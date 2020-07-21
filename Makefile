@@ -23,6 +23,11 @@ govet:
 	@echo "Running go vet"
 	go vet
 
+.PHONY: config
+config:
+	@echo "deploying configmap"
+	kubectl create -f config/examples/sriovdp-configmap.yaml
+
 .PHONY: image
 image: build
 	@echo "building image"
@@ -56,7 +61,7 @@ deploy-taerror:
 
 clean-binaries:
 	rm -f bin/resource-topology-exporter
-	
+
 clean: clean-binaries
 	kubectl delete -f manifests/resource-topology-exporter-ds.yaml
 	kubectl delete -f manifests/test-deployment.yaml
