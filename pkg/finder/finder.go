@@ -1,11 +1,14 @@
 package finder
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,17 +29,19 @@ import (
 )
 
 const (
-	defaultTimeout   = 5 * time.Second
-	ns               = "resource-topology-exporter"
-	deviceNamePrefix = "EXAMPLECOMDEVICE"
+	defaultTimeout     = 5 * time.Second
+	ns                 = "resource-topology-exporter"
+	CGroupCPUSetPrefix = "fs/cgroup/cpuset"
+	CGroupCPUsetSuffix = "cpuset.cpus"
 )
 
 type Args struct {
-	CRIEndpointPath string
-	SleepInterval   time.Duration
-	Namespace       string
-	SysfsRoot       string
-	SRIOVConfigFile string
+	ContainerRuntime string
+	CRIEndpointPath  string
+	SleepInterval    time.Duration
+	Namespace        string
+	SysfsRoot        string
+	SRIOVConfigFile  string
 }
 
 type CRIFinder interface {
@@ -44,10 +49,13 @@ type CRIFinder interface {
 	Aggregate(podResData []PodResources) []v1alpha1.NUMANodeResource
 }
 
+type CGroupPathTranslator func(sysfs, cgroupPath string) string
+
 type criFinder struct {
-	args   Args
-	conn   *grpc.ClientConn
-	client pb.RuntimeServiceClient
+	args            Args
+	conn            *grpc.ClientConn
+	client          pb.RuntimeServiceClient
+	cgroupTranslate CGroupPathTranslator
 	// we may want to move to cadvisor past PoC stage
 	pciDevs         *pcidev.PCIDevices
 	cpus            *cpus.CPUs
@@ -110,6 +118,14 @@ func NewFinder(args Args, pciResMapConf map[string]string) (CRIFinder, error) {
 		perNUMACapacity: make(map[int]map[v1.ResourceName]int64),
 	}
 	var err error
+
+	// At this stage, we only support containerd and cri-o
+	if args.ContainerRuntime == "containerd" {
+		finderInstance.cgroupTranslate = containerDCGroupPathTranslate
+	} else {
+		//cri-o
+		finderInstance.cgroupTranslate = crioCGroupPathTranslate
+	}
 
 	// first scan the sysfs
 	// CAUTION: these resources are expected to change rarely - if ever. So we are intentionally do this once during the process lifecycle.
@@ -354,9 +370,14 @@ func (f *criFinder) Scan() ([]PodResources, error) {
 				continue
 			}
 
-			cpuList, err := cpuset.Parse(linuxResources.CPU.Cpus)
+			cpus, err := getAllocatedCPUs(f.cgroupTranslate(f.args.SysfsRoot, ci.RuntimeSpec.Linux.CgroupsPath))
 			if err != nil {
-				log.Printf("pod %q container %q unable to parse %v as CPUSet: %v", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, linuxResources.CPU.Cpus, err)
+				log.Printf("pod %q container %q unable to get allocatedCPUs %v as", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, err)
+				continue
+			}
+			cpuList, err := cpuset.Parse(cpus)
+			if err != nil {
+				log.Printf("pod %q container %q unable to parse %v as CPUSet: %v", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, cpus, err)
 				continue
 			}
 			contRes.Resources = append(contRes.Resources, makeCPUResource(cpuList)...)
@@ -463,4 +484,23 @@ func getContainerEnvironmentVariables(ci ContainerInfo) map[string]string {
 
 	// nothing else to try, give up and fail!
 	return nil
+}
+
+func getAllocatedCPUs(cgroupAbsolutePath string) (string, error) {
+	cpuSet, err := ioutil.ReadFile(cgroupAbsolutePath)
+	if err != nil {
+		fmt.Errorf("Can't get assigned CPUs from the Cgroup Path: %s : %v", cgroupAbsolutePath, err)
+		return "", err
+	}
+	cpuSet = bytes.TrimSpace(cpuSet)
+	return string(cpuSet), nil
+}
+
+func crioCGroupPathTranslate(sysfs, cgroupPath string) string {
+	fixedCgroupPath := strings.Replace(cgroupPath, "slice:crio:", "slice/crio-", 1)
+	return filepath.Join(sysfs, CGroupCPUSetPrefix, "kubepods.slice", fmt.Sprint(fixedCgroupPath, ".scope"), CGroupCPUsetSuffix)
+}
+
+func containerDCGroupPathTranslate(sysfs, cgroupPath string) string {
+	return filepath.Join(sysfs, CGroupCPUSetPrefix, cgroupPath, CGroupCPUsetSuffix)
 }
