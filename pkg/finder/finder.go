@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"google.golang.org/grpc"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pb "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
@@ -25,7 +25,7 @@ import (
 
 	"github.com/fromanirh/numalign/pkg/topologyinfo/cpus"
 	"github.com/fromanirh/numalign/pkg/topologyinfo/pcidev"
-	v1alpha1 "github.com/swatisehgal/resource-topology-exporter/pkg/apis/topocontroller/v1alpha1"
+	v1alpha1 "github.com/swatisehgal/topologyapi/pkg/apis/topology/v1alpha1"
 )
 
 const (
@@ -36,12 +36,13 @@ const (
 )
 
 type Args struct {
-	ContainerRuntime string
-	CRIEndpointPath  string
-	SleepInterval    time.Duration
-	Namespace        string
-	SysfsRoot        string
-	SRIOVConfigFile  string
+	ContainerRuntime  string
+	CRIEndpointPath   string
+	SleepInterval     time.Duration
+	Namespace         string
+	SysfsRoot         string
+	SRIOVConfigFile   string
+	KubeletConfigFile string
 }
 
 type CRIFinder interface {
@@ -175,7 +176,7 @@ func NewFinder(args Args, pciResMapConf map[string]string) (CRIFinder, error) {
 		return nil, err
 	}
 
-	finderInstance.conn, err = grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(defaultTimeout), grpc.WithDialer(dialer))
+	finderInstance.conn, err = grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(defaultTimeout), grpc.WithContextDialer(dialer))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
@@ -191,7 +192,7 @@ func NewFinder(args Args, pciResMapConf map[string]string) (CRIFinder, error) {
 	return finderInstance, nil
 }
 
-func getAddressAndDialer(endpoint string) (string, func(addr string, timeout time.Duration) (net.Conn, error), error) {
+func getAddressAndDialer(endpoint string) (string, func(ctx context.Context, addr string) (net.Conn, error), error) {
 	return util.GetAddressAndDialer(endpoint)
 }
 
@@ -432,7 +433,7 @@ func makeCPUResource(cpus cpuset.CPUSet) []ResourceInfo {
 		ret = append(ret, fmt.Sprintf("%d", cpuID))
 	}
 	return []ResourceInfo{
-		ResourceInfo{
+		{
 			Name: v1.ResourceCPU,
 			Data: ret,
 		},
