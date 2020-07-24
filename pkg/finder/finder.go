@@ -382,9 +382,7 @@ func (f *criFinder) Scan() ([]PodResources, error) {
 				continue
 			}
 			contRes.Resources = append(contRes.Resources, makeCPUResource(cpuList)...)
-			if ci.Config != nil && ci.Config.Envs != nil {
-				contRes.Resources = append(contRes.Resources, makePCIDeviceResource(env, f.pci2ResourceMap)...)
-			}
+			contRes.Resources = append(contRes.Resources, makePCIDeviceResource(env, f.pci2ResourceMap)...)
 
 			log.Printf("pod %q container %q contData=%s\n", podSb.Metadata.Name, ContStatusResp.Status.Metadata.Name, spew.Sdump(contRes))
 			podRes.Containers = append(podRes.Containers, contRes)
