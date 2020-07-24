@@ -262,12 +262,12 @@ func (cpf *criFinder) updateNUMAMap(numaData map[int]map[v1.ResourceName]int64, 
 		for _, cpuIDStr := range ri.Data {
 			cpuID, err := strconv.Atoi(cpuIDStr)
 			if err != nil {
-				// TODO: log
+				log.Printf("cannot convert cpuID: %q", cpuIDStr)
 				continue
 			}
 			nodeNum, ok := cpf.cpuID2NUMAID[cpuID]
 			if !ok {
-				// TODO: log
+				log.Printf("unknown cpuID: %d", cpuID)
 				continue
 			}
 			numaData[nodeNum][ri.Name]--
@@ -277,7 +277,7 @@ func (cpf *criFinder) updateNUMAMap(numaData map[int]map[v1.ResourceName]int64, 
 	for _, pciAddr := range ri.Data {
 		nodeNum, ok := cpf.pciAddr2NUMAID[pciAddr]
 		if !ok {
-			// TODO: log
+			log.Printf("unknown PCI address: %q", pciAddr)
 			continue
 		}
 		numaData[nodeNum][ri.Name]--
