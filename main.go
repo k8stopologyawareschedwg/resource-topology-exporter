@@ -10,6 +10,7 @@ import (
 
 	"github.com/swatisehgal/resource-topology-exporter/pkg/exporter"
 	"github.com/swatisehgal/resource-topology-exporter/pkg/finder"
+	"github.com/swatisehgal/resource-topology-exporter/pkg/kubeconf"
 	"github.com/swatisehgal/resource-topology-exporter/pkg/pciconf"
 )
 
@@ -28,6 +29,13 @@ func main() {
 		log.Fatalf("missing SRIOV device plugin configuration file path")
 	}
 
+	klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(args.KubeletConfigFile)
+	if err != nil {
+		log.Fatalf("error getting topology Manager Policy: %v", err)
+	}
+	tmPolicy := klConfig.TopologyManagerPolicy
+	log.Printf("Detected kubelet Topology Manager policy %q", tmPolicy)
+
 	var pci2ResMap pciconf.PCIResourceMap
 	log.Printf("getting SRIOV configuration from file: %s", args.SRIOVConfigFile)
 	pci2ResMap, err = pciconf.GetFromSRIOVConfigFile(args.SysfsRoot, args.SRIOVConfigFile)
@@ -38,10 +46,10 @@ func main() {
 	// Get new finder instance
 	instance, err := finder.NewFinder(args, pci2ResMap)
 	if err != nil {
-		log.Fatalf("Failed to initialize NfdWorker instance: %v", err)
+		log.Fatalf("Failed to initialize Finder instance: %v", err)
 	}
 
-	crdExporter, err := exporter.NewExporter()
+	crdExporter, err := exporter.NewExporter(tmPolicy)
 	if err != nil {
 		log.Fatalf("Failed to initialize crdExporter instance: %v", err)
 	}
@@ -68,14 +76,15 @@ func main() {
 // The argument argv is passed only for testing purposes.
 func argsParse(argv []string) (finder.Args, error) {
 	args := finder.Args{
-		ContainerRuntime: "containerd",
-		CRIEndpointPath:  "/host-run/containerd/containerd.sock",
-		SleepInterval:    time.Duration(3 * time.Second),
-		SysfsRoot:        "/host-sys",
-		SRIOVConfigFile:  "/etc/sriov-config/config.json",
+		ContainerRuntime:  "containerd",
+		CRIEndpointPath:   "/host-run/containerd/containerd.sock",
+		SleepInterval:     time.Duration(3 * time.Second),
+		SysfsRoot:         "/host-sys",
+		SRIOVConfigFile:   "/etc/sriov-config/config.json",
+		KubeletConfigFile: "/host-etc/kubernetes/kubelet.conf",
 	}
 	usage := fmt.Sprintf(`Usage:
-  %s [--sleep-interval=<seconds>] [--cri-path=<path>] [--watch-namespace=<namespace>] [--sysfs=<mountpoint>] [--sriov-config-file=<path>] [--container-runtime=<runtime>]
+  %s [--sleep-interval=<seconds>] [--cri-path=<path>] [--watch-namespace=<namespace>] [--sysfs=<mountpoint>] [--sriov-config-file=<path>] [--container-runtime=<runtime>] [--kubelet-config-file=<path>]
   %s -h | --help
   Options:
   -h --help                       Show this screen.
@@ -84,7 +93,8 @@ func argsParse(argv []string) (finder.Args, error) {
   --sleep-interval=<seconds>      Time to sleep between updates. [Default: %v]
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
   --sysfs=<mountpoint>            Mount point of the sysfs. [Default: %v]
-  --sriov-config-file=<path>      SRIOV device plugin config file path. [Default: %v]`,
+  --sriov-config-file=<path>      SRIOV device plugin config file path. [Default: %v]
+  --kubelet-config-file=<path>    Kubelet config file path. [Default: %v]`,
 		ProgramName,
 		ProgramName,
 		args.ContainerRuntime,
@@ -92,6 +102,7 @@ func argsParse(argv []string) (finder.Args, error) {
 		args.SleepInterval,
 		args.SysfsRoot,
 		args.SRIOVConfigFile,
+		args.KubeletConfigFile,
 	)
 
 	arguments, _ := docopt.ParseArgs(usage, argv, ProgramName)
@@ -102,6 +113,9 @@ func argsParse(argv []string) (finder.Args, error) {
 	}
 	if path, ok := arguments["--sriov-config-file"].(string); ok {
 		args.SRIOVConfigFile = path
+	}
+	if kubeletConfigPath, ok := arguments["--kubelet-config-file"].(string); ok {
+		args.KubeletConfigFile = kubeletConfigPath
 	}
 	args.SysfsRoot = arguments["--sysfs"].(string)
 	runtime := arguments["--container-runtime"].(string)

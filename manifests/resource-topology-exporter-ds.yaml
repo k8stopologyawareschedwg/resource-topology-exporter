@@ -65,6 +65,8 @@ spec:
             mountPath: "/host-sys"
           - name: host-run
             mountPath: "/host-run"
+          - name: host-etc
+            mountPath: "/host-etc"
           - mountPath: /etc/sriov-config
             name: my-sriov-config-vol
       volumes:
@@ -74,6 +76,9 @@ spec:
       - name: host-run
         hostPath:
           path: "/run"
+      - name: host-etc
+        hostPath:
+          path: "/etc"
       - configMap:
           name: sriovdp-config
         name: my-sriov-config-vol

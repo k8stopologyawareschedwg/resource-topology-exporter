@@ -1,25 +1,28 @@
 package exporter
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	v1alpha1 "github.com/swatisehgal/resource-topology-exporter/pkg/apis/topocontroller/v1alpha1"
-	clientset "github.com/swatisehgal/resource-topology-exporter/pkg/generated/clientset/versioned"
+	v1alpha1 "github.com/swatisehgal/topologyapi/pkg/apis/topology/v1alpha1"
+	clientset "github.com/swatisehgal/topologyapi/pkg/generated/clientset/versioned"
 )
 
 type CRDExporter struct {
-	cli      *clientset.Clientset
-	hostname string
+	cli                   *clientset.Clientset
+	hostname              string
+	topologyManagerPolicy string
 }
 
-func NewExporter() (*CRDExporter, error) {
+func NewExporter(tmPolicy string) (*CRDExporter, error) {
 	clientConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("Please run from inside the cluster")
@@ -36,24 +39,26 @@ func NewExporter() (*CRDExporter, error) {
 	}
 
 	return &CRDExporter{
-		cli:      cli,
-		hostname: hostname,
+		cli:                   cli,
+		hostname:              hostname,
+		topologyManagerPolicy: tmPolicy,
 	}, nil
 }
 
 func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMANodeResource) error {
 	log.Printf("Exporter Update called NodeResources is: %+v", resources)
 
-	nrt, err := e.cli.TopocontrollerV1alpha1().NodeResourceTopologies(namespace).Get(e.hostname, metav1.GetOptions{})
+	nrt, err := e.cli.K8sV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), e.hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: e.hostname,
 			},
-			Nodes: resources,
+			Nodes:          resources,
+			TopologyPolicy: e.topologyManagerPolicy,
 		}
 
-		nrtCreated, err := e.cli.TopocontrollerV1alpha1().NodeResourceTopologies(namespace).Create(&nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := e.cli.K8sV1alpha1().NodeResourceTopologies(namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("Failed to create v1alpha1.NodeResourceTopology!:%v", err)
 		}
@@ -68,7 +73,7 @@ func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMA
 	nrtMutated := nrt.DeepCopy()
 	nrtMutated.Nodes = resources
 
-	nrtUpdated, err := e.cli.TopocontrollerV1alpha1().NodeResourceTopologies(namespace).Update(nrtMutated, metav1.UpdateOptions{})
+	nrtUpdated, err := e.cli.K8sV1alpha1().NodeResourceTopologies(namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
