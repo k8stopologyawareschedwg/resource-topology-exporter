@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: rte-handler
 rules:
-- apiGroups: ["k8s.cncf.io"]
+- apiGroups: ["topology.node.k8s.io"]
   resources: ["noderesourcetopologies"]
   verbs: ["*"]
 - apiGroups: [""]

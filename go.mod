@@ -15,17 +15,16 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/runtime-spec v1.0.0
-	github.com/swatisehgal/topologyapi v0.0.0-20200701120235-74ecc412df7b
+	github.com/swatisehgal/topologyapi v0.0.0-20200802230855-6f9c5ac0d357
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/grpc v1.28.1
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
-	k8s.io/client-go v0.18.6
+	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/cri-api v0.0.0
 	k8s.io/kubelet v0.18.1
 	k8s.io/kubernetes v1.18.6
-	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451 // indirect
 )
 
 // Pinned to kubernetes-1.18.6
