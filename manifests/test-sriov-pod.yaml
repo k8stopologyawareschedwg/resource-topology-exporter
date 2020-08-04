@@ -4,19 +4,20 @@ metadata:
   name: sample-pod
   namespace: rte
   annotations:
-    k8s.v1.cni.cncf.io/networks: worker-node,worker-node,worker-node,worker-node, worker-node 
+    k8s.v1.cni.cncf.io/networks: worker-node,worker-node,worker-node,worker-node, worker-node
 spec:
+  nodeName: cnfd0-worker-0.fci1.kni.lab.eng.bos.redhat.com
   containers:
   - name: sample-container
-    image: centos 
+    image: centos
     imagePullPolicy: IfNotPresent
     command: ["sleep", "infinity"]
     resources:
       requests:
         openshift.io/sriov: 5 
-        cpu: 5 
+        cpu: 5
         memory: 200Mi
       limits:
         openshift.io/sriov: 5
-        cpu: 5 
+        cpu: 5
         memory: 200Mi

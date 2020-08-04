@@ -48,7 +48,7 @@ func NewExporter(tmPolicy string) (*CRDExporter, error) {
 func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMANodeResource) error {
 	log.Printf("Exporter Update called NodeResources is: %+v", resources)
 
-	nrt, err := e.cli.K8sV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), e.hostname, metav1.GetOptions{})
+	nrt, err := e.cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), e.hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +58,7 @@ func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMA
 			TopologyPolicy: e.topologyManagerPolicy,
 		}
 
-		nrtCreated, err := e.cli.K8sV1alpha1().NodeResourceTopologies(namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := e.cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("Failed to create v1alpha1.NodeResourceTopology!:%v", err)
 		}
@@ -73,7 +73,7 @@ func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMA
 	nrtMutated := nrt.DeepCopy()
 	nrtMutated.Nodes = resources
 
-	nrtUpdated, err := e.cli.K8sV1alpha1().NodeResourceTopologies(namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
+	nrtUpdated, err := e.cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
