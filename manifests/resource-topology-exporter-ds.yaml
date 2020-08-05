@@ -53,22 +53,22 @@ spec:
       containers:
       - name: resource-topology-exporter-container
         image: quay.io/swsehgal/resource-topology-exporter:latest
-#        command:
-#        - /usr/local/bin/resource-topology-exporter
-#        - --sleep-interval=1s
         command:
-        - sleep
-        args:
-        - "1000000"
+        - /usr/local/bin/resource-topology-exporter
+        - --watch-namespace=rte
+        - --source=pod-resource-api
+        - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
         volumeMounts:
           - name: host-sys
             mountPath: "/host-sys"
           - name: host-run
             mountPath: "/host-run"
           - name: host-etc
-            mountPath: "/host-etc"
+            mountPath: "/host-etc/kubernetes"
           - mountPath: /etc/sriov-config
             name: my-sriov-config-vol
+          - name: host-podresources
+            mountPath: "/host-var/lib/kubelet/pod-resources"
       volumes:
       - name: host-sys
         hostPath:
@@ -78,7 +78,10 @@ spec:
           path: "/run"
       - name: host-etc
         hostPath:
-          path: "/etc"
+          path: "/etc/kubernetes"
       - configMap:
           name: sriovdp-config
         name: my-sriov-config-vol
+      - name: host-podresources
+        hostPath:
+          path: "/var/lib/kubelet/pod-resources"
