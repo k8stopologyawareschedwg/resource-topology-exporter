@@ -15,7 +15,7 @@ spec:
     resources:
       requests:
         openshift.io/sriov: 3
-        cpu: 3 
+        cpu: 3
         memory: 200Mi
       limits:
         openshift.io/sriov: 3

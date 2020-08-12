@@ -34,8 +34,16 @@ type NUMANodeResource struct {
        Resources v1.ResourceList
 }
 ```
+## Design based on Pod Resource API
+Kubelet exposes endpoint at `/var/lib/kubelet/pod-resources/kubelet.sock` for exposing information about assignment of devices to containers. It obtains this information from the internal state of the kubelet's Device Manager and returns a single PodResourcesResponse enabling monitor applications to poll for resources allocated to pods and containers on the node. This makes PodResource API a reasonable way of obtaining allocated resource information.
+
+However, [PodResource API](https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1) currently only exposes devices as the container resources (without topology info) and hence we are proposing [KEP](https://github.com/kubernetes/enhancements/pull/1884) to enhance it to expose CPU information along with device topology info.
+In order to use pod-resource-api source in Resource Topology Exporter, you will need to use [this](https://github.com/kubernetes/kubernetes/pull/93243/files) patched version of kubelet implementing changes proposed in the aforementioned KEP. This will no longer be needed once the KEP and the PR are merged.
+
+Furthermore, changes are being proposed to enhance ([KEP](https://github.com/kubernetes/enhancements/pull/1926)) PodResource API to support a Watch() endpoint, enabling monitor applications to be notified of new resource allocation, release or resource allocation updates. This will be useful to enable Resource Topology Exporter to become more event based as opposed to its current mechanism of polling.
+
 ## Design based on CRI
-This daemon gathers resource information using the Container Runtime interface.
+This daemon can also gather resource information using the Container Runtime interface.
 
 
 The containerStatusResponse returned as a response to the ContainerStatus rpc contains `Info` field which is used by the container runtime for capturing ContainerInfo.
