@@ -14,7 +14,7 @@ spec:
     command: ["sleep", "infinity"]
     resources:
       requests:
-        openshift.io/sriov: 5 
+        openshift.io/sriov: 5
         cpu: 5
         memory: 200Mi
       limits:

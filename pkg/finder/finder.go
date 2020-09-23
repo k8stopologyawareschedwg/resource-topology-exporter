@@ -7,13 +7,10 @@ import (
 
 type Args struct {
 	Source                string
-	ContainerRuntime      string
-	CRISocketPath         string
 	PodResourceSocketPath string
 	SleepInterval         time.Duration
 	Namespace             string
 	SysfsRoot             string
-	SRIOVConfigFile       string
 	KubeletConfigFile     string
 }
 

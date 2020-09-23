@@ -45,8 +45,8 @@ func NewExporter(tmPolicy string) (*CRDExporter, error) {
 	}, nil
 }
 
-func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMANodeResource) error {
-	log.Printf("Exporter Update called NodeResources is: %+v", resources)
+func (e *CRDExporter) CreateOrUpdate(namespace string, zones v1alpha1.ZoneMap) error {
+	log.Printf("Exporter Update called NodeResources is: %+v", zones)
 
 	nrt, err := e.cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), e.hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
@@ -54,8 +54,10 @@ func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMA
 			ObjectMeta: metav1.ObjectMeta{
 				Name: e.hostname,
 			},
-			Nodes:          resources,
-			TopologyPolicy: e.topologyManagerPolicy,
+			Zones: zones,
+			TopologyPolicy: []string{
+				e.topologyManagerPolicy,
+			},
 		}
 
 		nrtCreated, err := e.cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
@@ -71,7 +73,7 @@ func (e *CRDExporter) CreateOrUpdate(namespace string, resources []v1alpha1.NUMA
 	}
 
 	nrtMutated := nrt.DeepCopy()
-	nrtMutated.Nodes = resources
+	nrtMutated.Zones = zones
 
 	nrtUpdated, err := e.cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {

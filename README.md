@@ -21,28 +21,81 @@ Available resources with topology of the node should be stored in CRD. Format of
 ```go
 // NodeResourceTopology is a specification for a Foo resource
 type NodeResourceTopology struct {
-       metav1.TypeMeta   `json:",inline"`
-       metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-       TopologyPolicy string
-       Nodes   []NUMANodeResource   `json:"nodes"`
+	TopologyPolicy []string `json:"topologyPolicies"`
+	Zones          ZoneMap  `json:"zones"`
 }
 
-// NUMANodeResource is the spec for a NodeResourceTopology resource
-type NUMANodeResource struct {
-       NUMAID int
-       Resources v1.ResourceList
+// Zone is the spec for a NodeResourceTopology resource
+type Zone struct {
+	Type       string          `json:"type"`
+	Parent     string          `json:"parent,omitempty"`
+	Costs      map[string]int  `json:"costs,omitempty"`
+	Attributes map[string]int  `json:"attributes,omitempty"`
+	Resources  ResourceInfoMap `json:"resources,omitempty"`
 }
+
+type ZoneMap map[string]Zone
+type ResourceInfoMap map[string]ResourceInfo
+
+type ResourceInfo struct {
+	Allocatable string `json:"allocatable"`
+	Capacity    string `json:"capacity"`
+}
+
 ```
 ## Design based on Pod Resource API
 Kubelet exposes endpoint at `/var/lib/kubelet/pod-resources/kubelet.sock` for exposing information about assignment of devices to containers. It obtains this information from the internal state of the kubelet's Device Manager and returns a single PodResourcesResponse enabling monitor applications to poll for resources allocated to pods and containers on the node. This makes PodResource API a reasonable way of obtaining allocated resource information.
 
-However, [PodResource API](https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1) currently only exposes devices as the container resources (without topology info) and hence we are proposing [KEP](https://github.com/kubernetes/enhancements/pull/1884) to enhance it to expose CPU information along with device topology info.
-In order to use pod-resource-api source in Resource Topology Exporter, you will need to use [this](https://github.com/kubernetes/kubernetes/pull/93243/files) patched version of kubelet implementing changes proposed in the aforementioned KEP. This will no longer be needed once the KEP and the PR are merged.
+However, [PodResource API](https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1) currently only exposes devices as the container resources (without topology info). We are proposing [KEP](https://github.com/kubernetes/enhancements/pull/1884) to enhance it to expose CPU information along with device topology info.
+In order to use pod-resource-api source in Resource Topology Exporter, you will need to use patched version of kubelet implementing the changes proposed in the aforementioned KEPs:
+1. https://github.com/kubernetes/kubernetes/pull/93243/files
+1. https://github.com/fromanirh/kubernetes/tree/podresources-get-available-devices
+
+ A kubernetes branch with both these features that was used for testing is available [here](https://github.com/swatisehgal/kubernetes/tree/podResGetAvailResTopoInfoCpuId)
+
+ This will no longer be needed once the KEP and the PR are merged.
 
 Furthermore, changes are being proposed to enhance ([KEP](https://github.com/kubernetes/enhancements/pull/1926)) PodResource API to support a Watch() endpoint, enabling monitor applications to be notified of new resource allocation, release or resource allocation updates. This will be useful to enable Resource Topology Exporter to become more event based as opposed to its current mechanism of polling.
 
-## Design based on CRI
+## Installation
+
+1. You can use the following environment variables to configure the exporter image name:
+   - `REPOOWNER`: name of the repository on which the image will be pushed (example: `quay.io/$REPOOWNER/...`)
+   - `IMAGENAME`: name of the image to build
+   - `IMAGETAG`: name of the image tag to use
+2. To deploy the exporter run:
+
+```bash
+make push
+make config
+make deploy
+```
+The Makefile provides other targets:
+* build: Build the device plugin go code
+* gofmt: To format the code
+* push: To push the docker image to a registry
+* images: To build the docker image
+
+
+## Workload requesting devices
+
+To test the working of exporter, deploy test deployment that request resources
+```bash
+make deploy-pod
+```
+
+## Limitations
+
+* RTE assumes the devices are not created dynamically.
+* Due to the current (2020, Sept) limitations of CRI, we now rely on podresource API to obtain resource information. Details can be found in the alternatives section below. CRI support is available in the [release v0.1](https://github.com/swatisehgal/resource-topology-exporter/tree/v0.1) following which CRI support would be deprecated in this repository.
+
+
+
+## Alternative Approach
+### Design based on CRI
 This daemon can also gather resource information using the Container Runtime interface.
 
 
@@ -72,45 +125,3 @@ The content of the `info` field is free form, unregulated by the API contract. S
 
 There is currently work going on in the community as part of the the Vertical Pod Autoscaling feature to update the ContainerStatus field to report back containerResources
 [KEP](https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/20191025-kubelet-container-resources-cri-api-changes.md).
-
-
-
-
-## Installation
-
-1. You can use the following environment variables to configure the exporter image name:
-   - `REPOOWNER`: name of the repository on which the image will be pushed (example: `quay.io/$REPOOWNER/...`)
-   - `IMAGENAME`: name of the image to build
-   - `IMAGETAG`: name of the image tag to use
-2. To deploy the exporter run:
-
-```bash
-make push
-make config
-make deploy
-```
-The Makefile provides other targets:
-* build: Build the device plugin go code
-* gofmt: To format the code
-* push: To push the docker image to a registry
-* images: To build the docker image
-
-
-## Workload requesting devices
-
-To test the working of exporter, deploy test deployment that request resources
-```bash
-make deploy-pod
-```
-
-NOTE
-This exporter assumes the cluster has devices configured using [Sample device plugin](https://github.com/swatisehgal/sample-device-plugin)
-
-## Limitations
-
-Due to the current (2020, July) limitations of both CRI and podresources APIs for the purposes of the resource-topology-exporter,
-we have explicit support for most commonly used device plugins.
-
-### SRIOV device plugin
-0. RTE - and SRIOV device plugin - always expect the PF device to be listed in the configuration. VFs are detected automatically.
-1. the device capacity is calculated assuming VFs are created ahead of time; IOW RTE assumes the VFs are not created dynamically.

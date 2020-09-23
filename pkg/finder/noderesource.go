@@ -1,86 +1,135 @@
 package finder
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
-	"github.com/fromanirh/numalign/pkg/topologyinfo/cpus"
-	"github.com/fromanirh/numalign/pkg/topologyinfo/pcidev"
 	v1alpha1 "github.com/swatisehgal/topologyapi/pkg/apis/topology/v1alpha1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	podresourcesapi "k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
+)
+
+const (
+	defaultPodResourcesTimeout = 10 * time.Second
+	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
+	PathDevsSysCPU  = "devices/system/cpu"
+	PathDevsSysNode = "devices/system/node"
 )
 
 type NodeResources struct {
-	// we may want to move to cadvisor past PoC stage
-	pciDevs         *pcidev.PCIDevices
-	cpus            *cpus.CPUs
+	devices         []*podresourcesapi.ContainerDevices
+	CPUs            []int64
+	NUMANode2CPUs   map[int][]int
 	cpuID2NUMAID    map[int]int
-	pciAddr2NUMAID  map[string]int
+	deviceId2NUMAID map[string]int
 	perNUMACapacity map[int]map[v1.ResourceName]int64
-	// pciaddr -> resourcename
-	pci2ResourceMap map[string]string
+	// deviceID -> resourcename
+	deviceID2ResourceMap map[string]string
 }
 
-func NewNodeResources(sysfs string, pciResMapConf map[string]string) (*NodeResources, error) {
+type ResourceData struct {
+	allocatable int64
+	capacity    int64
+}
 
+func NewNodeResources(sysfs string, podResourceClient podresourcesapi.PodResourcesListerClient) (*NodeResources, error) {
 	nodeResourceInstance := &NodeResources{
 		perNUMACapacity: make(map[int]map[v1.ResourceName]int64),
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
+	defer cancel()
+
 	var err error
-	// first scan the sysfs
-	// CAUTION: these resources are expected to change rarely - if ever. So we are intentionally do this once during the process lifecycle.
-	nodeResourceInstance.cpus, err = cpus.NewCPUs(sysfs)
+	//Pod Resource API client
+	resp, err := podResourceClient.GetAvailableResources(ctx, &podresourcesapi.AvailableResourcesRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("error scanning the system CPUs: %v", err)
+		return nil, fmt.Errorf("Can't receive response: %v.Get(_) = _, %v", podResourceClient, err)
 	}
-	for nodeNum, cpuList := range nodeResourceInstance.cpus.NUMANodeCPUs {
-		log.Printf("detected system CPU: NUMA cell %d cpus = %v\n", nodeNum, cpuList)
-	}
+	nodeResourceInstance.devices = resp.GetDevices()
 
-	for nodeNum := 0; nodeNum < nodeResourceInstance.cpus.NUMANodes; nodeNum++ {
-	}
-
-	nodeResourceInstance.pciDevs, err = pcidev.NewPCIDevices(sysfs)
+	var numaNodes []int
+	var cpu2NUMA map[int]int
+	numaNodes, nodeResourceInstance.NUMANode2CPUs, cpu2NUMA, err = getNodeCPUInfo(sysfs)
 	if err != nil {
-		return nil, fmt.Errorf("error scanning the system PCI devices: %v", err)
+		return nil, fmt.Errorf("Error in obtaining node CPU information: %v", err)
 	}
-	for _, pciDev := range nodeResourceInstance.pciDevs.Items {
-		log.Printf("detected system PCI device = %s\n", pciDev.String())
+	// This is to ensure that we account for only the cpus obtained from podresource API
+	nodeResourceInstance.cpuID2NUMAID = make(map[int]int)
+	for _, cpuId := range resp.GetCpuIds() {
+		nodeResourceInstance.cpuID2NUMAID[int(cpuId)] = cpu2NUMA[int(cpuId)]
 	}
 
 	// helper maps
-	var pciDevMap map[int]map[v1.ResourceName]int64
-	pciDevMap, nodeResourceInstance.pci2ResourceMap, nodeResourceInstance.pciAddr2NUMAID = makePCI2ResourceMap(nodeResourceInstance.cpus.NUMANodes, nodeResourceInstance.pciDevs, pciResMapConf)
-	nodeResourceInstance.cpuID2NUMAID = make(map[int]int)
-	for nodeNum, cpus := range nodeResourceInstance.cpus.NUMANodeCPUs {
-		for _, cpu := range cpus {
-			nodeResourceInstance.cpuID2NUMAID[cpu] = nodeNum
-		}
-	}
+	var devMap map[int]map[v1.ResourceName]int64
+	devMap, nodeResourceInstance.deviceID2ResourceMap, nodeResourceInstance.deviceId2NUMAID = makeDeviceResourceMap(len(numaNodes), nodeResourceInstance.devices)
 
 	// initialize with the capacities
-	for nodeNum := 0; nodeNum < nodeResourceInstance.cpus.NUMANodes; nodeNum++ {
+	for nodeNum := 0; nodeNum < len(numaNodes); nodeNum++ {
 		nodeResourceInstance.perNUMACapacity[nodeNum] = make(map[v1.ResourceName]int64)
-		for resName, count := range pciDevMap[nodeNum] {
+		for resName, count := range devMap[nodeNum] {
 			nodeResourceInstance.perNUMACapacity[nodeNum][resName] = count
 		}
 
-		cpus := nodeResourceInstance.cpus.NUMANodeCPUs[nodeNum]
+		cpus := nodeResourceInstance.NUMANode2CPUs[nodeNum]
 		nodeResourceInstance.perNUMACapacity[nodeNum][v1.ResourceCPU] = int64(len(cpus))
 	}
 
 	return nodeResourceInstance, nil
 
 }
+func getNodeCPUInfo(sysfs string) ([]int, map[int][]int, map[int]int, error) {
 
-func (n *NodeResources) GetPCI2ResourceMap() map[string]string {
-	return n.pci2ResourceMap
+	// get list of numanodes from sysfs by querying /sys/devices/system/node/online
+	numanodes, err := getList(filepath.Join(sysfs, PathDevsSysNode, "online"))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	NUMANode2CPUs := make(map[int][]int)
+	for _, node := range numanodes {
+		cpus, err := getList(filepath.Join(sysfs, PathDevsSysNode, fmt.Sprintf("node%d", node), "cpulist"))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		NUMANode2CPUs[node] = cpus
+	}
+
+	cpu2NUMA := make(map[int]int)
+	for nodeNum, cpuList := range NUMANode2CPUs {
+		log.Printf("detected system CPU: NUMA cell %d cpus = %v\n", nodeNum, cpuList)
+		for _, cpu := range cpuList {
+			cpu2NUMA[cpu] = nodeNum
+		}
+	}
+	return numanodes, NUMANode2CPUs, cpu2NUMA, nil
+}
+func getList(path string) ([]int, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	cpus, err := cpuset.Parse(strings.TrimSpace(string(data)))
+	if err != nil {
+		return nil, err
+	}
+	return cpus.ToSlice(), nil
 }
 
-func updateNUMAMap(numaData map[int]map[v1.ResourceName]int64, ri ResourceInfo, nodeResourceData *NodeResources) {
+func (n *NodeResources) GetDeviceResourceMap() map[string]string {
+	return n.deviceID2ResourceMap
+}
+
+func updateNUMAMap(numaData map[int]map[v1.ResourceName]*ResourceData, ri ResourceInfo, nodeResourceData *NodeResources) {
 	if ri.Name == v1.ResourceCPU {
 		for _, cpuIDStr := range ri.Data {
 			cpuID, err := strconv.Atoi(cpuIDStr)
@@ -93,28 +142,28 @@ func updateNUMAMap(numaData map[int]map[v1.ResourceName]int64, ri ResourceInfo, 
 				log.Printf("unknown cpuID: %d", cpuID)
 				continue
 			}
-			numaData[nodeNum][ri.Name]--
+			numaData[nodeNum][ri.Name].allocatable--
 		}
 		return
 	}
-	for _, pciAddr := range ri.Data {
-		nodeNum, ok := nodeResourceData.pciAddr2NUMAID[pciAddr]
+	for _, devId := range ri.Data {
+		nodeNum, ok := nodeResourceData.deviceId2NUMAID[devId]
 		if !ok {
-			log.Printf("unknown PCI address: %q", pciAddr)
+			log.Printf("unknown device: %q", devId)
 			continue
 		}
-		numaData[nodeNum][ri.Name]--
+		numaData[nodeNum][ri.Name].allocatable--
 	}
 }
 
-func Aggregate(podResData []PodResources, nodeResourceData *NodeResources) []v1alpha1.NUMANodeResource {
-	var perNumaRes []v1alpha1.NUMANodeResource
+func Aggregate(podResData []PodResources, nodeResourceData *NodeResources) v1alpha1.ZoneMap {
+	zones := make(v1alpha1.ZoneMap)
 
-	perNuma := make(map[int]map[v1.ResourceName]int64)
+	perNuma := make(map[int]map[v1.ResourceName]*ResourceData)
 	for nodeNum, nodeRes := range nodeResourceData.perNUMACapacity {
-		perNuma[nodeNum] = make(map[v1.ResourceName]int64)
+		perNuma[nodeNum] = make(map[v1.ResourceName]*ResourceData)
 		for resName, resCap := range nodeRes {
-			perNuma[nodeNum][resName] = resCap
+			perNuma[nodeNum][resName] = &ResourceData{capacity: resCap, allocatable: resCap}
 		}
 	}
 
@@ -127,48 +176,40 @@ func Aggregate(podResData []PodResources, nodeResourceData *NodeResources) []v1a
 	}
 
 	for nodeNum, resList := range perNuma {
-		numaRes := v1alpha1.NUMANodeResource{
-			NUMAID:    nodeNum,
-			Resources: make(v1.ResourceList),
+		zoneName := fmt.Sprintf("node-%d", nodeNum)
+		zone := v1alpha1.Zone{
+			Type:      "Node",
+			Resources: make(v1alpha1.ResourceInfoMap),
 		}
-		for name, intQty := range resList {
-			numaRes.Resources[name] = *resource.NewQuantity(intQty, resource.DecimalSI)
+		for name, resData := range resList {
+			allocatableQty := *resource.NewQuantity(resData.allocatable, resource.DecimalSI)
+			capacityQty := *resource.NewQuantity(resData.capacity, resource.DecimalSI)
+			zone.Resources[name.String()] = v1alpha1.ResourceInfo{Allocatable: allocatableQty.String(), Capacity: capacityQty.String()}
 		}
-		perNumaRes = append(perNumaRes, numaRes)
+		zones[zoneName] = zone
 	}
-	return perNumaRes
+	return zones
 }
 
-func makePCI2ResourceMap(numaNodes int, pciDevs *pcidev.PCIDevices, pciResMapConf map[string]string) (map[int]map[v1.ResourceName]int64, map[string]string, map[string]int) {
-	pciAddr2NUMAID := make(map[string]int)
-	pci2Res := make(map[string]string)
+func makeDeviceResourceMap(numaNodes int, devices []*podresourcesapi.ContainerDevices) (map[int]map[v1.ResourceName]int64, map[string]string, map[string]int) {
+	deviceId2NUMAID := make(map[string]int)
+	deviceId2Res := make(map[string]string)
 
 	perNUMACapacity := make(map[int]map[v1.ResourceName]int64)
 	for nodeNum := 0; nodeNum < numaNodes; nodeNum++ {
 		perNUMACapacity[nodeNum] = make(map[v1.ResourceName]int64)
-
-		for _, pciDev := range pciDevs.Items {
-			if pciDev.NUMANode() != nodeNum {
-				continue
-			}
-			sriovDev, ok := pciDev.(pcidev.SRIOVDeviceInfo)
-			if !ok {
-				continue
-			}
-
-			if !sriovDev.IsVFn {
-				continue
-			}
-
-			resName, ok := pciResMapConf[sriovDev.ParentFn]
-			if !ok {
-				continue
-			}
-
-			pci2Res[sriovDev.Address()] = resName
-			pciAddr2NUMAID[sriovDev.Address()] = nodeNum
-			perNUMACapacity[nodeNum][v1.ResourceName(resName)]++
+	}
+	for _, device := range devices {
+		resourceName := device.GetResourceName()
+		var nodeNuma int64
+		for _, node := range device.GetTopology().GetNodes() {
+			nodeNuma = node.GetID()
+		}
+		for _, deviceId := range device.GetDeviceIds() {
+			deviceId2Res[deviceId] = resourceName
+			deviceId2NUMAID[deviceId] = int(nodeNuma)
+			perNUMACapacity[int(nodeNuma)][v1.ResourceName(resourceName)]++
 		}
 	}
-	return perNUMACapacity, pci2Res, pciAddr2NUMAID
+	return perNUMACapacity, deviceId2Res, deviceId2NUMAID
 }
