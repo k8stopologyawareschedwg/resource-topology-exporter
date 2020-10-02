@@ -5,23 +5,14 @@ go 1.13
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
-	github.com/fromanirh/numalign v0.0.2
 	github.com/ghodss/yaml v1.0.0
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/intel/sriov-network-device-plugin v0.0.0-20200603101849-e116e9c7d0b8
-	github.com/json-iterator/go v1.1.10 // indirect
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
-	github.com/opencontainers/runtime-spec v1.0.3-0.20200520003142-237cc4f519e2
-	github.com/swatisehgal/topologyapi v0.0.0-20200802230855-6f9c5ac0d357
-	golang.org/x/text v0.3.3 // indirect
-	google.golang.org/grpc v1.28.1
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	github.com/stretchr/testify v1.5.1 // indirect
+	github.com/swatisehgal/topologyapi v0.0.0-20201002094043-bc432ffbe41c
+	google.golang.org/grpc v1.28.1 // indirect
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v11.0.0+incompatible
-	k8s.io/cri-api v0.0.0
 	k8s.io/kubelet v0.18.1
 	k8s.io/kubernetes v1.18.6
 )

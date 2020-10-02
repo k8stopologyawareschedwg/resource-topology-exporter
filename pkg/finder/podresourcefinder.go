@@ -4,20 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 
 	"k8s.io/api/core/v1"
 
-	podresources "k8s.io/kubernetes/pkg/kubelet/apis/podresources"
 	podresourcesapi "k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1"
-)
-
-const (
-	defaultPodResourcesTimeout = 10 * time.Second
-	defaultPodResourcesMaxSize = 1024 * 1024 * 16 // 16 Mb
-	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
 )
 
 type PodResourceFinder struct {
@@ -25,22 +17,17 @@ type PodResourceFinder struct {
 	podResourceClient podresourcesapi.PodResourcesListerClient
 }
 
-func NewPodResourceFinder(args Args, pciResMapConf map[string]string) (Finder, error) {
+func NewPodResourceFinder(args Args, podResourceClient podresourcesapi.PodResourcesListerClient) (Finder, error) {
 	finderInstance := &PodResourceFinder{
 		args: args,
 	}
-	var err error
-	finderInstance.podResourceClient, _, err = podresources.GetClient(finderInstance.args.PodResourceSocketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
-	if err != nil {
-		return nil, fmt.Errorf("Can't create client: %v", err)
-	}
-	log.Printf("connected to '%v'!", finderInstance.args.PodResourceSocketPath)
 	if finderInstance.args.Namespace != "" {
 		log.Printf("watching namespace %q", finderInstance.args.Namespace)
 	} else {
 		log.Printf("watching all namespaces")
 	}
 
+	finderInstance.podResourceClient = podResourceClient
 	return finderInstance, nil
 }
 
@@ -52,7 +39,7 @@ func (f *PodResourceFinder) isWatchable(podNamespace string) bool {
 	return f.args.Namespace == podNamespace
 }
 
-func (f *PodResourceFinder) Scan(pci2ResourceMap map[string]string) ([]PodResources, error) {
+func (f *PodResourceFinder) Scan(deviceID2ResourceMap map[string]string) ([]PodResources, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 
@@ -82,11 +69,11 @@ func (f *PodResourceFinder) Scan(pci2ResourceMap map[string]string) ([]PodResour
 			for _, device := range container.GetDevices() {
 				devs[device.ResourceName] = device.DeviceIds
 			}
+
 			cpuList := container.GetCpuIds()
 
 			contRes.Resources = append(contRes.Resources, makeCPUResourceInfo(cpuList)...)
-			// assumption here is that deviceIds are guaranteed to be PCI addresses
-			contRes.Resources = append(contRes.Resources, makePCIDeviceResourceInfo(devs, pci2ResourceMap)...)
+			contRes.Resources = append(contRes.Resources, makeDeviceResourceInfo(devs, deviceID2ResourceMap)...)
 			log.Printf("pod %q container %q contData=%s\n", podResource.GetName(), container.Name, spew.Sdump(contRes))
 			podRes.Containers = append(podRes.Containers, contRes)
 		}
@@ -98,7 +85,7 @@ func (f *PodResourceFinder) Scan(pci2ResourceMap map[string]string) ([]PodResour
 	return podResData, nil
 }
 
-func makeCPUResourceInfo(cpus []uint32) []ResourceInfo {
+func makeCPUResourceInfo(cpus []int64) []ResourceInfo {
 	var ret []string
 	for _, cpuID := range cpus {
 		ret = append(ret, fmt.Sprintf("%d", cpuID))
@@ -111,25 +98,26 @@ func makeCPUResourceInfo(cpus []uint32) []ResourceInfo {
 	}
 }
 
-func makePCIDeviceResourceInfo(devs map[string][]string, pci2ResMap map[string]string) []ResourceInfo {
+func makeDeviceResourceInfo(devs map[string][]string, deviceID2ResMap map[string]string) []ResourceInfo {
 	var resInfos []ResourceInfo
-	//slice of deviceIDs (It is assumed that device Ids are PCI addresses)
-	pciAddrs := make([]string, 0)
+	//slice of deviceIDs
+	deviceIds := make([]string, 0)
 	var resName string
 	var ok bool
 	for _, devIds := range devs {
 		for _, devId := range devIds {
-			resName, ok = pci2ResMap[devId]
+			resName, ok = deviceID2ResMap[devId]
 			if !ok {
 				continue
 			}
-			pciAddrs = append(pciAddrs, devId)
+			deviceIds = append(deviceIds, devId)
 		}
 
 	}
+
 	resInfos = append(resInfos, ResourceInfo{
 		Name: v1.ResourceName(resName),
-		Data: pciAddrs,
+		Data: deviceIds,
 	})
 	return resInfos
 }

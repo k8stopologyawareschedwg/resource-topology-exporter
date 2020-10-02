@@ -56,8 +56,11 @@ spec:
         command:
         - /usr/local/bin/resource-topology-exporter
         - --watch-namespace=rte
-        - --source=pod-resource-api
         - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
+        # command:
+        # - sleep
+        # args:
+        # - "1000000"
         volumeMounts:
           - name: host-sys
             mountPath: "/host-sys"
@@ -65,8 +68,6 @@ spec:
             mountPath: "/host-run"
           - name: host-etc
             mountPath: "/host-etc/kubernetes"
-          - mountPath: /etc/sriov-config
-            name: my-sriov-config-vol
           - name: host-podresources
             mountPath: "/host-var/lib/kubelet/pod-resources"
       volumes:
@@ -79,9 +80,6 @@ spec:
       - name: host-etc
         hostPath:
           path: "/etc/kubernetes"
-      - configMap:
-          name: sriovdp-config
-        name: my-sriov-config-vol
       - name: host-podresources
         hostPath:
           path: "/var/lib/kubelet/pod-resources"

@@ -36,7 +36,7 @@ image: build
 .PHONY: crd
 crd:
 	@echo "deploying crd"
-	kubectl create -f manifests/crd-v1alpha1.yaml
+	kubectl create -f manifests/crd-apiextension-v1beta1.yaml
 
 .PHONY: push
 push: image
@@ -50,10 +50,10 @@ deploy: push
 
 .PHONY: deploy-pod
 deploy-pod:
-	@echo "deploying Guaranteed Pod"
-	kubectl create -f manifests/test-sriov-pod.yaml
-	kubectl create -f manifests/test-sriov-pod-2.yaml
-	kubectl create -f manifests/test-sriov-pod-3.yaml
+	@echo "deploying Pods"
+	kubectl create -f manifests/sample-devices/test-pod-deviceA.yaml
+	kubectl create -f manifests/sample-devices/test-pod-deviceA-2.yaml
+	kubectl create -f manifests/sample-devices/test-pod-deviceA-3.yaml
 
 .PHONY: deploy-taerror
 deploy-taerror:
@@ -65,6 +65,6 @@ clean-binaries:
 
 clean: clean-binaries
 	kubectl delete -f manifests/resource-topology-exporter-ds.yaml
-	kubectl delete -f manifests/test-sriov-pod.yaml
-	kubectl delete -f manifests/test-sriov-pod-2.yaml
-	kubectl delete -f manifests/test-sriov-pod-3.yaml
+	kubectl delete -f manifests/sample-devices/test-pod-deviceA.yaml
+	kubectl delete -f manifests/sample-devices/test-pod-deviceA-2.yaml
+	kubectl delete -f manifests/sample-devices/test-pod-deviceA-3.yaml
