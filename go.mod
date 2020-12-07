@@ -1,4 +1,4 @@
-module github.com/swatisehgal/resource-topology-exporter
+module github.com/k8stopologyawareschedwg/resource-topology-exporter
 
 go 1.13
 

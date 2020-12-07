@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/swatisehgal/resource-topology-exporter/pkg/exporter"
-	"github.com/swatisehgal/resource-topology-exporter/pkg/finder"
-	"github.com/swatisehgal/resource-topology-exporter/pkg/kubeconf"
-	"github.com/swatisehgal/resource-topology-exporter/pkg/podres"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/exporter"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/finder"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 )
 
 const (

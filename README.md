@@ -90,7 +90,7 @@ make deploy-pod
 ## Limitations
 
 * RTE assumes the devices are not created dynamically.
-* Due to the current (2020, Sept) limitations of CRI, we now rely on podresource API to obtain resource information. Details can be found in the alternatives section below. CRI support is available in the [release v0.1](https://github.com/swatisehgal/resource-topology-exporter/tree/v0.1) following which CRI support would be deprecated in this repository.
+* Due to the current (2020, Sept) limitations of CRI, we now rely on podresource API to obtain resource information. Details can be found in the alternatives section below. CRI support is available in the [release v0.1](https://github.com/k8stopologyawareschedwg/resource-topology-exporter/tree/v0.1) following which CRI support would be deprecated in this repository.
 
 
 
