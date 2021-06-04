@@ -44,7 +44,7 @@ clean:
 .PHONY: image
 image: binaries
 	@echo "building image"
-	$(RUNTIME) build -f Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
+	$(RUNTIME) build -f images/Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
 
 .PHONY: push
 push: image
