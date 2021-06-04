@@ -2,7 +2,7 @@ COMMONENVVAR=GOOS=linux GOARCH=amd64
 BUILDENVVAR=CGO_ENABLED=0
 
 RUNTIME ?= podman
-REPOOWNER ?= swsehgal
+REPOOWNER ?= k8stopologyawarewg
 IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
 
@@ -10,8 +10,8 @@ IMAGETAG ?= latest
 all: build
 
 .PHONY: build
-build:
-	$(COMMONENVVAR) $(BUILDENVVAR) go build -ldflags '-w' -o bin/resource-topology-exporter main.go
+build: outdir
+	$(COMMONENVVAR) $(BUILDENVVAR) go build -ldflags '-w' -o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
 
 .PHONY: gofmt
 gofmt:
@@ -23,48 +23,38 @@ govet:
 	@echo "Running go vet"
 	go vet
 
-.PHONY: config
-config:
-	@echo "deploying configmap"
-	kubectl create -f config/examples/sriovdp-configmap.yaml
+outdir:
+	mkdir -p _out || :
+
+.PHONY: deps-update
+deps-update:
+	go mod tidy && go mod vendor
+
+.PHONY: deps-clean
+deps-clean:
+	rm -rf vendor
+
+.PHONY: binaries
+binaries: outdir deps-update build
+
+.PHONY: clean
+clean:
+	rm -rf _out
 
 .PHONY: image
-image: build
+image: binaries
 	@echo "building image"
-	$(RUNTIME) build -f images/Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
-
-.PHONY: crd
-crd:
-	@echo "deploying crd"
-	kubectl create -f manifests/crd-apiextension-v1beta1.yaml
+	$(RUNTIME) build -f Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
 
 .PHONY: push
 push: image
 	@echo "pushing image"
 	$(RUNTIME) push quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
-.PHONY: deploy
-deploy: push
-	@echo "deploying Resource Topology Exporter"
-	kubectl create -f manifests/resource-topology-exporter-ds.yaml
+.PHONY: test-unit
+test-unit:
+	go test ./pkg/...
 
-.PHONY: deploy-pod
-deploy-pod:
-	@echo "deploying Pods"
-	kubectl create -f manifests/sample-devices/test-pod-deviceA.yaml
-	kubectl create -f manifests/sample-devices/test-pod-deviceA-2.yaml
-	kubectl create -f manifests/sample-devices/test-pod-deviceA-3.yaml
-
-.PHONY: deploy-taerror
-deploy-taerror:
-	@echo "deploying Pod"
-	kubectl create -f manifests/test-deployment-taerror.yaml
-
-clean-binaries:
-	rm -f bin/resource-topology-exporter
-
-clean: clean-binaries
-	kubectl delete -f manifests/resource-topology-exporter-ds.yaml
-	kubectl delete -f manifests/sample-devices/test-pod-deviceA.yaml
-	kubectl delete -f manifests/sample-devices/test-pod-deviceA-2.yaml
-	kubectl delete -f manifests/sample-devices/test-pod-deviceA-3.yaml
+.PHONY: test-e2e
+test-e2e: binaries
+	ginkgo test/e2e
