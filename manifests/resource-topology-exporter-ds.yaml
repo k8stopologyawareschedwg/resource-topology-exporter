@@ -54,32 +54,25 @@ spec:
       - name: resource-topology-exporter-container
         image: quay.io/swsehgal/resource-topology-exporter:latest
         command:
-        - /usr/local/bin/resource-topology-exporter
-        - --watch-namespace=rte
+        - /bin/resource-topology-exporter
+        - --export-namespace=default
+        - --sysfs=/host/
+        - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
         - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
-        # command:
-        # - sleep
-        # args:
-        # - "1000000"
         volumeMounts:
           - name: host-sys
-            mountPath: "/host-sys"
-          - name: host-run
-            mountPath: "/host-run"
-          - name: host-etc
-            mountPath: "/host-etc/kubernetes"
+            mountPath: "/host/sys"
+          - name: host-conf
+            mountPath: "/host-var/lib/kubelet/config.yaml"
           - name: host-podresources
             mountPath: "/host-var/lib/kubelet/pod-resources"
       volumes:
       - name: host-sys
         hostPath:
           path: "/sys"
-      - name: host-run
+      - name: host-conf
         hostPath:
-          path: "/run"
-      - name: host-etc
-        hostPath:
-          path: "/etc/kubernetes"
+          path: "/var/lib/kubelet/config.yaml"
       - name: host-podresources
         hostPath:
           path: "/var/lib/kubelet/pod-resources"
