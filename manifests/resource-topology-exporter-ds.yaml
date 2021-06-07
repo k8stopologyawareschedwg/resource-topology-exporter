@@ -1,39 +1,30 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: rte-handler
-rules:
-- apiGroups: ["topology.node.k8s.io"]
-  resources: ["noderesourcetopologies"]
-  verbs: ["*"]
-- apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["get", "list", "patch"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","list","watch","update"]
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["*"]
-  verbs: ["*"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: handle-rte
-subjects:
-- kind: ServiceAccount
-  name: rte-account
-  namespace: default
-roleRef:
-  kind: ClusterRole
-  name: rte-handler
-  apiGroup: rbac.authorization.k8s.io
-
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: rte-account
+  name: rte
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rte
+rules:
+- apiGroups: ["topology.node.k8s.io"]
+  resources: ["noderesourcetopologies"]
+  verbs: ["create", "update", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rte
+subjects:
+- kind: ServiceAccount
+  name: rte
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: rte
+  apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -48,22 +39,24 @@ spec:
       labels:
         name: resource-topology
     spec:
-      hostNetwork: true
-      serviceAccountName: rte-account
+      serviceAccountName: rte
       containers:
       - name: resource-topology-exporter-container
-        image: quay.io/swsehgal/resource-topology-exporter:latest
+        image: ${RTE_CONTAINER_IMAGE}
         command:
         - /bin/resource-topology-exporter
         - --export-namespace=default
+        - --watch-namespace=rte
         - --sysfs=/host/
         - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
         - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
         volumeMounts:
           - name: host-sys
             mountPath: "/host/sys"
+            readOnly: true
           - name: host-conf
             mountPath: "/host-var/lib/kubelet/config.yaml"
+            readOnly: true
           - name: host-podresources
             mountPath: "/host-var/lib/kubelet/pod-resources"
       volumes:
