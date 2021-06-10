@@ -41,14 +41,17 @@ func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
 }
 
 func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
-	stdoutLogger.Printf("Updating now received Zone: '%s'", dumpobject.DumpObject(zones))
+	stdoutLogger.Printf("update: sending zone: '%s'", dumpobject.DumpObject(zones))
+
+	if te.args.NoPublish {
+		return nil
+	}
 
 	cli, err := GetTopologyClient("")
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Exporter Update called NodeResources is: %+v", dumpobject.DumpObject(zones))
 	hostname := te.args.Hostname   // shortcut
 	namespace := te.args.Namespace // shortcut
 
