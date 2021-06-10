@@ -41,6 +41,7 @@ const helpTemplate string = `{{.ProgramName}}
 			[--export-namespace=<namespace>]
 			[--watch-namespace=<namespace>]
 			[--sysfs=<mountpoint>]
+			[--kubelet-state-dir=<path>...]
 			[--kubelet-config-file=<path>]
 
   {{.ProgramName}} -h | --help
@@ -61,6 +62,7 @@ const helpTemplate string = `{{.ProgramName}}
   --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
   --kubelet-config-file=<path>    Kubelet config file path.
                                   [Default: /kubeletstate/config.yaml]
+  --kubelet-state-dir=<path>...   Kubelet state directory (RO access needed), for smart polling.
   --podresources-socket=<path>    Pod Resource Socket path to use.
                                   [Default: /podresources/kubelet.sock]`
 
@@ -130,6 +132,10 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, error) {
 	resourcemonitorArgs.SysfsRoot = arguments["--sysfs"].(string)
 	if path, ok := arguments["--podresources-socket"].(string); ok {
 		resourcemonitorArgs.PodResourceSocketPath = path
+	}
+
+	if kubeletStateDirs, ok := arguments["--kubelet-state-dir"].([]string); ok {
+		resourcemonitorArgs.KubeletStateDirs = kubeletStateDirs
 	}
 
 	return nrtupdaterArgs, resourcemonitorArgs, nil

@@ -3,7 +3,10 @@ package resourcetopologyexporter
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 
@@ -11,6 +14,12 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
+)
+
+const (
+	StateCPUManager    string = "cpu_manager_state"
+	StateMemoryManager string = "memory_manager_state"
+	StateDeviceManager string = "kubelet_internal_checkpoint"
 )
 
 func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args) error {
@@ -35,15 +44,62 @@ func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor
 	}
 	upd.Run(zonesChannel)
 
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create the watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	for _, stateDir := range resourcemonitorArgs.KubeletStateDirs {
+		log.Printf("kubelet state dir: [%s]", stateDir)
+		if stateDir == "" {
+			continue
+		}
+		err := watcher.Add(stateDir)
+		if err != nil {
+			log.Printf("error adding watch on [%s]: %v", stateDir, err)
+		} else {
+			log.Printf("added watch on [%s]", stateDir)
+		}
+	}
+
 	ticker := time.NewTicker(resourcemonitorArgs.SleepInterval)
 	for {
+		// TODO: what about closed channels?
 		select {
 		case <-ticker.C:
 			eventsChan <- struct{}{}
+			log.Printf("timer update trigger")
+
+		case event := <-watcher.Events:
+			log.Printf("fsnotify event from %q: %v", event.Name, event.Op)
+			if IsTriggeringFSNotifyEvent(event) {
+				eventsChan <- struct{}{}
+				log.Printf("fsnotify update trigger")
+			}
+
+		case err := <-watcher.Errors:
+			// and yes, keep going
+			log.Printf("fsnotify error: %v", err)
 		}
 	}
 
 	return nil // unreachable
+}
+
+func IsTriggeringFSNotifyEvent(event fsnotify.Event) bool {
+	filename := filepath.Base(event.Name)
+	if filename != StateCPUManager &&
+		filename != StateMemoryManager &&
+		filename != StateDeviceManager {
+		return false
+	}
+	// turns out rename is reported as
+	// 1. RENAME (old) <- unpredictable
+	// 2. CREATE (new) <- we trigger here
+	// admittedly we can get some false positives, but that
+	// is expected to be not that big of a deal.
+	return (event.Op & fsnotify.Create) == fsnotify.Create
 }
 
 type ResourceMonitor struct {

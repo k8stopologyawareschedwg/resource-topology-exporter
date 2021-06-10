@@ -30,6 +30,7 @@ type Args struct {
 	Namespace             string
 	SysfsRoot             string
 	KubeletConfigFile     string
+	KubeletStateDirs      []string
 }
 
 type ResourceInfo struct {
