@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	podresources "k8s.io/kubernetes/pkg/kubelet/apis/podresources"
-	podresourcesapi "k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1"
+	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+	"k8s.io/kubernetes/pkg/kubelet/apis/podresources"
 )
 
 const (
@@ -16,12 +16,10 @@ const (
 )
 
 func GetPodResClient(socketPath string) (podresourcesapi.PodResourcesListerClient, error) {
-
-	var err error
-	podResourceClient, _, err := podresources.GetClient(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
+	podResourceClient, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
 	if err != nil {
-		return nil, fmt.Errorf("Can't create client: %v", err)
+		return nil, fmt.Errorf("failed to create podresource client: %v", err)
 	}
-	log.Printf("connected to '%v'!", socketPath)
+	log.Printf("Connected to '%v'!", socketPath)
 	return podResourceClient, nil
 }
