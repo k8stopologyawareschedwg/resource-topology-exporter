@@ -35,13 +35,13 @@ func main() {
 const helpTemplate string = `{{.ProgramName}}
 
   Usage:
-  {{.ProgramName}} [--no-publish]
-                 [--oneshot | --sleep-interval=<seconds>]
-		 [--podresources-socket=<path>]
-		 [--export-namespace=<namespace>]
-		 [--watch-namespace=<namespace>]
-		 [--sysfs=<mountpoint>]
-		 [--kubelet-config-file=<path>]
+  {{.ProgramName}}	[--no-publish]
+			[--oneshot | --sleep-interval=<seconds>]
+			[--podresources-socket=<path>]
+			[--export-namespace=<namespace>]
+			[--watch-namespace=<namespace>]
+			[--sysfs=<mountpoint>]
+			[--kubelet-config-file=<path>]
 
   {{.ProgramName}} -h | --help
   {{.ProgramName}} --version
