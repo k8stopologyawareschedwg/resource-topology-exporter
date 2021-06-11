@@ -2,7 +2,7 @@ COMMONENVVAR=GOOS=linux GOARCH=amd64
 BUILDENVVAR=CGO_ENABLED=0
 TOPOLOGYAPI_MANIFESTS=https://raw.githubusercontent.com/k8stopologyawareschedwg/noderesourcetopology-api/master/manifests
 
-KUBECTL ?= kubectl
+KUBECLI ?= kubectl
 RUNTIME ?= podman
 REPOOWNER ?= k8stopologyawarewg
 IMAGENAME ?= resource-topology-exporter
@@ -63,10 +63,10 @@ test-e2e: binaries
 
 .PHONY: deploy
 deploy:
-	$(KUBECTL) create -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
-	$(KUBECTL) create -f manifests/resource-topology-exporter-ds.yaml
+	$(KUBECLI) create -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
+	$(KUBECLI) create -f manifests/resource-topology-exporter-ds.yaml
 
 .PHONY: undeploy
 undeploy:
-	$(KUBECTL) delete -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
-	$(KUBECTL) delete -f manifests/resource-topology-exporter-ds.yaml
+	$(KUBECLI) delete -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
+	$(KUBECLI) delete -f manifests/resource-topology-exporter-ds.yaml
