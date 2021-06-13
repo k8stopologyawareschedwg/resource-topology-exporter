@@ -1,0 +1,44 @@
+# This workflow will rebase the u/s repo onto it's d/s mirror in order to keep them in sync
+
+name: resync action
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  resync:
+    name: resync job
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Clone d/s repository
+      env:
+        REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+      run: |
+        git clone https://${REPO_TOKEN}@github.com/openshift-kni/resource-topology-exporter.git
+
+    - name: Setup d/s repository
+      run: |
+        cd ./resource-topology-exporter
+        git config user.email titzhak@redhat.com
+        git config user.name Tal-or
+        git remote add upstream https://github.com/k8stopologyawareschedwg/resource-topology-exporter.git
+        git fetch upstream
+
+    - name: Sync d/s repository
+      run: |
+        cd ./resource-topology-exporter
+        git rebase upstream/master
+        echo "CONFLICTS=$(git diff --name-only --diff-filter=U | wc -l)" >> $GITHUB_ENV
+
+    - name: Check for conflicts
+      if: ${{ env.CONFLICTS != '0' }}
+      run: |
+        echo "Conflicts have been detected"
+        exit 1
+
+   - name: Push
+     run: |
+      cd ./resource-topology-exporter
+      git push -f -u origin master
