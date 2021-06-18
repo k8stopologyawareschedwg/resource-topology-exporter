@@ -25,10 +25,7 @@ import (
 	"github.com/onsi/gomega"
 
 	v1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2ekubelet "k8s.io/kubernetes/test/e2e/framework/kubelet"
@@ -51,12 +48,8 @@ var _ = ginkgo.Describe("[RTE] Node topology updater", func() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
 
-		label := labels.SelectorFromSet(map[string]string{"name": "resource-topology"})
-		pods, err := f.ClientSet.CoreV1().Pods(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{LabelSelector: label.String()})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(pods.Items).ToNot(gomega.BeEmpty())
-
-		topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), pods.Items[0].Spec.NodeName, metav1.GetOptions{})
+		// TODO: hardcoded name
+		topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), "kind-worker", metav1.GetOptions{})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		kubeletConfig, err = e2ekubelet.GetCurrentKubeletConfig(topologyUpdaterNode.Name, "", true)
