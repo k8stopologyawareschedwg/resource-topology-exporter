@@ -1,0 +1,49 @@
+name: CI E2E
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  e2e:
+    runs-on: ubuntu-20.04
+    env:
+      # TODO
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v2
+
+    - name: setup golang
+      uses: actions/setup-go@v2
+      id: go
+      with:
+        go-version: 1.16
+
+    - name: build image
+      run: |
+        RUNTIME=docker IMAGETAG=ci make image
+
+    - name: generate manifests
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} make gen-manifests > rte-e2e.yaml
+
+    - name: create K8S kind cluster
+      run: |
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
+        kind load docker-image ${RTE_CONTAINER_IMAGE}
+
+    - name: deploy RTE
+      run: |
+        kubectl create -f rte-e2e.yaml
+
+    - name: E2E Tests
+      run: |
+        export KUBECONFIG=${HOME}/.kube/config 
+        #make test-e2e

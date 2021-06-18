@@ -64,9 +64,14 @@ test-e2e: binaries
 .PHONY: deploy
 deploy:
 	$(KUBECLI) create -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
-	$(KUBECLI) create -f manifests/resource-topology-exporter-ds.yaml
+	hack/get-manifest-ds.sh | $(KUBECLI) create -f -
 
 .PHONY: undeploy
 undeploy:
 	$(KUBECLI) delete -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
-	$(KUBECLI) delete -f manifests/resource-topology-exporter-ds.yaml
+	hack/get-manifest-ds.sh | $(KUBECLI) delete -f -
+
+.PHONY: gen-manifests
+gen-manifests:
+	@curl -L $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
+	@hack/get-manifest-ds.sh
