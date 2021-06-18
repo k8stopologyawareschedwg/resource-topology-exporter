@@ -30,6 +30,10 @@ jobs:
       run: |
         RUNTIME=docker IMAGETAG=ci make image
 
+    - name: build test binary
+      run: |
+        make build-e2e
+
     - name: generate manifests
       run: |
         RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} make gen-manifests > rte-e2e.yaml
@@ -46,4 +50,4 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        make test-e2e
+        _out/rte-e2e.test
