@@ -58,8 +58,8 @@ test-unit:
 	go test ./pkg/...
 
 .PHONY: test-e2e
-test-e2e: binaries
-	ginkgo test/e2e
+test-e2e:
+	go test -v ./test/e2e/
 
 .PHONY: deploy
 deploy:

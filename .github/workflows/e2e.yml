@@ -43,7 +43,7 @@ jobs:
       run: |
         kubectl create -f rte-e2e.yaml
 
-    - name: E2E Tests
+    - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        #make test-e2e
+        make test-e2e
