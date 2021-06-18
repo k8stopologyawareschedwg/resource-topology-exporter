@@ -50,4 +50,4 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test
+        _out/rte-e2e.test -ginkgo.focus="RTE"
