@@ -7,6 +7,7 @@ RUNTIME ?= podman
 REPOOWNER ?= k8stopologyawarewg
 IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
+RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
 .PHONY: all
 all: build
@@ -46,27 +47,39 @@ clean:
 .PHONY: image
 image: binaries
 	@echo "building image"
-	$(RUNTIME) build -f images/Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
+	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) .
 
 .PHONY: push
 push: image
 	@echo "pushing image"
-	$(RUNTIME) push quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
+	$(RUNTIME) push $(RTE_CONTAINER_IMAGE)
 
 .PHONY: test-unit
 test-unit:
 	go test ./pkg/...
 
+build-e2e: outdir
+	# need to use makefile rules in a better way
+	[ -x _out/rte-e2e.test ] || go test -v -c -o _out/rte-e2e.test ./test/e2e/
+
 .PHONY: test-e2e
-test-e2e: binaries
-	ginkgo test/e2e
+test-e2e: build-e2e
+	_out/rte-e2e.test
+
+.PHONY: test-e2e-full
+	go test -v ./test/e2e/
 
 .PHONY: deploy
 deploy:
 	$(KUBECLI) create -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
-	$(KUBECLI) create -f manifests/resource-topology-exporter-ds.yaml
+	hack/get-manifest-ds.sh | $(KUBECLI) create -f -
 
 .PHONY: undeploy
 undeploy:
 	$(KUBECLI) delete -f $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
-	$(KUBECLI) delete -f manifests/resource-topology-exporter-ds.yaml
+	hack/get-manifest-ds.sh | $(KUBECLI) delete -f -
+
+.PHONY: gen-manifests
+gen-manifests:
+	@curl -L $(TOPOLOGYAPI_MANIFESTS)/crd.yaml
+	@hack/get-manifest-ds.sh
