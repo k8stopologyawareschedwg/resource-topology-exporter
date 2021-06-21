@@ -54,9 +54,8 @@ const helpTemplate string = `{{.ProgramName}}
                                   cluster-local Kubernetes API server.
   --hostname                      Override the node hostname.
   --oneshot                       Update once and exit.
-  --sleep-interval=<seconds>      Time to sleep between re-labeling. Non-positive
-                                  value implies no re-labeling (i.e. infinite
-                                  sleep). [Default: 60s]
+  --sleep-interval=<seconds>      Time to sleep between podresources API polls.
+                                  [Default: 60s]
   --export-namespace=<namespace>  Namespace on which update CRDs. Use "" for all namespaces.
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
   --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
