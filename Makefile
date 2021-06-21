@@ -7,6 +7,7 @@ RUNTIME ?= podman
 REPOOWNER ?= k8stopologyawarewg
 IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
+RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
 .PHONY: all
 all: build
@@ -46,12 +47,12 @@ clean:
 .PHONY: image
 image: binaries
 	@echo "building image"
-	$(RUNTIME) build -f images/Dockerfile -t quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG) .
+	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) .
 
 .PHONY: push
 push: image
 	@echo "pushing image"
-	$(RUNTIME) push quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
+	$(RUNTIME) push $(RTE_CONTAINER_IMAGE)
 
 .PHONY: test-unit
 test-unit:
