@@ -6,7 +6,7 @@ require (
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.2
-	github.com/jaypipes/ghw v0.8.0
+	github.com/jaypipes/ghw v0.8.1-0.20210609141030-acb1a36eaf89
 	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.8
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.7.0

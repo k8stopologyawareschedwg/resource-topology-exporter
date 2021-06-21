@@ -392,7 +392,7 @@ github.com/hpcloud/tail/winfile
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
-# github.com/jaypipes/ghw v0.8.0
+# github.com/jaypipes/ghw v0.8.1-0.20210609141030-acb1a36eaf89
 ## explicit
 github.com/jaypipes/ghw
 github.com/jaypipes/ghw/pkg/baseboard

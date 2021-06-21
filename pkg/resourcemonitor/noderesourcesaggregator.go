@@ -52,7 +52,9 @@ type resourceData struct {
 func NewResourcesAggregator(sysfsRoot string, podResourceClient podresourcesapi.PodResourcesListerClient) (ResourcesAggregator, error) {
 	var err error
 
-	topo, err := ghw.Topology(ghw.WithChroot(sysfsRoot))
+	topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
+		"/sys": sysfsRoot,
+	}))
 	if err != nil {
 		return nil, err
 	}

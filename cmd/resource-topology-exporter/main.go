@@ -58,10 +58,9 @@ const helpTemplate string = `{{.ProgramName}}
                                   sleep). [Default: 60s]
   --export-namespace=<namespace>  Namespace on which update CRDs. Use "" for all namespaces.
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
-  --sysfs=<mountpoint>            Mount point of the sysfs.
-                                  [Default: /host]
+  --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
   --kubelet-config-file=<path>    Kubelet config file path.
-                                  [Default: /podresources/config.yaml]
+                                  [Default: /kubeletstate/config.yaml]
   --podresources-socket=<path>    Pod Resource Socket path to use.
                                   [Default: /podresources/kubelet.sock]`
 
