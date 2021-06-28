@@ -3,7 +3,10 @@ package resourcetopologyexporter
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 
@@ -11,6 +14,12 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
+)
+
+const (
+	StateCPUManager    string = "cpu_manager_state"
+	StateMemoryManager string = "memory_manager_state"
+	StateDeviceManager string = "kubelet_internal_checkpoint"
 )
 
 func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args) error {
@@ -21,58 +30,132 @@ func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor
 	tmPolicy := klConfig.TopologyManagerPolicy
 	log.Printf("detected kubelet Topology Manager policy %q", tmPolicy)
 
-	podResClient, err := podres.GetPodResClient(resourcemonitorArgs.PodResourceSocketPath)
+	resMon, err := NewResourceMonitor(resourcemonitorArgs)
 	if err != nil {
-		return fmt.Errorf("failed to get podresources client: %w", err)
-	}
-	var resScan resourcemonitor.ResourcesScanner
-
-	resScan, err = resourcemonitor.NewPodResourcesScanner(resourcemonitorArgs.Namespace, podResClient)
-	if err != nil {
-		return fmt.Errorf("failed to initialize ResourceMonitor instance: %w", err)
+		return err
 	}
 
-	// CAUTION: these resources are expected to change rarely - if ever.
-	//So we are intentionally do this once during the process lifecycle.
-	//TODO: Obtain node resources dynamically from the podresource API
-	zonesChannel := make(chan v1alpha1.ZoneList)
-	var zones v1alpha1.ZoneList
+	eventsChan := make(chan struct{})
+	zonesChannel, _ := resMon.Run(eventsChan)
 
-	resAggr, err := resourcemonitor.NewResourcesAggregator(resourcemonitorArgs.SysfsRoot, podResClient)
-	if err != nil {
-		return fmt.Errorf("failed to obtain node resource information: %w", err)
-	}
-
-	go func() {
-		for {
-			podResources, err := resScan.Scan()
-			if err != nil {
-				log.Printf("failed to scan pod resources: %v\n", err)
-				continue
-			}
-
-			zones = resAggr.Aggregate(podResources)
-			zonesChannel <- zones
-
-			time.Sleep(resourcemonitorArgs.SleepInterval)
-		}
-	}()
-
-	// Get new TopologyUpdater instance
-	instance, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy)
+	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy)
 	if err != nil {
 		return fmt.Errorf("failed to initialize NRT updater: %w", err)
 	}
-	for {
+	upd.Run(zonesChannel)
 
-		zonesValue := <-zonesChannel
-		if err = instance.Update(zonesValue); err != nil {
-			return fmt.Errorf("failed to update: %w", err)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to create the watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	for _, stateDir := range resourcemonitorArgs.KubeletStateDirs {
+		log.Printf("kubelet state dir: [%s]", stateDir)
+		if stateDir == "" {
+			continue
 		}
-		if nrtupdaterArgs.Oneshot {
-			break
+		err := watcher.Add(stateDir)
+		if err != nil {
+			log.Printf("error adding watch on [%s]: %v", stateDir, err)
+		} else {
+			log.Printf("added watch on [%s]", stateDir)
+		}
+	}
+
+	ticker := time.NewTicker(resourcemonitorArgs.SleepInterval)
+	for {
+		// TODO: what about closed channels?
+		select {
+		case <-ticker.C:
+			eventsChan <- struct{}{}
+			log.Printf("timer update trigger")
+
+		case event := <-watcher.Events:
+			log.Printf("fsnotify event from %q: %v", event.Name, event.Op)
+			if IsTriggeringFSNotifyEvent(event) {
+				eventsChan <- struct{}{}
+				log.Printf("fsnotify update trigger")
+			}
+
+		case err := <-watcher.Errors:
+			// and yes, keep going
+			log.Printf("fsnotify error: %v", err)
 		}
 	}
 
 	return nil // unreachable
+}
+
+func IsTriggeringFSNotifyEvent(event fsnotify.Event) bool {
+	filename := filepath.Base(event.Name)
+	if filename != StateCPUManager &&
+		filename != StateMemoryManager &&
+		filename != StateDeviceManager {
+		return false
+	}
+	// turns out rename is reported as
+	// 1. RENAME (old) <- unpredictable
+	// 2. CREATE (new) <- we trigger here
+	// admittedly we can get some false positives, but that
+	// is expected to be not that big of a deal.
+	return (event.Op & fsnotify.Create) == fsnotify.Create
+}
+
+type ResourceMonitor struct {
+	resScan resourcemonitor.ResourcesScanner
+	resAggr resourcemonitor.ResourcesAggregator
+}
+
+func NewResourceMonitor(args resourcemonitor.Args) (*ResourceMonitor, error) {
+	podResClient, err := podres.GetPodResClient(args.PodResourceSocketPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get podresources client: %w", err)
+	}
+
+	resScan, err := resourcemonitor.NewPodResourcesScanner(args.Namespace, podResClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize ResourceMonitor upd: %w", err)
+	}
+	// CAUTION: these resources are expected to change rarely - if ever.
+	//So we are intentionally do this once during the process lifecycle.
+	//TODO: Obtain node resources dynamically from the podresource API
+
+	resAggr, err := resourcemonitor.NewResourcesAggregator(args.SysfsRoot, podResClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain node resource information: %w", err)
+	}
+
+	return &ResourceMonitor{
+		resScan: resScan,
+		resAggr: resAggr,
+	}, nil
+}
+
+func (rm *ResourceMonitor) Run(eventsChan <-chan struct{}) (<-chan v1alpha1.ZoneList, chan<- struct{}) {
+	zonesChannel := make(chan v1alpha1.ZoneList)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-eventsChan:
+				tsBegin := time.Now()
+				podResources, err := rm.resScan.Scan()
+				if err != nil {
+					log.Printf("failed to scan pod resources: %v\n", err)
+					continue
+				}
+
+				zones := rm.resAggr.Aggregate(podResources)
+				zonesChannel <- zones
+				tsEnd := time.Now()
+
+				log.Printf("read request received at %v completed in %v", tsBegin, tsEnd.Sub(tsBegin))
+			case <-done:
+				log.Printf("read stop at %v", time.Now())
+				break
+			}
+		}
+	}()
+	return zonesChannel, done
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -52,24 +53,21 @@ func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
 		return err
 	}
 
-	hostname := te.args.Hostname   // shortcut
-	namespace := te.args.Namespace // shortcut
-
-	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), hostname, metav1.GetOptions{})
+	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: hostname,
+				Name: te.args.Hostname,
 			},
 			Zones:            zones,
 			TopologyPolicies: []string{te.tmPolicy},
 		}
 
-		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("Failed to create v1alpha1.NodeResourceTopology!:%v", err)
+			return fmt.Errorf("update failed to create v1alpha1.NodeResourceTopology!:%v", err)
 		}
-		log.Printf("CRD instance created resTopo: %v", dumpobject.DumpObject(nrtCreated))
+		log.Printf("update created CRD instance: %v", dumpobject.DumpObject(nrtCreated))
 		return nil
 	}
 
@@ -80,10 +78,35 @@ func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
 	nrtMutated := nrt.DeepCopy()
 	nrtMutated.Zones = zones
 
-	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies(namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
+	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("Failed to update v1alpha1.NodeResourceTopology!:%v", err)
+		return fmt.Errorf("update failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
-	log.Printf("CRD instance updated resTopo: %v", nrtUpdated)
+	log.Printf("update changed CRD instance: %v", nrtUpdated)
 	return nil
+}
+
+func (te *NRTUpdater) Run(zonesChannel <-chan v1alpha1.ZoneList) chan<- struct{} {
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case zonesValue := <-zonesChannel:
+				tsBegin := time.Now()
+				if err := te.Update(zonesValue); err != nil {
+					log.Printf("failed to update: %v", err)
+				}
+				tsEnd := time.Now()
+
+				log.Printf("update request received at %v completed in %v", tsBegin, tsEnd.Sub(tsBegin))
+				if te.args.Oneshot {
+					break
+				}
+			case <-done:
+				log.Printf("update stop at %v", time.Now())
+				break
+			}
+		}
+	}()
+	return done
 }

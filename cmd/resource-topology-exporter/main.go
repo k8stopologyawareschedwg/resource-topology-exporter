@@ -41,6 +41,7 @@ const helpTemplate string = `{{.ProgramName}}
 			[--export-namespace=<namespace>]
 			[--watch-namespace=<namespace>]
 			[--sysfs=<mountpoint>]
+			[--kubelet-state-dir=<path>...]
 			[--kubelet-config-file=<path>]
 
   {{.ProgramName}} -h | --help
@@ -53,14 +54,14 @@ const helpTemplate string = `{{.ProgramName}}
                                   cluster-local Kubernetes API server.
   --hostname                      Override the node hostname.
   --oneshot                       Update once and exit.
-  --sleep-interval=<seconds>      Time to sleep between re-labeling. Non-positive
-                                  value implies no re-labeling (i.e. infinite
-                                  sleep). [Default: 60s]
+  --sleep-interval=<seconds>      Time to sleep between podresources API polls.
+                                  [Default: 60s]
   --export-namespace=<namespace>  Namespace on which update CRDs. Use "" for all namespaces.
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
   --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
   --kubelet-config-file=<path>    Kubelet config file path.
                                   [Default: /kubeletstate/config.yaml]
+  --kubelet-state-dir=<path>...   Kubelet state directory (RO access needed), for smart polling.
   --podresources-socket=<path>    Pod Resource Socket path to use.
                                   [Default: /podresources/kubelet.sock]`
 
@@ -130,6 +131,10 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, error) {
 	resourcemonitorArgs.SysfsRoot = arguments["--sysfs"].(string)
 	if path, ok := arguments["--podresources-socket"].(string); ok {
 		resourcemonitorArgs.PodResourceSocketPath = path
+	}
+
+	if kubeletStateDirs, ok := arguments["--kubelet-state-dir"].([]string); ok {
+		resourcemonitorArgs.KubeletStateDirs = kubeletStateDirs
 	}
 
 	return nrtupdaterArgs, resourcemonitorArgs, nil
