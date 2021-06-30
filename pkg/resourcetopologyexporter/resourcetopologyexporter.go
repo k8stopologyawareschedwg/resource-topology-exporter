@@ -3,7 +3,9 @@ package resourcetopologyexporter
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -12,7 +14,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
@@ -22,7 +24,40 @@ const (
 	StateDeviceManager string = "kubelet_internal_checkpoint"
 )
 
-func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args) error {
+type Args struct {
+	ReferenceContainer *podrescli.ContainerIdent
+}
+
+func ContainerIdentFromEnv() *podrescli.ContainerIdent {
+	cntIdent := podrescli.ContainerIdent{
+		Namespace:     os.Getenv("REFERENCE_NAMESPACE"),
+		PodName:       os.Getenv("REFERENCE_POD_NAME"),
+		ContainerName: os.Getenv("REFERENCE_CONTAINER_NAME"),
+	}
+	if cntIdent.Namespace == "" || cntIdent.PodName == "" || cntIdent.ContainerName == "" {
+		return nil
+	}
+	return &cntIdent
+}
+
+func ContainerIdentFromString(ident string) (*podrescli.ContainerIdent, error) {
+	if ident == "" {
+		return nil, nil
+	}
+	items := strings.Split(ident, "/")
+	if len(items) != 3 {
+		return nil, fmt.Errorf("malformed ident: %q", ident)
+	}
+	cntIdent := &podrescli.ContainerIdent{
+		Namespace:     strings.TrimSpace(items[0]),
+		PodName:       strings.TrimSpace(items[1]),
+		ContainerName: strings.TrimSpace(items[2]),
+	}
+	log.Printf("reference container: %s", cntIdent)
+	return cntIdent, nil
+}
+
+func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
 	klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(resourcemonitorArgs.KubeletConfigFile)
 	if err != nil {
 		return fmt.Errorf("error getting topology Manager Policy: %w", err)
@@ -30,7 +65,7 @@ func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor
 	tmPolicy := klConfig.TopologyManagerPolicy
 	log.Printf("detected kubelet Topology Manager policy %q", tmPolicy)
 
-	resMon, err := NewResourceMonitor(resourcemonitorArgs)
+	resMon, err := NewResourceMonitor(resourcemonitorArgs, rteArgs)
 	if err != nil {
 		return err
 	}
@@ -107,8 +142,8 @@ type ResourceMonitor struct {
 	resAggr resourcemonitor.ResourcesAggregator
 }
 
-func NewResourceMonitor(args resourcemonitor.Args) (*ResourceMonitor, error) {
-	podResClient, err := podres.GetPodResClient(args.PodResourceSocketPath)
+func NewResourceMonitor(args resourcemonitor.Args, rteArgs Args) (*ResourceMonitor, error) {
+	podResClient, err := podrescli.NewClient(args.PodResourceSocketPath, rteArgs.ReferenceContainer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get podresources client: %w", err)
 	}
