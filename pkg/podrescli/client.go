@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"time"
 
 	"google.golang.org/grpc"
@@ -38,6 +39,7 @@ type PodResourcesFilter interface {
 }
 
 type filteringClient struct {
+	debug          bool
 	cli            podresourcesapi.PodResourcesListerClient
 	refCnt         *ContainerIdent
 	sharedPoolCPUs cpuset.CPUSet // used only for logging
@@ -51,7 +53,13 @@ func (fc *filteringClient) FilterListResponse(resp *podresourcesapi.ListPodResou
 	}
 	for _, podRes := range resp.GetPodResources() {
 		for _, cntRes := range podRes.GetContainers() {
-			cntRes.CpuIds = removeCPUs(cntRes.CpuIds, sharedPoolCPUs)
+			cpuIds := removeCPUs(cntRes.CpuIds, sharedPoolCPUs)
+			if fc.debug && !reflect.DeepEqual(cpuIds, cntRes.CpuIds) {
+				curCpus := cpuset.NewCPUSetInt64(cntRes.CpuIds...)
+				newCpus := cpuset.NewCPUSetInt64(cpuIds...)
+				log.Printf("performed pool change for %s/%s: %s -> %s", podRes.Name, cntRes.Name, curCpus, newCpus)
+			}
+			cntRes.CpuIds = cpuIds
 		}
 	}
 	return resp
@@ -77,7 +85,7 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 	return fc.FilterAllocatableResponse(resp), nil
 }
 
-func NewClient(socketPath string, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
+func NewClient(socketPath string, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
 	podResourceClient, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create podresource client: %v", err)
@@ -85,6 +93,7 @@ func NewClient(socketPath string, referenceContainer *ContainerIdent) (podresour
 	log.Printf("connected to %q", socketPath)
 
 	return &filteringClient{
+		debug:  debug,
 		cli:    podResourceClient,
 		refCnt: referenceContainer,
 	}, nil
