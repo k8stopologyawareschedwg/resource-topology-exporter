@@ -15,7 +15,8 @@ limitations under the License.
 */
 
 /*
- * resource-topology-exporter specific tests
+ * tests shared with NFD's nfd-topology-updater.
+ * please note the test logic itself is shared, the fixture setup/teardown code may be different.
  */
 
 package e2e
@@ -35,27 +36,31 @@ import (
 	e2ekubelet "k8s.io/kubernetes/test/e2e/framework/kubelet"
 )
 
-var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
+var _ = ginkgo.Describe("[RTE] Node topology updater", func() {
 	var (
+		inited              bool
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
 		kubeletConfig       *kubeletconfig.KubeletConfiguration
 	)
 
-	f := framework.NewDefaultFramework("rte")
+	f := framework.NewDefaultFramework("topology-updater")
+	ns := getNamespaceName()
 
 	ginkgo.BeforeEach(func() {
 		var err error
 
-		if topologyClient == nil {
+		if !inited {
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), getNodeName(), metav1.GetOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			inited = true
 		}
 
-		// TODO: hardcoded name
-		topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), "kind-worker", metav1.GetOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
+		// intentionally get every single time
 		kubeletConfig, err = e2ekubelet.GetCurrentKubeletConfig(topologyUpdaterNode.Name, "", true)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
@@ -63,8 +68,7 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 	ginkgo.Context("with cluster configured", func() {
 		ginkgo.It("should fill the node resource topologies CR with the data", func() {
 			gomega.Eventually(func() bool {
-				// TODO: we should avoid to use hardcoded namespace name
-				nodeTopology, err := topologyClient.TopologyV1alpha1().NodeResourceTopologies("default").Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				nodeTopology, err := topologyClient.TopologyV1alpha1().NodeResourceTopologies(ns).Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
