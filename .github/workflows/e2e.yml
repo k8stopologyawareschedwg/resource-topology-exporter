@@ -46,6 +46,8 @@ jobs:
 
     - name: deploy RTE
       run: |
+        # TODO: what about the other workers (if any)?
+        kubectl label node kind-worker node-role.kubernetes.io/worker=''
         kubectl create -f rte-e2e.yaml
 
     - name: cluster info
