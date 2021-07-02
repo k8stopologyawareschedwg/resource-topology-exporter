@@ -44,6 +44,7 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 		namespace           string
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
+		workerNodes         []v1.Node
 	)
 
 	f := framework.NewDefaultFramework("rte")
@@ -104,6 +105,12 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 		})
 
 		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
+			nodes, err := utils.FilterNodesWithEnoughCores(workerNodes, "1000m")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			if len(nodes) < 1 {
+				ginkgo.Skip("not enough allocatable cores for this test")
+			}
+
 			ginkgo.By("getting the initial topology information")
 			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			ginkgo.By("creating a pod consuming the shared pool")
@@ -139,7 +146,6 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha1.NodeResourceTopology
-			var err error
 			gomega.Eventually(func() bool {
 				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
