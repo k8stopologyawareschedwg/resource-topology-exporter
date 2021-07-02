@@ -46,7 +46,6 @@ spec:
         command:
         - /bin/resource-topology-exporter
         - --export-namespace=default
-        - --watch-namespace=rte
         - --sleep-interval=${RTE_POLL_INTERVAL}
         - --sysfs=/host-sys
         - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
