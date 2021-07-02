@@ -22,6 +22,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
@@ -101,7 +102,15 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 			time.Sleep(30 * time.Second)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
 			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
-			gomega.Expect(finalNodeTopo.ObjectMeta.ResourceVersion).To(gomega.Equal(initialNodeTopo.ObjectMeta.ResourceVersion))
+
+			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			zoneName, resName, isLess := lessAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
+			gomega.Expect(isLess).To(gomega.BeFalse(), fmt.Sprintf("final allocatable resources not equal - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
 		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
@@ -155,11 +164,70 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 				return finalNodeTopo.ObjectMeta.ResourceVersion != initialNodeTopo.ObjectMeta.ResourceVersion
 			}, time.Minute, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			ginkgo.By("checking the changes in the updated topology")
-			// TODO
+
+			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			zoneName, resName, isLess := lessAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
+			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
 	})
 })
+
+func allocatableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResourceTopology) map[string]v1.ResourceList {
+	allocRes := make(map[string]v1.ResourceList)
+	for _, zone := range nodeTopo.Zones {
+		if zone.Type != "Node" {
+			continue
+		}
+		resList := make(v1.ResourceList)
+		for _, res := range zone.Resources {
+			resList[v1.ResourceName(res.Name)] = *resource.NewQuantity(int64(res.Allocatable.IntValue()), resource.DecimalSI)
+		}
+		if len(resList) == 0 {
+			continue
+		}
+		allocRes[zone.Name] = resList
+	}
+	return allocRes
+}
+
+func lessAllocatableResources(expected, got map[string]v1.ResourceList) (string, string, bool) {
+	if len(got) > len(expected) {
+		return "", "", false
+	}
+	for expZoneName, expResList := range expected {
+		gotResList, ok := got[expZoneName]
+		if !ok {
+			return expZoneName, "", false
+		}
+		if resName, ok := lessResourceList(expResList, gotResList); ok {
+			return expZoneName, resName, true
+		}
+	}
+	return "", "", false
+}
+
+func lessResourceList(expected, got v1.ResourceList) (string, bool) {
+	if len(got) > len(expected) {
+		return "", false
+	}
+	for expResName, expResQty := range expected {
+		gotResQty, ok := got[expResName]
+		if !ok {
+			return string(expResName), false
+		}
+		framework.Logf("resource=%q expected=%v got=%v", expResName, expResQty, gotResQty)
+		if gotResQty.Cmp(expResQty) < 1 {
+			return string(expResName), true
+		}
+	}
+	return "", false
+}
 
 func getNodeTopology(topologyClient *topologyclientset.Clientset, nodeName, namespace string) *v1alpha1.NodeResourceTopology {
 	var nodeTopology *v1alpha1.NodeResourceTopology
