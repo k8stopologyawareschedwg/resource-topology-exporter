@@ -228,17 +228,3 @@ func lessResourceList(expected, got v1.ResourceList) (string, bool) {
 	}
 	return "", false
 }
-
-func getNodeTopology(topologyClient *topologyclientset.Clientset, nodeName, namespace string) *v1alpha1.NodeResourceTopology {
-	var nodeTopology *v1alpha1.NodeResourceTopology
-	var err error
-	gomega.EventuallyWithOffset(1, func() bool {
-		nodeTopology, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			framework.Logf("failed to get the node topology resource: %v", err)
-			return false
-		}
-		return true
-	}, time.Minute, 5*time.Second).Should(gomega.BeTrue())
-	return nodeTopology
-}
