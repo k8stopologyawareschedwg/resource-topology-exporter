@@ -97,9 +97,10 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 			podMap[pod.Name] = pod
 			defer utils.DeletePodsAsync(f, podMap)
 
-			ginkgo.By("getting the updated topology")
+			cooldown := 30 * time.Second
+			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
 			// the object, hance the resource version must NOT change, so we can only sleep
-			time.Sleep(30 * time.Second)
+			time.Sleep(cooldown)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
 			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 
@@ -108,9 +109,15 @@ var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
 				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			zoneName, resName, isLess := lessAllocatableResources(initialAllocRes, finalAllocRes)
-			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
-			gomega.Expect(isLess).To(gomega.BeFalse(), fmt.Sprintf("final allocatable resources not equal - initial=%v final=%v", initialAllocRes, finalAllocRes))
+			zoneName, resName, cmp, ok := cmpAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
+			if !ok {
+				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			// this is actually a workaround. The proper solution is to wait for ALL the container requesting exclusive resources to be gone
+			// -- so we are actually sure the accounting is correct. But we didn't found yet a generic way to do that on remote worker nodes.
+			isGreaterEqual := (cmp >= 0)
+			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
 		})
 
 		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
@@ -197,34 +204,49 @@ func allocatableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeReso
 }
 
 func lessAllocatableResources(expected, got map[string]v1.ResourceList) (string, string, bool) {
-	if len(got) > len(expected) {
+	zoneName, resName, cmp, ok := cmpAllocatableResources(expected, got)
+	if !ok {
+		framework.Logf("-> cmp failed (not ok)")
 		return "", "", false
+	}
+	if cmp < 0 {
+		return zoneName, resName, true
+	}
+	framework.Logf("-> cmp failed (value=%d)", cmp)
+	return "", "", false
+}
+
+func cmpAllocatableResources(expected, got map[string]v1.ResourceList) (string, string, int, bool) {
+	if len(got) != len(expected) {
+		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
+		return "", "", 0, false
 	}
 	for expZoneName, expResList := range expected {
 		gotResList, ok := got[expZoneName]
 		if !ok {
-			return expZoneName, "", false
+			return expZoneName, "", 0, false
 		}
-		if resName, ok := lessResourceList(expResList, gotResList); ok {
-			return expZoneName, resName, true
+		if resName, cmp, ok := cmpResourceList(expResList, gotResList); !ok || cmp != 0 {
+			return expZoneName, resName, cmp, ok
 		}
 	}
-	return "", "", false
+	return "", "", 0, true
 }
 
-func lessResourceList(expected, got v1.ResourceList) (string, bool) {
-	if len(got) > len(expected) {
-		return "", false
+func cmpResourceList(expected, got v1.ResourceList) (string, int, bool) {
+	if len(got) != len(expected) {
+		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
+		return "", 0, false
 	}
 	for expResName, expResQty := range expected {
 		gotResQty, ok := got[expResName]
 		if !ok {
-			return string(expResName), false
+			return string(expResName), 0, false
 		}
-		framework.Logf("resource=%q expected=%v got=%v", expResName, expResQty, gotResQty)
-		if gotResQty.Cmp(expResQty) < 1 {
-			return string(expResName), true
+		if cmp := gotResQty.Cmp(expResQty); cmp != 0 {
+			framework.Logf("-> resource=%q cmp=%d expected=%v got=%v", expResName, cmp, expResQty, gotResQty)
+			return string(expResName), cmp, true
 		}
 	}
-	return "", false
+	return "", 0, true
 }
