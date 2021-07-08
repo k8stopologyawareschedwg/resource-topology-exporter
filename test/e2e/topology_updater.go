@@ -38,7 +38,7 @@ import (
 	e2ekubelet "k8s.io/kubernetes/test/e2e/framework/kubelet"
 )
 
-var _ = ginkgo.Describe("[RTE] Node topology updater", func() {
+var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater", func() {
 	var (
 		initialized         bool
 		topologyClient      *topologyclientset.Clientset

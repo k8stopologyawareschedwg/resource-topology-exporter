@@ -38,7 +38,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 )
 
-var _ = ginkgo.Describe("[RTE] Resource topology exporter", func() {
+var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
 	var (
 		initialized         bool
 		nodeName            string
