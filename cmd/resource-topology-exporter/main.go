@@ -35,7 +35,8 @@ func main() {
 const helpTemplate string = `{{.ProgramName}}
 
   Usage:
-  {{.ProgramName}}	[--no-publish]
+  {{.ProgramName}}	[--debug]
+                        [--no-publish]
 			[--oneshot | --sleep-interval=<seconds>]
 			[--podresources-socket=<path>]
 			[--export-namespace=<namespace>]
@@ -50,6 +51,7 @@ const helpTemplate string = `{{.ProgramName}}
 
   Options:
   -h --help                       Show this screen.
+  --debug                         Enable debug output. [Default: false]
   --version                       Output version and exit.
   --no-publish                    Do not publish discovered features to the
                                   cluster-local Kubernetes API server.
@@ -144,6 +146,7 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourceto
 		resourcemonitorArgs.KubeletStateDirs = kubeletStateDirs
 	}
 
+	rteArgs.Debug = arguments["--debug"].(bool)
 	if refCnt, ok := arguments["--reference-container"].(string); ok {
 		rteArgs.ReferenceContainer, err = resourcetopologyexporter.ContainerIdentFromString(refCnt)
 		if err != nil {

@@ -25,6 +25,7 @@ const (
 )
 
 type Args struct {
+	Debug              bool
 	ReferenceContainer *podrescli.ContainerIdent
 }
 
@@ -143,7 +144,7 @@ type ResourceMonitor struct {
 }
 
 func NewResourceMonitor(args resourcemonitor.Args, rteArgs Args) (*ResourceMonitor, error) {
-	podResClient, err := podrescli.NewClient(args.PodResourceSocketPath, rteArgs.ReferenceContainer)
+	podResClient, err := podrescli.NewClient(args.PodResourceSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get podresources client: %w", err)
 	}

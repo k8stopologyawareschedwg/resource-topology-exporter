@@ -46,9 +46,8 @@ spec:
         command:
         - /bin/resource-topology-exporter
         - --export-namespace=default
-        - --watch-namespace=rte
         - --sleep-interval=${RTE_POLL_INTERVAL}
-        - --sysfs=/host/
+        - --sysfs=/host-sys
         - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
         - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
         env:
@@ -68,7 +67,7 @@ spec:
           value: shared-pool-container
         volumeMounts:
           - name: host-sys
-            mountPath: "/host/sys"
+            mountPath: "/host-sys"
             readOnly: true
           - name: host-conf
             mountPath: "/host-var/lib/kubelet/config.yaml"
