@@ -26,6 +26,7 @@ import (
 
 	cmp "github.com/google/go-cmp/cmp"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
@@ -192,7 +193,7 @@ func TestResourcesAggregator(t *testing.T) {
 				},
 			}
 
-			res := resAggr.Aggregate(nil) // no pods allocation
+			res := resAggr.Aggregate(nil, ResourceExcludeList{}) // no pods allocation
 			sort.Slice(res, func(i, j int) bool {
 				return res[i].Name < res[j].Name
 			})
@@ -228,6 +229,17 @@ func TestResourcesAggregator(t *testing.T) {
 					},
 				},
 				&v1.ContainerDevices{
+					ResourceName: "fake.io/resourceToBeExcluded",
+					DeviceIds:    []string{"excludeMeA"},
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							&v1.NUMANode{
+								ID: 0,
+							},
+						},
+					},
+				},
+				&v1.ContainerDevices{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netBBB"},
 					Topology: &v1.TopologyInfo{
@@ -241,6 +253,17 @@ func TestResourcesAggregator(t *testing.T) {
 				&v1.ContainerDevices{
 					ResourceName: "fake.io/gpu",
 					DeviceIds:    []string{"gpuAAA"},
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							&v1.NUMANode{
+								ID: 1,
+							},
+						},
+					},
+				},
+				&v1.ContainerDevices{
+					ResourceName: "fake.io/resourceToBeExcluded",
+					DeviceIds:    []string{"excludeMeB"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
 							&v1.NUMANode{
@@ -306,6 +329,11 @@ func TestResourcesAggregator(t *testing.T) {
 							Allocatable: intstr.FromString("1"),
 							Capacity:    intstr.FromString("1"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/resourceToBeExcluded",
+							Allocatable: intstr.FromString("1"),
+							Capacity:    intstr.FromString("1"),
+						},
 					},
 				},
 				topologyv1alpha1.Zone{
@@ -337,11 +365,40 @@ func TestResourcesAggregator(t *testing.T) {
 							Allocatable: intstr.FromString("0"),
 							Capacity:    intstr.FromString("1"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/resourceToBeExcluded",
+							Allocatable: intstr.FromString("1"),
+							Capacity:    intstr.FromString("1"),
+						},
 					},
 				},
 			}
 
-			res := resAggr.Aggregate(podRes)
+			excludeList := ResourceExcludeList{
+				map[string][]string{
+					"*": {
+						"fake.io/resourceToBeExcluded",
+					},
+				},
+			}
+
+			res := resAggr.Aggregate(podRes, excludeList)
+			// Check if resources were excluded correctly
+			for _, zone := range res {
+				for _, resource := range zone.Resources {
+					assert.NotEqual(t, resource.Name, "fake.io/resourceToBeExcluded", "fake.io/resourceToBeExcluded has to be excluded")
+				}
+			}
+
+			// Add devices after they have been removed by the exclude list
+			for i := range res {
+				res[i].Resources = append(res[i].Resources, topologyv1alpha1.ResourceInfo{
+					Name:        "fake.io/resourceToBeExcluded",
+					Allocatable: intstr.FromString("1"),
+					Capacity:    intstr.FromString("1"),
+				})
+			}
+
 			sort.Slice(res, func(i, j int) bool {
 				return res[i].Name < res[j].Name
 			})
