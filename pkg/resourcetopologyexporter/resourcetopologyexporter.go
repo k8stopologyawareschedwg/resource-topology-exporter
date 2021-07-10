@@ -139,8 +139,9 @@ func IsTriggeringFSNotifyEvent(event fsnotify.Event) bool {
 }
 
 type ResourceMonitor struct {
-	resScan resourcemonitor.ResourcesScanner
-	resAggr resourcemonitor.ResourcesAggregator
+	resScan     resourcemonitor.ResourcesScanner
+	resAggr     resourcemonitor.ResourcesAggregator
+	excludeList resourcemonitor.ResourceExcludeList
 }
 
 func NewResourceMonitor(args resourcemonitor.Args, rteArgs Args) (*ResourceMonitor, error) {
@@ -163,8 +164,9 @@ func NewResourceMonitor(args resourcemonitor.Args, rteArgs Args) (*ResourceMonit
 	}
 
 	return &ResourceMonitor{
-		resScan: resScan,
-		resAggr: resAggr,
+		resScan:     resScan,
+		resAggr:     resAggr,
+		excludeList: args.ExcludeList,
 	}, nil
 }
 
@@ -182,7 +184,7 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan struct{}) (<-chan v1alpha1.Zone
 					continue
 				}
 
-				zones := rm.resAggr.Aggregate(podResources)
+				zones := rm.resAggr.Aggregate(podResources, rm.excludeList)
 				zonesChannel <- zones
 				tsEnd := time.Now()
 
