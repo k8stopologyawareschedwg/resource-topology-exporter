@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rte
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resource-topology-exporter-config
+  namespace: rte
+data:
+  exclude-list-config.yaml: |
+    # key = node name, value = list of resources to be excluded.
+    # use * to exclude from all nodes.
+    # an example for how the exclude list should looks like
+    # excludelist:
+    #   node1: [cpu]
+    #   node2: [memory, example/deviceA]
+    #   *: [cpu]

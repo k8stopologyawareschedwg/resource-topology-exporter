@@ -74,6 +74,8 @@ spec:
             readOnly: true
           - name: host-podresources
             mountPath: "/host-var/lib/kubelet/pod-resources"
+          - name: exclude-list-config-vol
+            mountPath: "/etc/resource-topology-exporter-config"
       - name: shared-pool-container
         image: gcr.io/google_containers/pause-amd64:3.0
       volumes:
@@ -86,3 +88,7 @@ spec:
       - name: host-podresources
         hostPath:
           path: "/var/lib/kubelet/pod-resources"
+      - name: exclude-list-config-vol
+        configMap:
+          name: resource-topology-exporter-config
+          optional: true

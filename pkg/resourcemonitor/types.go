@@ -31,6 +31,7 @@ type Args struct {
 	SysfsRoot             string
 	KubeletConfigFile     string
 	KubeletStateDirs      []string
+	ExcludeList           ResourceExcludeList
 }
 
 type ResourceInfo struct {
@@ -49,10 +50,14 @@ type PodResources struct {
 	Containers []ContainerResources
 }
 
+type ResourceExcludeList struct {
+	ExcludeList map[string][]string
+}
+
 type ResourcesScanner interface {
 	Scan() ([]PodResources, error)
 }
 
 type ResourcesAggregator interface {
-	Aggregate(podResData []PodResources) topologyv1alpha1.ZoneList
+	Aggregate(podResData []PodResources, list ResourceExcludeList) topologyv1alpha1.ZoneList
 }

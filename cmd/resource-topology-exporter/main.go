@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"text/template"
 	"time"
 
 	"github.com/docopt/docopt-go"
+	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
@@ -45,6 +47,7 @@ const helpTemplate string = `{{.ProgramName}}
 			[--kubelet-state-dir=<path>...]
 			[--kubelet-config-file=<path>]
 			[--reference-container=<spec>]
+			[--exclude-list-config=<path>]
 
   {{.ProgramName}} -h | --help
   {{.ProgramName}} --version
@@ -70,8 +73,10 @@ const helpTemplate string = `{{.ProgramName}}
   --reference-container=<spec>    Reference container, used to learn about the shared cpu pool
                                   See: https://github.com/kubernetes/kubernetes/issues/102190
                                   format of spec is namespace/podname/containername.
-				  Alternatively, you can use the env vars
-				  REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.`
+                                  Alternatively, you can use the env vars
+				                  REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.
+  --exclude-list-config=<path>    Exclude resources list file path.
+                                  [Default:/etc/resource-topology-exporter-config/exclude-list-config.yaml]`
 
 func getUsage() (string, error) {
 	var helpBuffer bytes.Buffer
@@ -157,5 +162,31 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourceto
 		rteArgs.ReferenceContainer = resourcetopologyexporter.ContainerIdentFromEnv()
 	}
 
+	if excludeListConfigMapPath, ok := arguments["--exclude-list-config"].(string); ok {
+		resourcemonitorArgs.ExcludeList, err = getExcludeListFromConfigMap(excludeListConfigMapPath)
+		if err != nil {
+			log.Fatalf("error getting exclude list from the configutarion: %v", err)
+		}
+	}
 	return nrtupdaterArgs, resourcemonitorArgs, rteArgs, nil
+}
+
+func getExcludeListFromConfigMap(configMapPath string) (resourcemonitor.ResourceExcludeList, error) {
+	excludeList := resourcemonitor.ResourceExcludeList{}
+
+	config, err := ioutil.ReadFile(configMapPath)
+	if err != nil {
+		// ConfigMap is optional
+		if os.IsNotExist(err) {
+			log.Printf("Info: couldn't find configuration under %v", configMapPath)
+			return excludeList, nil
+		}
+		return excludeList, err
+	}
+
+	err = yaml.Unmarshal(config, &excludeList)
+	if err != nil {
+		return excludeList, err
+	}
+	return excludeList, nil
 }
