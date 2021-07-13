@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 )
 
@@ -182,6 +183,61 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
+		ginkgo.It("it should react to pod changes using the smart poller", func() {
+			nodes, err := utils.FilterNodesWithEnoughCores(workerNodes, "1000m")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			if len(nodes) < 1 {
+				ginkgo.Skip("not enough allocatable cores for this test")
+			}
+
+			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			ginkgo.By("creating a pod consuming the shared pool")
+			sleeperPod := &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sleeper-gu-pod",
+				},
+				Spec: v1.PodSpec{
+					RestartPolicy: v1.RestartPolicyNever,
+					Containers: []v1.Container{
+						v1.Container{
+							Name:  "sleeper-gu-cnt",
+							Image: utils.CentosImage,
+							// 1 hour (or >= 1h in general) is "forever" for our purposes
+							Command: []string{"/bin/sleep", "1h"},
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									// we use 1 core because that's the minimal meaningful quantity
+									v1.ResourceName(v1.ResourceCPU): resource.MustParse("1000m"),
+									// any random reasonable amount is fine
+									v1.ResourceName(v1.ResourceMemory): resource.MustParse("100Mi"),
+								},
+							},
+						},
+					},
+				},
+			}
+
+			podMap := make(map[string]*v1.Pod)
+			pod := f.PodClient().CreateSync(sleeperPod)
+			podMap[pod.Name] = pod
+			defer utils.DeletePodsAsync(f, podMap)
+
+			ginkgo.By("getting the updated topology")
+			var finalNodeTopo *v1alpha1.NodeResourceTopology
+			gomega.Eventually(func() bool {
+				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				if err != nil {
+					framework.Logf("failed to get the node topology resource: %v", err)
+					return false
+				}
+				return finalNodeTopo.ObjectMeta.ResourceVersion != initialNodeTopo.ObjectMeta.ResourceVersion
+			}, 3*time.Second, 1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+			ginkgo.By("checking the topology was updated for the right reason")
+
+			gomega.Expect(finalNodeTopo.Annotations).ToNot(gomega.BeNil(), "missing annotations entirely")
+			reason := finalNodeTopo.Annotations[nrtupdater.AnnotationRTEUpdate]
+			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
+		})
 	})
 })
 
