@@ -15,6 +15,15 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dumpobject"
 )
 
+const (
+	AnnotationRTEUpdate = "k8stopoawareschedwg/rte-update"
+)
+
+const (
+	RTEUpdatePeriodic = "periodic"
+	RTEUpdateReactive = "reactive"
+)
+
 var (
 	stdoutLogger = log.New(os.Stdout, "", log.LstdFlags)
 	stderrLogger = log.New(os.Stderr, "", log.LstdFlags)
@@ -33,6 +42,11 @@ type NRTUpdater struct {
 	tmPolicy string
 }
 
+type MonitorInfo struct {
+	Timer bool
+	Zones v1alpha1.ZoneList
+}
+
 func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
 	te := &NRTUpdater{
 		args:     args,
@@ -41,8 +55,15 @@ func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
 	return te, nil
 }
 
-func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
-	stdoutLogger.Printf("update: sending zone: '%s'", dumpobject.DumpObject(zones))
+func updateReason(info MonitorInfo) string {
+	if info.Timer {
+		return RTEUpdatePeriodic
+	}
+	return RTEUpdateReactive
+}
+
+func (te *NRTUpdater) Update(info MonitorInfo) error {
+	stdoutLogger.Printf("update: sending zone: '%s'", dumpobject.DumpObject(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
@@ -58,8 +79,11 @@ func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: te.args.Hostname,
+				Annotations: map[string]string{
+					AnnotationRTEUpdate: updateReason(info),
+				},
 			},
-			Zones:            zones,
+			Zones:            info.Zones,
 			TopologyPolicies: []string{te.tmPolicy},
 		}
 
@@ -76,7 +100,11 @@ func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
 	}
 
 	nrtMutated := nrt.DeepCopy()
-	nrtMutated.Zones = zones
+	if nrtMutated.Annotations == nil {
+		nrtMutated.Annotations = make(map[string]string)
+	}
+	nrtMutated.Annotations[AnnotationRTEUpdate] = updateReason(info)
+	nrtMutated.Zones = info.Zones
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
@@ -86,14 +114,14 @@ func (te *NRTUpdater) Update(zones v1alpha1.ZoneList) error {
 	return nil
 }
 
-func (te *NRTUpdater) Run(zonesChannel <-chan v1alpha1.ZoneList) chan<- struct{} {
+func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo) chan<- struct{} {
 	done := make(chan struct{})
 	go func() {
 		for {
 			select {
-			case zonesValue := <-zonesChannel:
+			case info := <-infoChannel:
 				tsBegin := time.Now()
-				if err := te.Update(zonesValue); err != nil {
+				if err := te.Update(info); err != nil {
 					log.Printf("failed to update: %v", err)
 				}
 				tsEnd := time.Now()
