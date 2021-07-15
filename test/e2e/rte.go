@@ -80,30 +80,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			ginkgo.By("creating a pod consuming the shared pool")
-			sleeperPod := &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "sleeper-gu-pod",
-				},
-				Spec: v1.PodSpec{
-					RestartPolicy: v1.RestartPolicyNever,
-					Containers: []v1.Container{
-						v1.Container{
-							Name:  "sleeper-gu-cnt",
-							Image: utils.CentosImage,
-							// 1 hour (or >= 1h in general) is "forever" for our purposes
-							Command: []string{"/bin/sleep", "1h"},
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{
-									// we use 1 core because that's the minimal meaningful quantity
-									v1.ResourceName(v1.ResourceCPU): resource.MustParse("1000m"),
-									// any random reasonable amount is fine
-									v1.ResourceName(v1.ResourceMemory): resource.MustParse("100Mi"),
-								},
-							},
-						},
-					},
-				},
-			}
+			sleeperPod := utils.MakeGuaranteedSleeperPod("1000m")
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
