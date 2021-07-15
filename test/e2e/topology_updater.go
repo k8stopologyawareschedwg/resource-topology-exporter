@@ -34,7 +34,6 @@ import (
 	"github.com/onsi/gomega"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -79,26 +78,11 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 	})
 
 	ginkgo.Context("with cluster configured", func() {
-		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus", func() {
+		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (best effort QOS)", func() {
 			ginkgo.By("getting the initial topology information")
 			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
-			ginkgo.By("creating a pod consuming the shared pool")
-			sleeperPod := &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "sleeper-be-pod",
-				},
-				Spec: v1.PodSpec{
-					RestartPolicy: v1.RestartPolicyNever,
-					Containers: []v1.Container{
-						v1.Container{
-							Name:  "sleeper-be-cnt",
-							Image: utils.CentosImage,
-							// 1 hour (or >= 1h in general) is "forever" for our purposes
-							Command: []string{"/bin/sleep", "1h"},
-						},
-					},
-				},
-			}
+			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
+			sleeperPod := utils.MakeBestEffortSleeperPod()
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
@@ -122,8 +106,54 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			// this is actually a workaround. The proper solution is to wait for ALL the container requesting exclusive resources to be gone
-			// -- so we are actually sure the accounting is correct. But we didn't found yet a generic way to do that on remote worker nodes.
+
+			// This is actually a workaround.
+			// Depending on the (random, by design) order on which ginkgo runs the tests, a test which exclusively allocates CPUs may run before.
+			// We cannot (nor should) care about what runs before this test, but we know that this may happen.
+			// The proper solution is to wait for ALL the container requesting exclusive resources to be gone before to end the related test.
+			// To date, we don't yet have a clean way to wait for these pod (actually containers) to be completely gone
+			// (hence, releasing the exclusively allocated CPUs) before to end the test, so this test can run with some leftovers hanging around,
+			// which makes the accounting harder. And this is what we handle here.
+			isGreaterEqual := (cmp >= 0)
+			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
+		})
+
+		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (guaranteed QOS, nonintegral cpu request)", func() {
+			ginkgo.By("getting the initial topology information")
+			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (guaranteed QoS, nonintegral request)")
+			sleeperPod := utils.MakeGuaranteedSleeperPod("500m")
+
+			podMap := make(map[string]*v1.Pod)
+			pod := f.PodClient().CreateSync(sleeperPod)
+			podMap[pod.Name] = pod
+			defer utils.DeletePodsAsync(f, podMap)
+
+			cooldown := 30 * time.Second
+			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
+			// the object, hance the resource version must NOT change, so we can only sleep
+			time.Sleep(cooldown)
+			ginkgo.By("checking the changes in the updated topology - expecting none")
+			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+
+			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			zoneName, resName, cmp, ok := cmpAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
+			if !ok {
+				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+
+			// This is actually a workaround.
+			// Depending on the (random, by design) order on which ginkgo runs the tests, a test which exclusively allocates CPUs may run before.
+			// We cannot (nor should) care about what runs before this test, but we know that this may happen.
+			// The proper solution is to wait for ALL the container requesting exclusive resources to be gone before to end the related test.
+			// To date, we don't yet have a clean way to wait for these pod (actually containers) to be completely gone
+			// (hence, releasing the exclusively allocated CPUs) before to end the test, so this test can run with some leftovers hanging around,
+			// which makes the accounting harder. And this is what we handle here.
 			isGreaterEqual := (cmp >= 0)
 			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
 		})
@@ -137,31 +167,8 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			ginkgo.By("getting the initial topology information")
 			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
-			ginkgo.By("creating a pod consuming the shared pool")
-			sleeperPod := &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "sleeper-gu-pod",
-				},
-				Spec: v1.PodSpec{
-					RestartPolicy: v1.RestartPolicyNever,
-					Containers: []v1.Container{
-						v1.Container{
-							Name:  "sleeper-gu-cnt",
-							Image: utils.CentosImage,
-							// 1 hour (or >= 1h in general) is "forever" for our purposes
-							Command: []string{"/bin/sleep", "1h"},
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{
-									// we use 1 core because that's the minimal meaningful quantity
-									v1.ResourceName(v1.ResourceCPU): resource.MustParse("1000m"),
-									// any random reasonable amount is fine
-									v1.ResourceName(v1.ResourceMemory): resource.MustParse("100Mi"),
-								},
-							},
-						},
-					},
-				},
-			}
+			ginkgo.By("creating a pod consuming exclusive CPUs")
+			sleeperPod := utils.MakeGuaranteedSleeperPod("1000m")
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
