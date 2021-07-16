@@ -11,11 +11,9 @@ defaults:
     shell: bash
 
 jobs:
-  e2e-ic:
+  e2e-build-test:
+    name: build e2e tests
     runs-on: ubuntu-20.04
-    env:
-      # TODO
-      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
@@ -29,6 +27,30 @@ jobs:
     - name: build test binary
       run: |
         make build-e2e
+
+    - name: upload the e2e test binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: e2e.test.bin
+        path: _out/rte-e2e.test
+        retention-days: 1
+
+  e2e-ic:
+    name: infra-consuming e2e tests
+    needs: e2e-build-test
+    runs-on: ubuntu-20.04
+    env:
+      # TODO
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v2
+
+    - name: setup golang
+      uses: actions/setup-go@v2
+      id: go
+      with:
+        go-version: 1.16
 
     - name: build image
       run: |
@@ -57,12 +79,19 @@ jobs:
         kubectl describe pod -l name=resource-topology || :
         kubectl logs -l name=resource-topology || :
 
+    - name: download the e2e test binary
+      uses: actions/download-artifact@v2
+      with:
+        name: e2e.test.bin
+
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
         _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraConsuming\]'
 
   e2e-ip:
+    name: infra-providing e2e tests
+    needs: e2e-build-test
     runs-on: ubuntu-20.04
     env:
       # TODO
@@ -76,10 +105,6 @@ jobs:
       id: go
       with:
         go-version: 1.16
-
-    - name: build test binary
-      run: |
-        make build-e2e
 
     - name: build image
       run: |
@@ -101,6 +126,11 @@ jobs:
       run: |
         kubectl get nodes
         kubectl get pods -A
+
+    - name: download the e2e test binary
+      uses: actions/download-artifact@v2
+      with:
+        name: e2e.test.bin
 
     - name: run E2E tests
       run: |
