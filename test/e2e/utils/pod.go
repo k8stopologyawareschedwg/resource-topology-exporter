@@ -17,37 +17,84 @@ limitations under the License.
 package utils
 
 import (
-         "sync"
+	"sync"
 
-         "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 
-	 v1 "k8s.io/api/core/v1"
-         metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-         "k8s.io/kubernetes/test/e2e/framework"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubernetes/test/e2e/framework"
 )
 
 const (
 	CentosImage = "quay.io/centos/centos:8"
 )
 
-func DeletePodsAsync(f *framework.Framework, podMap map[string]*v1.Pod) {
-         var wg sync.WaitGroup
-         for _, pod := range podMap {
-                 wg.Add(1)
-                 go func(podNS, podName string) {
-                         defer ginkgo.GinkgoRecover()
-                         defer wg.Done()
+func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "sleeper-gu-pod",
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				v1.Container{
+					Name:  "sleeper-gu-cnt",
+					Image: CentosImage,
+					// 1 hour (or >= 1h in general) is "forever" for our purposes
+					Command: []string{"/bin/sleep", "1h"},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							// we use 1 core because that's the minimal meaningful quantity
+							v1.ResourceName(v1.ResourceCPU): resource.MustParse(cpuLimit),
+							// any random reasonable amount is fine
+							v1.ResourceName(v1.ResourceMemory): resource.MustParse("100Mi"),
+						},
+					},
+				},
+			},
+		},
+	}
+}
 
-                         DeletePodSyncByName(f, podName)
-                 }(pod.Namespace, pod.Name)
-        }
-        wg.Wait()
+func MakeBestEffortSleeperPod() *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "sleeper-be-pod",
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				v1.Container{
+					Name:  "sleeper-be-cnt",
+					Image: CentosImage,
+					// 1 hour (or >= 1h in general) is "forever" for our purposes
+					Command: []string{"/bin/sleep", "1h"},
+				},
+			},
+		},
+	}
+}
+
+func DeletePodsAsync(f *framework.Framework, podMap map[string]*v1.Pod) {
+	var wg sync.WaitGroup
+	for _, pod := range podMap {
+		wg.Add(1)
+		go func(podNS, podName string) {
+			defer ginkgo.GinkgoRecover()
+			defer wg.Done()
+
+			DeletePodSyncByName(f, podName)
+		}(pod.Namespace, pod.Name)
+	}
+	wg.Wait()
 }
 
 func DeletePodSyncByName(f *framework.Framework, podName string) {
-        gp := int64(0)
-        delOpts := metav1.DeleteOptions{
-                GracePeriodSeconds: &gp,
-        }
-        f.PodClient().DeleteSync(podName, delOpts, framework.DefaultPodDeletionTimeout)
+	gp := int64(0)
+	delOpts := metav1.DeleteOptions{
+		GracePeriodSeconds: &gp,
+	}
+	f.PodClient().DeleteSync(podName, delOpts, framework.DefaultPodDeletionTimeout)
 }

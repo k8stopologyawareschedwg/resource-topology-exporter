@@ -23,11 +23,13 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
@@ -38,38 +40,165 @@ import (
 	e2ekubelet "k8s.io/kubernetes/test/e2e/framework/kubelet"
 )
 
-var _ = ginkgo.Describe("[RTE] Node topology updater", func() {
+var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater", func() {
 	var (
 		initialized         bool
+		nodeName            string
+		namespace           string
+		kubeletConfig       *kubeletconfig.KubeletConfiguration
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
-		kubeletConfig       *kubeletconfig.KubeletConfiguration
+		workerNodes         []v1.Node
 	)
 
 	f := framework.NewDefaultFramework("topology-updater")
-	ns := getNamespaceName()
 
 	ginkgo.BeforeEach(func() {
 		var err error
 
 		if !initialized {
+			nodeName = getNodeName()
+			namespace = getNamespaceName()
+
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), getNodeName(), metav1.GetOptions{})
+			topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			workerNodes, err = utils.GetWorkerNodes(f)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			initialized = true
 		}
 
-		// intentionally get every single time
+		// intentionally done once
 		kubeletConfig, err = e2ekubelet.GetCurrentKubeletConfig(topologyUpdaterNode.Name, "", true)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
 	ginkgo.Context("with cluster configured", func() {
+		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (best effort QOS)", func() {
+			ginkgo.By("getting the initial topology information")
+			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
+			sleeperPod := utils.MakeBestEffortSleeperPod()
+
+			podMap := make(map[string]*v1.Pod)
+			pod := f.PodClient().CreateSync(sleeperPod)
+			podMap[pod.Name] = pod
+			defer utils.DeletePodsAsync(f, podMap)
+
+			cooldown := 30 * time.Second
+			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
+			// the object, hance the resource version must NOT change, so we can only sleep
+			time.Sleep(cooldown)
+			ginkgo.By("checking the changes in the updated topology - expecting none")
+			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+
+			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			zoneName, resName, cmp, ok := cmpAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
+			if !ok {
+				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+
+			// This is actually a workaround.
+			// Depending on the (random, by design) order on which ginkgo runs the tests, a test which exclusively allocates CPUs may run before.
+			// We cannot (nor should) care about what runs before this test, but we know that this may happen.
+			// The proper solution is to wait for ALL the container requesting exclusive resources to be gone before to end the related test.
+			// To date, we don't yet have a clean way to wait for these pod (actually containers) to be completely gone
+			// (hence, releasing the exclusively allocated CPUs) before to end the test, so this test can run with some leftovers hanging around,
+			// which makes the accounting harder. And this is what we handle here.
+			isGreaterEqual := (cmp >= 0)
+			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
+		})
+
+		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (guaranteed QOS, nonintegral cpu request)", func() {
+			ginkgo.By("getting the initial topology information")
+			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (guaranteed QoS, nonintegral request)")
+			sleeperPod := utils.MakeGuaranteedSleeperPod("500m")
+
+			podMap := make(map[string]*v1.Pod)
+			pod := f.PodClient().CreateSync(sleeperPod)
+			podMap[pod.Name] = pod
+			defer utils.DeletePodsAsync(f, podMap)
+
+			cooldown := 30 * time.Second
+			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
+			// the object, hance the resource version must NOT change, so we can only sleep
+			time.Sleep(cooldown)
+			ginkgo.By("checking the changes in the updated topology - expecting none")
+			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+
+			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			zoneName, resName, cmp, ok := cmpAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
+			if !ok {
+				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+
+			// This is actually a workaround.
+			// Depending on the (random, by design) order on which ginkgo runs the tests, a test which exclusively allocates CPUs may run before.
+			// We cannot (nor should) care about what runs before this test, but we know that this may happen.
+			// The proper solution is to wait for ALL the container requesting exclusive resources to be gone before to end the related test.
+			// To date, we don't yet have a clean way to wait for these pod (actually containers) to be completely gone
+			// (hence, releasing the exclusively allocated CPUs) before to end the test, so this test can run with some leftovers hanging around,
+			// which makes the accounting harder. And this is what we handle here.
+			isGreaterEqual := (cmp >= 0)
+			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
+		})
+
+		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
+			nodes, err := utils.FilterNodesWithEnoughCores(workerNodes, "1000m")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			if len(nodes) < 1 {
+				ginkgo.Skip("not enough allocatable cores for this test")
+			}
+
+			ginkgo.By("getting the initial topology information")
+			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			ginkgo.By("creating a pod consuming exclusive CPUs")
+			sleeperPod := utils.MakeGuaranteedSleeperPod("1000m")
+
+			podMap := make(map[string]*v1.Pod)
+			pod := f.PodClient().CreateSync(sleeperPod)
+			podMap[pod.Name] = pod
+			defer utils.DeletePodsAsync(f, podMap)
+
+			ginkgo.By("getting the updated topology")
+			var finalNodeTopo *v1alpha1.NodeResourceTopology
+			gomega.Eventually(func() bool {
+				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				if err != nil {
+					framework.Logf("failed to get the node topology resource: %v", err)
+					return false
+				}
+				return finalNodeTopo.ObjectMeta.ResourceVersion != initialNodeTopo.ObjectMeta.ResourceVersion
+			}, time.Minute, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+			ginkgo.By("checking the changes in the updated topology")
+
+			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			}
+			zoneName, resName, isLess := lessAllocatableResources(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
+			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
+		})
+
 		ginkgo.It("should fill the node resource topologies CR with the data", func() {
-			nodeTopology := getNodeTopology(topologyClient, topologyUpdaterNode.Name, ns)
+			nodeTopology := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			isValid := isValidNodeTopology(nodeTopology, kubeletConfig)
 			gomega.Expect(isValid).To(gomega.BeTrue(), "received invalid topology: %v", nodeTopology)
 		})

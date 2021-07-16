@@ -11,7 +11,7 @@ defaults:
     shell: bash
 
 jobs:
-  e2e:
+  e2e-ic:
     runs-on: ubuntu-20.04
     env:
       # TODO
@@ -60,4 +60,49 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus="RTE"
+        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraConsuming\]'
+
+  e2e-ip:
+    runs-on: ubuntu-20.04
+    env:
+      # TODO
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v2
+
+    - name: setup golang
+      uses: actions/setup-go@v2
+      id: go
+      with:
+        go-version: 1.16
+
+    - name: build test binary
+      run: |
+        make build-e2e
+
+    - name: build image
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image
+
+    - name: create K8S kind cluster
+      run: |
+        # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
+        kind load docker-image ${RTE_CONTAINER_IMAGE}
+
+    - name: prepare for RTE
+      run: |
+        # TODO: what about the other workers (if any)?
+        kubectl label node kind-worker node-role.kubernetes.io/worker=''
+        kubectl create -f manifests/resource-topology-exporter-rbac.yaml
+
+    - name: cluster info
+      run: |
+        kubectl get nodes
+        kubectl get pods -A
+
+    - name: run E2E tests
+      run: |
+        export KUBECONFIG=${HOME}/.kube/config 
+        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraProviding\]'

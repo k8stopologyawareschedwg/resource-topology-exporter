@@ -10,8 +10,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
@@ -58,6 +56,10 @@ func ContainerIdentFromString(ident string) (*podrescli.ContainerIdent, error) {
 	return cntIdent, nil
 }
 
+type PollTrigger struct {
+	Timer bool
+}
+
 func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
 	klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(resourcemonitorArgs.KubeletConfigFile)
 	if err != nil {
@@ -71,14 +73,14 @@ func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor
 		return err
 	}
 
-	eventsChan := make(chan struct{})
-	zonesChannel, _ := resMon.Run(eventsChan)
+	eventsChan := make(chan PollTrigger)
+	infoChannel, _ := resMon.Run(eventsChan)
 
 	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy)
 	if err != nil {
 		return fmt.Errorf("failed to initialize NRT updater: %w", err)
 	}
-	upd.Run(zonesChannel)
+	upd.Run(infoChannel)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -104,13 +106,13 @@ func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor
 		// TODO: what about closed channels?
 		select {
 		case <-ticker.C:
-			eventsChan <- struct{}{}
+			eventsChan <- PollTrigger{Timer: true}
 			log.Printf("timer update trigger")
 
 		case event := <-watcher.Events:
 			log.Printf("fsnotify event from %q: %v", event.Name, event.Op)
 			if IsTriggeringFSNotifyEvent(event) {
-				eventsChan <- struct{}{}
+				eventsChan <- PollTrigger{}
 				log.Printf("fsnotify update trigger")
 			}
 
@@ -170,13 +172,13 @@ func NewResourceMonitor(args resourcemonitor.Args, rteArgs Args) (*ResourceMonit
 	}, nil
 }
 
-func (rm *ResourceMonitor) Run(eventsChan <-chan struct{}) (<-chan v1alpha1.ZoneList, chan<- struct{}) {
-	zonesChannel := make(chan v1alpha1.ZoneList)
+func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater.MonitorInfo, chan<- struct{}) {
+	infoChannel := make(chan nrtupdater.MonitorInfo)
 	done := make(chan struct{})
 	go func() {
 		for {
 			select {
-			case <-eventsChan:
+			case pt := <-eventsChan:
 				tsBegin := time.Now()
 				podResources, err := rm.resScan.Scan()
 				if err != nil {
@@ -185,7 +187,10 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan struct{}) (<-chan v1alpha1.Zone
 				}
 
 				zones := rm.resAggr.Aggregate(podResources, rm.excludeList)
-				zonesChannel <- zones
+				infoChannel <- nrtupdater.MonitorInfo{
+					Timer: pt.Timer,
+					Zones: zones,
+				}
 				tsEnd := time.Now()
 
 				log.Printf("read request received at %v completed in %v", tsBegin, tsEnd.Sub(tsBegin))
@@ -195,5 +200,5 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan struct{}) (<-chan v1alpha1.Zone
 			}
 		}
 	}()
-	return zonesChannel, done
+	return infoChannel, done
 }
