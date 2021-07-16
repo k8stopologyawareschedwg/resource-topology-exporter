@@ -45,7 +45,10 @@ clean:
 	rm -rf _out
 
 .PHONY: image
-image: binaries
+image: binaries container-image
+
+.PHONY: container-image
+container-image:
 	@echo "building image"
 	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) .
 

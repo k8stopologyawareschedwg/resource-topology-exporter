@@ -11,10 +11,10 @@ defaults:
     shell: bash
 
 jobs:
-  e2e-ic:
+  e2e-build-artifacts:
+    name: build e2e artifacts
     runs-on: ubuntu-20.04
     env:
-      # TODO
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
     steps:
     - name: checkout sources
@@ -26,17 +26,52 @@ jobs:
       with:
         go-version: 1.16
 
+    - name: build rte
+      run: |
+        make binaries
+
     - name: build test binary
       run: |
         make build-e2e
 
-    - name: build image
-      run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image
-
     - name: generate manifests
       run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=10s make gen-manifests | tee rte-e2e.yaml
+        make outdir
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=10s make gen-manifests | tee _out/rte-e2e.yaml
+        cp manifests/resource-topology-exporter-rbac.yaml _out
+
+    - name: upload the e2e test artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: e2e-test-artifacts
+        path: _out/*
+        retention-days: 1
+
+  e2e-ic:
+    name: infra-consuming e2e tests
+    needs: e2e-build-artifacts
+    runs-on: ubuntu-20.04
+    env:
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v2
+
+    - name: download the e2e test artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: e2e-test-artifacts
+
+    - name: prepare artifacts
+      run: |
+        make outdir
+        chmod 0755 resource-topology-exporter rte-e2e.test
+        ls -lh resource-topology-exporter rte-e2e.test
+        mv resource-topology-exporter _out/
+
+    - name: build image
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make container-image
 
     - name: create K8S kind cluster
       run: |
@@ -60,9 +95,11 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraConsuming\]'
+        ./rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraConsuming\]'
 
   e2e-ip:
+    name: infra-providing e2e tests
+    needs: e2e-build-artifacts
     runs-on: ubuntu-20.04
     env:
       # TODO
@@ -71,19 +108,21 @@ jobs:
     - name: checkout sources
       uses: actions/checkout@v2
 
-    - name: setup golang
-      uses: actions/setup-go@v2
-      id: go
+    - name: download the e2e test artifacts
+      uses: actions/download-artifact@v2
       with:
-        go-version: 1.16
+        name: e2e-test-artifacts
 
-    - name: build test binary
+    - name: prepare artifacts
       run: |
-        make build-e2e
+        make outdir
+        chmod 0755 resource-topology-exporter rte-e2e.test
+        ls -lh resource-topology-exporter rte-e2e.test
+        mv resource-topology-exporter _out/
 
     - name: build image
       run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make container-image
 
     - name: create K8S kind cluster
       run: |
@@ -95,7 +134,7 @@ jobs:
       run: |
         # TODO: what about the other workers (if any)?
         kubectl label node kind-worker node-role.kubernetes.io/worker=''
-        kubectl create -f manifests/resource-topology-exporter-rbac.yaml
+        kubectl create -f resource-topology-exporter-rbac.yaml
 
     - name: cluster info
       run: |
@@ -104,5 +143,5 @@ jobs:
 
     - name: run E2E tests
       run: |
-        export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraProviding\]'
+        export KUBECONFIG=${HOME}/.kube/config
+        ./rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraProviding\]'
