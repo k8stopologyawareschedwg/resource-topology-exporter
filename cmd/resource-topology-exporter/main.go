@@ -62,6 +62,7 @@ const helpTemplate string = `{{.ProgramName}}
 			[--topology-manager-policy=<pol>]
 			[--reference-container=<spec>]
 			[--config=<path>]
+			[--refresh-allocatable]
 
   {{.ProgramName}} -h | --help
   {{.ProgramName}} --version
@@ -91,7 +92,8 @@ const helpTemplate string = `{{.ProgramName}}
                                   Alternatively, you can use the env vars
                                   REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.
   --config=<path>                 Configuration file path. Use this to set the exclude list.
-                                  [Default: /etc/resource-topology-exporter/config.yaml]`
+                                  [Default: /etc/resource-topology-exporter/config.yaml]
+  --refresh-allocatable           Refresh allocatable resources before each poll.`
 
 func getUsage() (string, error) {
 	var helpBuffer bytes.Buffer
@@ -158,13 +160,7 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourceto
 		resourcemonitorArgs.KubeletConfigFile = kubeletConfigPath
 	}
 	resourcemonitorArgs.SysfsRoot = arguments["--sysfs"].(string)
-	if path, ok := arguments["--podresources-socket"].(string); ok {
-		resourcemonitorArgs.PodResourceSocketPath = path
-	}
-
-	if kubeletStateDirs, ok := arguments["--kubelet-state-dir"].([]string); ok {
-		resourcemonitorArgs.KubeletStateDirs = kubeletStateDirs
-	}
+	resourcemonitorArgs.RefreshAllocatable = arguments["--refresh-allocatable"].(bool)
 
 	rteArgs.Debug = arguments["--debug"].(bool)
 	if refCnt, ok := arguments["--reference-container"].(string); ok {

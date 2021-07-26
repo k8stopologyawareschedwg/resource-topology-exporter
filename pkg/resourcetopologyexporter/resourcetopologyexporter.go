@@ -162,28 +162,18 @@ func IsTriggeringFSNotifyEvent(event fsnotify.Event) bool {
 }
 
 type ResourceMonitor struct {
-	resScan     resourcemonitor.ResourcesScanner
-	resAggr     resourcemonitor.ResourcesAggregator
+	resMon      resourcemonitor.ResourceMonitor
 	excludeList resourcemonitor.ResourceExcludeList
 }
 
 func NewResourceMonitor(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args, rteArgs Args) (*ResourceMonitor, error) {
-	resScan, err := resourcemonitor.NewPodResourcesScanner(args.Namespace, cli)
+	resMon, err := resourcemonitor.NewResourceMonitor(cli, args)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize ResourceMonitor scanner: %w", err)
-	}
-	// CAUTION: these resources are expected to change rarely - if ever.
-	//So we are intentionally do this once during the process lifecycle.
-	//TODO: Obtain node resources dynamically from the podresource API
-
-	resAggr, err := resourcemonitor.NewResourcesAggregator(args.SysfsRoot, cli)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain node resource information: %w", err)
+		return nil, fmt.Errorf("failed to initialize ResourceMonitor: %w", err)
 	}
 
 	return &ResourceMonitor{
-		resScan:     resScan,
-		resAggr:     resAggr,
+		resMon:      resMon,
 		excludeList: args.ExcludeList,
 	}, nil
 }
@@ -196,13 +186,11 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater
 			select {
 			case pt := <-eventsChan:
 				tsBegin := time.Now()
-				podResources, err := rm.resScan.Scan()
+				zones, err := rm.resMon.Scan(rm.excludeList)
 				if err != nil {
 					log.Printf("failed to scan pod resources: %v\n", err)
 					continue
 				}
-
-				zones := rm.resAggr.Aggregate(podResources, rm.excludeList)
 				infoChannel <- nrtupdater.MonitorInfo{
 					Timer: pt.Timer,
 					Zones: zones,
