@@ -47,14 +47,10 @@ type ResourceExcludeList struct {
 }
 
 type Args struct {
-	PodResourceSocketPath string
-	SleepInterval         time.Duration
-	Namespace             string
-	SysfsRoot             string
-	KubeletConfigFile     string
-	KubeletStateDirs      []string
-	ExcludeList           ResourceExcludeList
-	RefreshAllocatable    bool
+	Namespace          string
+	SysfsRoot          string
+	ExcludeList        ResourceExcludeList
+	RefreshAllocatable bool
 }
 
 type ResourceMonitor interface {

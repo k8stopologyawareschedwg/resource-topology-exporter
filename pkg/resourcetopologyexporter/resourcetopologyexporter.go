@@ -26,9 +26,13 @@ const (
 )
 
 type Args struct {
-	Debug                 bool
-	ReferenceContainer    *podrescli.ContainerIdent
-	TopologyManagerPolicy string
+	Debug                  bool
+	ReferenceContainer     *podrescli.ContainerIdent
+	TopologyManagerPolicy  string
+	KubeletConfigFile      string
+	KubeletStateDirs       []string
+	PodResourcesSocketPath string
+	SleepInterval          time.Duration
 }
 
 func ContainerIdentFromEnv() *podrescli.ContainerIdent {
@@ -90,7 +94,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	}
 	defer watcher.Close()
 
-	for _, stateDir := range resourcemonitorArgs.KubeletStateDirs {
+	for _, stateDir := range rteArgs.KubeletStateDirs {
 		log.Printf("kubelet state dir: [%s]", stateDir)
 		if stateDir == "" {
 			continue
@@ -106,7 +110,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	eventsChan <- PollTrigger{}
 	log.Printf("initial update trigger")
 
-	ticker := time.NewTicker(resourcemonitorArgs.SleepInterval)
+	ticker := time.NewTicker(rteArgs.SleepInterval)
 	for {
 		// TODO: what about closed channels?
 		select {
@@ -135,8 +139,8 @@ func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs 
 		log.Printf("using given Topology Manager policy %q", rteArgs.TopologyManagerPolicy)
 		return rteArgs.TopologyManagerPolicy, nil
 	}
-	if resourcemonitorArgs.KubeletConfigFile != "" {
-		klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(resourcemonitorArgs.KubeletConfigFile)
+	if rteArgs.KubeletConfigFile != "" {
+		klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(rteArgs.KubeletConfigFile)
 		if err != nil {
 			return "", fmt.Errorf("error getting topology Manager Policy: %w", err)
 		}

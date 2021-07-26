@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("failed to parse command line: %v", err)
 	}
 
-	cli, err := podrescli.NewFilteringClient(resourcemonitorArgs.PodResourceSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
+	cli, err := podrescli.NewFilteringClient(rteArgs.PodResourcesSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
 	if err != nil {
 		log.Fatalf("failed to get podresources client: %v", err)
 	}
@@ -149,15 +149,8 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourceto
 		}
 	}
 
-	resourcemonitorArgs.SleepInterval, err = time.ParseDuration(arguments["--sleep-interval"].(string))
-	if err != nil {
-		return nrtupdaterArgs, resourcemonitorArgs, rteArgs, fmt.Errorf("invalid --sleep-interval specified: %w", err)
-	}
 	if ns, ok := arguments["--watch-namespace"].(string); ok {
 		resourcemonitorArgs.Namespace = ns
-	}
-	if kubeletConfigPath, ok := arguments["--kubelet-config-file"].(string); ok {
-		resourcemonitorArgs.KubeletConfigFile = kubeletConfigPath
 	}
 	resourcemonitorArgs.SysfsRoot = arguments["--sysfs"].(string)
 	resourcemonitorArgs.RefreshAllocatable = arguments["--refresh-allocatable"].(bool)
@@ -180,6 +173,20 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourceto
 		}
 		resourcemonitorArgs.ExcludeList.ExcludeList = conf.ExcludeList
 		log.Printf("using exclude list:\n%s", resourcemonitorArgs.ExcludeList.String())
+	}
+
+	rteArgs.SleepInterval, err = time.ParseDuration(arguments["--sleep-interval"].(string))
+	if err != nil {
+		return nrtupdaterArgs, resourcemonitorArgs, rteArgs, fmt.Errorf("invalid --sleep-interval specified: %w", err)
+	}
+	if path, ok := arguments["--podresources-socket"].(string); ok {
+		rteArgs.PodResourcesSocketPath = path
+	}
+	if kubeletStateDirs, ok := arguments["--kubelet-state-dir"].([]string); ok {
+		rteArgs.KubeletStateDirs = kubeletStateDirs
+	}
+	if kubeletConfigPath, ok := arguments["--kubelet-config-file"].(string); ok {
+		rteArgs.KubeletConfigFile = kubeletConfigPath
 	}
 	if tmPolicy, ok := arguments["--topology-manager-policy"].(string); ok {
 		if tmPolicy == "" {
