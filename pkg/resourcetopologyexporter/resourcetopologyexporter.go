@@ -102,6 +102,9 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		}
 	}
 
+	eventsChan <- PollTrigger{}
+	log.Printf("initial update trigger")
+
 	ticker := time.NewTicker(resourcemonitorArgs.SleepInterval)
 	for {
 		// TODO: what about closed channels?
