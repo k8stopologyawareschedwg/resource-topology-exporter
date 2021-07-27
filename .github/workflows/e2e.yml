@@ -55,7 +55,7 @@ jobs:
         kubectl get nodes
         kubectl get pods -A
         kubectl describe pod -l name=resource-topology || :
-        kubectl logs -l name=resource-topology || :
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
 
     - name: run E2E tests
       run: |
