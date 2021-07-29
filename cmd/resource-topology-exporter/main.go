@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 )
@@ -28,7 +29,12 @@ func main() {
 		log.Fatalf("failed to parse command line: %v", err)
 	}
 
-	err = resourcetopologyexporter.Execute(nrtupdaterArgs, resourcemonitorArgs, rteArgs)
+	cli, err := podrescli.NewFilteringClient(resourcemonitorArgs.PodResourceSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
+	if err != nil {
+		log.Fatalf("failed to get podresources client: %v", err)
+	}
+
+	err = resourcetopologyexporter.Execute(cli, nrtupdaterArgs, resourcemonitorArgs, rteArgs)
 	if err != nil {
 		log.Fatalf("failed to execute: %v", err)
 	}

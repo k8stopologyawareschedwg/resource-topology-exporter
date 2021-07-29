@@ -85,16 +85,24 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 	return fc.FilterAllocatableResponse(resp), nil
 }
 
-func NewClient(socketPath string, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
-	podResourceClient, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
+func NewK8SClient(socketPath string) (podresourcesapi.PodResourcesListerClient, error) {
+	cli, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
+	return cli, err
+}
+
+func NewFilteringClient(socketPath string, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
+	cli, err := NewK8SClient(socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create podresource client: %v", err)
 	}
 	log.Printf("connected to %q", socketPath)
+	return NewFilteringClientFromLister(cli, debug, referenceContainer)
+}
 
+func NewFilteringClientFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
 	return &filteringClient{
 		debug:  debug,
-		cli:    podResourceClient,
+		cli:    cli,
 		refCnt: referenceContainer,
 	}, nil
 }

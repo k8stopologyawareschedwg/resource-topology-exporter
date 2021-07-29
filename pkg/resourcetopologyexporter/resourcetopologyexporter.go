@@ -10,6 +10,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
@@ -61,13 +63,13 @@ type PollTrigger struct {
 	Timer bool
 }
 
-func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
+func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
 	tmPolicy, err := getTopologyManagerPolicy(resourcemonitorArgs, rteArgs)
 	if err != nil {
 		return err
 	}
 
-	resMon, err := NewResourceMonitor(resourcemonitorArgs, rteArgs)
+	resMon, err := NewResourceMonitor(cli, resourcemonitorArgs, rteArgs)
 	if err != nil {
 		return err
 	}
@@ -161,21 +163,16 @@ type ResourceMonitor struct {
 	excludeList resourcemonitor.ResourceExcludeList
 }
 
-func NewResourceMonitor(args resourcemonitor.Args, rteArgs Args) (*ResourceMonitor, error) {
-	podResClient, err := podrescli.NewClient(args.PodResourceSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
+func NewResourceMonitor(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args, rteArgs Args) (*ResourceMonitor, error) {
+	resScan, err := resourcemonitor.NewPodResourcesScanner(args.Namespace, cli)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get podresources client: %w", err)
-	}
-
-	resScan, err := resourcemonitor.NewPodResourcesScanner(args.Namespace, podResClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize ResourceMonitor upd: %w", err)
+		return nil, fmt.Errorf("failed to initialize ResourceMonitor scanner: %w", err)
 	}
 	// CAUTION: these resources are expected to change rarely - if ever.
 	//So we are intentionally do this once during the process lifecycle.
 	//TODO: Obtain node resources dynamically from the podresource API
 
-	resAggr, err := resourcemonitor.NewResourcesAggregator(args.SysfsRoot, podResClient)
+	resAggr, err := resourcemonitor.NewResourcesAggregator(args.SysfsRoot, cli)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain node resource information: %w", err)
 	}
