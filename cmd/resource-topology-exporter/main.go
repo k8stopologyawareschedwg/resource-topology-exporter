@@ -66,12 +66,12 @@ const helpTemplate string = `{{.ProgramName}}
   --export-namespace=<namespace>  Namespace on which update CRDs. Use "" for all namespaces.
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
   --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
-  --kubelet-config-file=<path>    Kubelet config file path. [Default: ""]
+  --kubelet-config-file=<path>    Kubelet config file path. [Default: ]
   --topology-manager-policy=<pol> Explicitely set the topology manager policy instead of reading
-                                  from the kubelet. [Default: ""]
+                                  from the kubelet. [Default: ]
   --kubelet-state-dir=<path>...   Kubelet state directory (RO access needed), for smart polling.
   --podresources-socket=<path>    Pod Resource Socket path to use.
-                                  [Default: /podresources/kubelet.sock]
+                                  [Default: unix:///podresources/kubelet.sock]
   --reference-container=<spec>    Reference container, used to learn about the shared cpu pool
                                   See: https://github.com/kubernetes/kubernetes/issues/102190
                                   format of spec is namespace/podname/containername.
