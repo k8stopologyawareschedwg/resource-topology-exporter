@@ -23,8 +23,9 @@ const (
 )
 
 type Args struct {
-	Debug              bool
-	ReferenceContainer *podrescli.ContainerIdent
+	Debug                 bool
+	ReferenceContainer    *podrescli.ContainerIdent
+	TopologyManagerPolicy string
 }
 
 func ContainerIdentFromEnv() *podrescli.ContainerIdent {
@@ -61,12 +62,10 @@ type PollTrigger struct {
 }
 
 func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
-	klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(resourcemonitorArgs.KubeletConfigFile)
+	tmPolicy, err := getTopologyManagerPolicy(resourcemonitorArgs, rteArgs)
 	if err != nil {
-		return fmt.Errorf("error getting topology Manager Policy: %w", err)
+		return err
 	}
-	tmPolicy := klConfig.TopologyManagerPolicy
-	log.Printf("detected kubelet Topology Manager policy %q", tmPolicy)
 
 	resMon, err := NewResourceMonitor(resourcemonitorArgs, rteArgs)
 	if err != nil {
@@ -123,6 +122,22 @@ func Execute(nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor
 	}
 
 	return nil // unreachable
+}
+
+func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (string, error) {
+	if rteArgs.TopologyManagerPolicy != "" {
+		log.Printf("using given Topology Manager policy %q", rteArgs.TopologyManagerPolicy)
+		return rteArgs.TopologyManagerPolicy, nil
+	}
+	if resourcemonitorArgs.KubeletConfigFile != "" {
+		klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(resourcemonitorArgs.KubeletConfigFile)
+		if err != nil {
+			return "", fmt.Errorf("error getting topology Manager Policy: %w", err)
+		}
+		log.Printf("detected kubelet Topology Manager policy %q", klConfig.TopologyManagerPolicy)
+		return klConfig.TopologyManagerPolicy, nil
+	}
+	return "", fmt.Errorf("cannot find the kubelet Topology Manager policy")
 }
 
 func IsTriggeringFSNotifyEvent(event fsnotify.Event) bool {

@@ -46,6 +46,7 @@ const helpTemplate string = `{{.ProgramName}}
 			[--sysfs=<mountpoint>]
 			[--kubelet-state-dir=<path>...]
 			[--kubelet-config-file=<path>]
+			[--topology-manager-policy=<pol>]
 			[--reference-container=<spec>]
 			[--exclude-list-config=<path>]
 
@@ -65,11 +66,12 @@ const helpTemplate string = `{{.ProgramName}}
   --export-namespace=<namespace>  Namespace on which update CRDs. Use "" for all namespaces.
   --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
   --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
-  --kubelet-config-file=<path>    Kubelet config file path.
-                                  [Default: /kubeletstate/config.yaml]
+  --kubelet-config-file=<path>    Kubelet config file path. [Default: ]
+  --topology-manager-policy=<pol> Explicitely set the topology manager policy instead of reading
+                                  from the kubelet. [Default: ]
   --kubelet-state-dir=<path>...   Kubelet state directory (RO access needed), for smart polling.
   --podresources-socket=<path>    Pod Resource Socket path to use.
-                                  [Default: /podresources/kubelet.sock]
+                                  [Default: unix:///podresources/kubelet.sock]
   --reference-container=<spec>    Reference container, used to learn about the shared cpu pool
                                   See: https://github.com/kubernetes/kubernetes/issues/102190
                                   format of spec is namespace/podname/containername.
@@ -167,6 +169,14 @@ func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourceto
 		if err != nil {
 			log.Fatalf("error getting exclude list from the configutarion: %v", err)
 		}
+	}
+	if tmPolicy, ok := arguments["--topology-manager-policy"].(string); ok {
+		if tmPolicy == "" {
+			// last attempt
+			tmPolicy = os.Getenv("TOPOLOGY_MANAGER_POLICY")
+		}
+		// empty string is a valid value here, so just keep going
+		rteArgs.TopologyManagerPolicy = tmPolicy
 	}
 	return nrtupdaterArgs, resourcemonitorArgs, rteArgs, nil
 }
