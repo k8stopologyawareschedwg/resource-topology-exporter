@@ -55,7 +55,13 @@ jobs:
         kubectl get nodes
         kubectl get pods -A
         kubectl describe pod -l name=resource-topology || :
-        kubectl logs -l name=resource-topology || :
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+
+    - name: cluster ready
+      run: |
+        hack/check-ds.sh
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+        kubectl get noderesourcetopologies.topology.node.k8s.io -A -o yaml
 
     - name: run E2E tests
       run: |

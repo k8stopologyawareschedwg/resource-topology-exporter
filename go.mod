@@ -22,6 +22,7 @@ require (
 	k8s.io/client-go v0.21.0
 	k8s.io/kubelet v0.21.0
 	k8s.io/kubernetes v1.21.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 // The k8s "sub-"packages do not have 'semver' compatible versions. Thus, we
