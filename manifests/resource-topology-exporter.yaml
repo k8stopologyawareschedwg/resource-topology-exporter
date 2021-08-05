@@ -26,6 +26,21 @@ roleRef:
   name: rte
   apiGroup: rbac.authorization.k8s.io
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rte-config
+  namespace: default
+data:
+  config.yaml: |
+    # key = node name, value = list of resources to be excluded.
+    # use * to exclude from all nodes.
+    # an example for how the exclude list should looks like
+    # excludelist:
+    #   node1: [cpu]
+    #   node2: [memory, example/deviceA]
+    #   *: [cpu]
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -73,7 +88,7 @@ spec:
           - name: host-kubelet-state
             mountPath: "/host-var/lib/kubelet"
           - name: exclude-list-config-vol
-            mountPath: "/etc/resource-topology-exporter-config"
+            mountPath: "/etc/resource-topology-exporter"
       - name: shared-pool-container
         image: gcr.io/google_containers/pause-amd64:3.0
       volumes:
