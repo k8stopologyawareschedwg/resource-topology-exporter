@@ -1,15 +1,14 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
-	"text/template"
+	"strings"
 	"time"
-
-	"github.com/docopt/docopt-go"
 
 	"sigs.k8s.io/yaml"
 
@@ -25,13 +24,29 @@ const (
 	ProgramName = "resource-topology-exporter"
 )
 
+type ProgArgs struct {
+	NRTupdater      nrtupdater.Args
+	Resourcemonitor resourcemonitor.Args
+	RTE             resourcetopologyexporter.Args
+	Version         bool
+}
+
+func (pa *ProgArgs) ToJson() ([]byte, error) {
+	return json.Marshal(pa)
+}
+
 func main() {
-	nrtupdaterArgs, resourcemonitorArgs, rteArgs, err := argsParse(os.Args[1:])
+	parsedArgs, err := parseArgs(os.Args[1:]...)
 	if err != nil {
-		log.Fatalf("failed to parse command line: %v", err)
+		log.Fatalf("failed to parse args: %v", err)
 	}
 
-	cli, err := podrescli.NewFilteringClient(rteArgs.PodResourcesSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
+	if parsedArgs.Version {
+		fmt.Println(ProgramName, "TODO add Version track logic")
+		os.Exit(0)
+	}
+
+	cli, err := podrescli.NewFilteringClient(parsedArgs.RTE.PodResourcesSocketPath, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
 	if err != nil {
 		log.Fatalf("failed to get podresources client: %v", err)
 	}
@@ -41,162 +56,10 @@ func main() {
 		log.Fatalf("failed to start prometheus server: %v", err)
 	}
 
-	err = resourcetopologyexporter.Execute(cli, nrtupdaterArgs, resourcemonitorArgs, rteArgs)
+	err = resourcetopologyexporter.Execute(cli, parsedArgs.NRTupdater, parsedArgs.Resourcemonitor, parsedArgs.RTE)
 	if err != nil {
 		log.Fatalf("failed to execute: %v", err)
 	}
-}
-
-const helpTemplate string = `{{.ProgramName}}
-
-  Usage:
-  {{.ProgramName}}	[--debug]
-                        [--no-publish]
-			[--oneshot | --sleep-interval=<seconds>]
-			[--podresources-socket=<path>]
-			[--export-namespace=<namespace>]
-			[--watch-namespace=<namespace>]
-			[--sysfs=<mountpoint>]
-			[--kubelet-state-dir=<path>...]
-			[--kubelet-config-file=<path>]
-			[--topology-manager-policy=<pol>]
-			[--reference-container=<spec>]
-			[--config=<path>]
-			[--refresh-allocatable]
-
-  {{.ProgramName}} -h | --help
-  {{.ProgramName}} --version
-
-  Options:
-  -h --help                       Show this screen.
-  --debug                         Enable debug output. [Default: false]
-  --version                       Output version and exit.
-  --no-publish                    Do not publish discovered features to the
-                                  cluster-local Kubernetes API server.
-  --hostname                      Override the node hostname.
-  --oneshot                       Update once and exit.
-  --sleep-interval=<seconds>      Time to sleep between podresources API polls.
-                                  [Default: 60s]
-  --export-namespace=<namespace>  Namespace on which update CRDs. Use "" for all namespaces.
-  --watch-namespace=<namespace>   Namespace to watch pods for. Use "" for all namespaces.
-  --sysfs=<path>                  Top-level component path of sysfs. [Default: /sys]
-  --kubelet-config-file=<path>    Kubelet config file path. [Default: ]
-  --topology-manager-policy=<pol> Explicitely set the topology manager policy instead of reading
-                                  from the kubelet. [Default: ]
-  --kubelet-state-dir=<path>...   Kubelet state directory (RO access needed), for smart polling.
-  --podresources-socket=<path>    Pod Resource Socket path to use.
-                                  [Default: unix:///podresources/kubelet.sock]
-  --reference-container=<spec>    Reference container, used to learn about the shared cpu pool
-                                  See: https://github.com/kubernetes/kubernetes/issues/102190
-                                  format of spec is namespace/podname/containername.
-                                  Alternatively, you can use the env vars
-                                  REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.
-  --config=<path>                 Configuration file path. Use this to set the exclude list.
-                                  [Default: /etc/resource-topology-exporter/config.yaml]
-  --refresh-allocatable           Refresh allocatable resources before each poll.`
-
-func getUsage() (string, error) {
-	var helpBuffer bytes.Buffer
-	helpData := struct {
-		ProgramName string
-	}{
-		ProgramName: ProgramName,
-	}
-
-	tmpl, err := template.New("help").Parse(helpTemplate)
-	if err != nil {
-		return "", err
-	}
-	err = tmpl.Execute(&helpBuffer, helpData)
-	if err != nil {
-		return "", err
-	}
-
-	return helpBuffer.String(), nil
-}
-
-// nrtupdaterArgsParse parses the command line arguments passed to the program.
-// The argument argv is passed only for testing purposes.
-func argsParse(argv []string) (nrtupdater.Args, resourcemonitor.Args, resourcetopologyexporter.Args, error) {
-	var nrtupdaterArgs nrtupdater.Args
-	var resourcemonitorArgs resourcemonitor.Args
-	var rteArgs resourcetopologyexporter.Args
-
-	usage, err := getUsage()
-	if err != nil {
-		return nrtupdaterArgs, resourcemonitorArgs, rteArgs, err
-	}
-
-	arguments, _ := docopt.ParseArgs(usage, argv, fmt.Sprintf("%s %s", ProgramName, "TBD"))
-
-	// Parse argument values as usable types.
-	nrtupdaterArgs.NoPublish = arguments["--no-publish"].(bool)
-	nrtupdaterArgs.Oneshot = arguments["--oneshot"].(bool)
-	if ns, ok := arguments["--export-namespace"].(string); ok {
-		nrtupdaterArgs.Namespace = ns
-	}
-	if hostname, ok := arguments["--hostname"].(string); ok {
-		nrtupdaterArgs.Hostname = hostname
-	}
-	if nrtupdaterArgs.Hostname == "" {
-		var err error
-		nrtupdaterArgs.Hostname = os.Getenv("NODE_NAME")
-		if nrtupdaterArgs.Hostname == "" {
-			nrtupdaterArgs.Hostname, err = os.Hostname()
-			if err != nil {
-				return nrtupdaterArgs, resourcemonitorArgs, rteArgs, fmt.Errorf("error getting the host name: %w", err)
-			}
-		}
-	}
-
-	if ns, ok := arguments["--watch-namespace"].(string); ok {
-		resourcemonitorArgs.Namespace = ns
-	}
-	resourcemonitorArgs.SysfsRoot = arguments["--sysfs"].(string)
-	resourcemonitorArgs.RefreshAllocatable = arguments["--refresh-allocatable"].(bool)
-
-	rteArgs.Debug = arguments["--debug"].(bool)
-	if refCnt, ok := arguments["--reference-container"].(string); ok {
-		rteArgs.ReferenceContainer, err = resourcetopologyexporter.ContainerIdentFromString(refCnt)
-		if err != nil {
-			return nrtupdaterArgs, resourcemonitorArgs, rteArgs, err
-		}
-	}
-	if rteArgs.ReferenceContainer == nil {
-		rteArgs.ReferenceContainer = resourcetopologyexporter.ContainerIdentFromEnv()
-	}
-
-	if configPath, ok := arguments["--config"].(string); ok {
-		conf, err := readConfig(configPath)
-		if err != nil {
-			log.Fatalf("error getting exclude list from the configuration: %v", err)
-		}
-		resourcemonitorArgs.ExcludeList.ExcludeList = conf.ExcludeList
-		log.Printf("using exclude list:\n%s", resourcemonitorArgs.ExcludeList.String())
-	}
-
-	rteArgs.SleepInterval, err = time.ParseDuration(arguments["--sleep-interval"].(string))
-	if err != nil {
-		return nrtupdaterArgs, resourcemonitorArgs, rteArgs, fmt.Errorf("invalid --sleep-interval specified: %w", err)
-	}
-	if path, ok := arguments["--podresources-socket"].(string); ok {
-		rteArgs.PodResourcesSocketPath = path
-	}
-	if kubeletStateDirs, ok := arguments["--kubelet-state-dir"].([]string); ok {
-		rteArgs.KubeletStateDirs = kubeletStateDirs
-	}
-	if kubeletConfigPath, ok := arguments["--kubelet-config-file"].(string); ok {
-		rteArgs.KubeletConfigFile = kubeletConfigPath
-	}
-	if tmPolicy, ok := arguments["--topology-manager-policy"].(string); ok {
-		if tmPolicy == "" {
-			// last attempt
-			tmPolicy = os.Getenv("TOPOLOGY_MANAGER_POLICY")
-		}
-		// empty string is a valid value here, so just keep going
-		rteArgs.TopologyManagerPolicy = tmPolicy
-	}
-	return nrtupdaterArgs, resourcemonitorArgs, rteArgs, nil
 }
 
 type config struct {
@@ -216,4 +79,108 @@ func readConfig(configPath string) (config, error) {
 	}
 	err = yaml.Unmarshal(data, &conf)
 	return conf, err
+}
+
+// The args is passed only for testing purposes.
+func parseArgs(args ...string) (ProgArgs, error) {
+	pArgs := ProgArgs{
+		nrtupdater.Args{},
+		resourcemonitor.Args{},
+		resourcetopologyexporter.Args{},
+		false,
+	}
+
+	var configPath string
+	flags := flag.NewFlagSet(ProgramName, flag.ExitOnError)
+
+	flags.BoolVar(&pArgs.NRTupdater.NoPublish, "no-publish", false, "Do not publish discovered features to the cluster-local Kubernetes API server.")
+	flags.BoolVar(&pArgs.NRTupdater.Oneshot, "oneshot", false, "Update once and exit.")
+	flags.StringVar(&pArgs.NRTupdater.Namespace, "export-namespace", "", "Namespace on which update CRDs. Use \"\" for all namespaces")
+	flags.StringVar(&pArgs.NRTupdater.Hostname, "hostname", defaultHostName(), "Override the node hostname.")
+
+	flags.StringVar(&pArgs.Resourcemonitor.Namespace, "watch-namespace", "", "Namespace to watch pods for. Use \"\" for all namespaces.")
+	flags.StringVar(&pArgs.Resourcemonitor.SysfsRoot, "sysfs", "/sys", "Top-level component path of sysfs.")
+
+	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
+	conf, err := readConfig(configPath)
+	if err != nil {
+		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %v", err)
+	}
+	if len(conf.ExcludeList) != 0 {
+		pArgs.Resourcemonitor.ExcludeList.ExcludeList = conf.ExcludeList
+		log.Printf("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
+	}
+
+	flags.BoolVar(&pArgs.RTE.Debug, "debug", false, " Enable debug output.")
+	flags.StringVar(&pArgs.RTE.TopologyManagerPolicy, "topology-manager-policy", defaultTopologyManagerPolicy(), "Explicitly set the topology manager policy instead of reading from the kubelet.")
+	flags.DurationVar(&pArgs.RTE.SleepInterval, "sleep-interval", 60*time.Second, "Time to sleep between podresources API polls.")
+	flags.StringVar(&pArgs.RTE.KubeletConfigFile, "kubelet-config-file", "/podresources/config.yaml", "Kubelet config file path.")
+	flags.StringVar(&pArgs.RTE.PodResourcesSocketPath, "podresources-socket", "unix:///podresources/kubelet.sock", "Pod Resource Socket path to use.")
+
+	kubeletStateDirs := flags.String("kubelet-state-dir", "", "Kubelet state directory (RO access needed), for smart polling.")
+	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
+
+	pArgs.Version = *flags.Bool("Version", false, "Output Version and exit")
+
+	err = flags.Parse(args)
+	if err != nil {
+		return pArgs, err
+	}
+
+	pArgs.RTE.KubeletStateDirs, err = setKubeletStateDirs(*kubeletStateDirs)
+	if err != nil {
+		return pArgs, err
+	}
+
+	pArgs.RTE.ReferenceContainer, err = setContainerIdent(*refCnt)
+	if err != nil {
+		return pArgs, err
+	}
+	if pArgs.RTE.ReferenceContainer.IsEmpty() {
+		pArgs.RTE.ReferenceContainer = podrescli.ContainerIdentFromEnv()
+	}
+
+	return pArgs, nil
+}
+
+func defaultHostName() string {
+	var err error
+
+	val, ok := os.LookupEnv("NODE_NAME")
+	if !ok || val == "" {
+		val, err = os.Hostname()
+		if err != nil {
+			log.Fatalf("error getting the host name: %v", err)
+		}
+	}
+	return val
+}
+
+func defaultTopologyManagerPolicy() string {
+	if val, ok := os.LookupEnv("TOPOLOGY_MANAGER_POLICY"); ok {
+		return val
+	}
+	// empty string is a valid value here, so just keep going
+	return ""
+}
+
+func setKubeletStateDirs(value string) ([]string, error) {
+	ksd := make([]string, 0)
+	for _, s := range strings.Split(value, " ") {
+		ksd = append(ksd, s)
+	}
+	return ksd, nil
+}
+
+func setContainerIdent(value string) (*podrescli.ContainerIdent, error) {
+	ci, err := podrescli.ContainerIdentFromString(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if ci == nil {
+		return &podrescli.ContainerIdent{}, nil
+	}
+
+	return ci, nil
 }
