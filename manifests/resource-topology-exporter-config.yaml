@@ -6,10 +6,10 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: resource-topology-exporter-config
-  namespace: rte
+  name: rte-config
+  namespace: default
 data:
-  exclude-list-config.yaml: |
+  config.yaml: |
     # key = node name, value = list of resources to be excluded.
     # use * to exclude from all nodes.
     # an example for how the exclude list should looks like
