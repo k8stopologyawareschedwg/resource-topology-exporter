@@ -37,6 +37,7 @@ type Args struct {
 type ResourceInfo struct {
 	Name corev1.ResourceName
 	Data []string
+	Topology []int
 }
 
 type ContainerResources struct {

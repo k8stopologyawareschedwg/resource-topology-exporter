@@ -21,11 +21,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
@@ -78,7 +81,7 @@ func NewResourcesAggregatorFromData(topo *ghw.TopologyInfo, resp *podresourcesap
 	return &nodeResources{
 		topo:              topo,
 		resourceID2NUMAID: makeResourceMap(len(topo.Nodes), allDevs),
-		perNUMACapacity:   MakeNodeCapacity(allDevs),
+		perNUMACapacity:   MakeNodeCapacity(allDevs, resp.GetMemory()),
 	}
 }
 
@@ -106,6 +109,11 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources, excl
 	for _, podRes := range podResData {
 		for _, contRes := range podRes.Containers {
 			for _, res := range contRes.Resources {
+				if res.Name == v1.ResourceMemory || strings.HasPrefix(string(res.Name), v1.ResourceHugePagesPrefix) {
+					noderesourceData.updateMemoryAllocatable(perNuma, res)
+					continue
+				}
+
 				noderesourceData.updateAllocatable(perNuma, res)
 			}
 		}
@@ -124,7 +132,7 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources, excl
 		if err != nil {
 			log.Printf("cannot find costs for NUMA node %d: %v", nodeID, err)
 		} else {
-			zone.Costs = topologyv1alpha1.CostList(costs)
+			zone.Costs = costs
 		}
 
 		for name, resData := range resList {
@@ -207,7 +215,7 @@ func makeZoneName(nodeID int) string {
 // MakeNodeCapacity computes the node capacity as mapping (NUMA node ID) -> Resource -> Capacity (amount, int).
 // The computation is done assuming all the resources to represent the capacity for are represented on a slice
 // of ContainerDevices. No special treatment is done for CPU IDs. See GetContainerDevicesFromAllocatableResources.
-func MakeNodeCapacity(devices []*podresourcesapi.ContainerDevices) map[int]map[v1.ResourceName]int64 {
+func MakeNodeCapacity(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory) map[int]map[v1.ResourceName]int64 {
 	perNUMACapacity := make(map[int]map[v1.ResourceName]int64)
 	// initialize with the capacities
 	for _, device := range devices {
@@ -222,6 +230,30 @@ func MakeNodeCapacity(devices []*podresourcesapi.ContainerDevices) map[int]map[v
 			perNUMACapacity[nodeID] = nodeRes
 		}
 	}
+
+	for _, block := range memoryBlocks {
+		memoryType := v1.ResourceName(block.GetMemoryType())
+
+		if block.GetTopology() == nil {
+			continue
+		}
+
+		for _, node := range block.GetTopology().GetNodes() {
+			nodeID := int(node.GetID())
+			if _, ok := perNUMACapacity[nodeID]; !ok {
+				perNUMACapacity[nodeID] = make(map[v1.ResourceName]int64)
+			}
+
+			if _, ok := perNUMACapacity[nodeID][memoryType]; !ok {
+				perNUMACapacity[nodeID][memoryType] = 0
+			}
+
+			// I do not like the idea to cast from uint64 to int64, but until the memory size does not go over
+			// 8589934592Gi, it should be ok
+			perNUMACapacity[nodeID][memoryType] += int64(block.GetSize_())
+		}
+	}
+
 	return perNUMACapacity
 }
 
@@ -286,4 +318,45 @@ func findNodeByID(nodes []*ghw.TopologyNode, nodeID int) *ghw.TopologyNode {
 
 func getNodeName() string {
 	return os.Getenv("NODE_NAME")
+}
+
+// updateMemoryAllocatable computes the actual amount of the allocatable memory.
+// This function assumes the allocatable resources are initialized to be equal to the capacity.
+func (noderesourceData *nodeResources) updateMemoryAllocatable(numaData map[int]map[v1.ResourceName]*resourceData, ri ResourceInfo) {
+	if len(ri.Topology) == 0 {
+		klog.Warningf("failed to get the device %q NUMA nodes", string(ri.Name))
+		return
+	}
+
+	if len(ri.Data) != 1 {
+		klog.Warningf("failed to get the device %q size", string(ri.Name))
+		return
+	}
+
+	requestedSize, _ := strconv.ParseInt(ri.Data[0], 10, 64)
+	for _, numaNodeID := range ri.Topology {
+		if requestedSize == 0 {
+			return
+		}
+
+		if _, ok := numaData[numaNodeID]; !ok {
+			return
+		}
+
+		if _, ok := numaData[numaNodeID][ri.Name]; !ok {
+			return
+		}
+
+		if numaData[numaNodeID][ri.Name].allocatable == 0 {
+			continue
+		}
+
+		if requestedSize >= numaData[numaNodeID][ri.Name].allocatable {
+			requestedSize -= numaData[numaNodeID][ri.Name].allocatable
+			numaData[numaNodeID][ri.Name].allocatable = 0
+		} else {
+			numaData[numaNodeID][ri.Name].allocatable -= requestedSize
+			requestedSize = 0
+		}
+	}
 }

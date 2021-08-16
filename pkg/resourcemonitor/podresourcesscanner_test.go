@@ -69,24 +69,44 @@ func TestPodScanner(t *testing.T) {
 		Convey("When I successfully get valid response", func() {
 			resp := &v1.ListPodResourcesResponse{
 				PodResources: []*v1.PodResources{
-					&v1.PodResources{
+					{
 						Name:      "test-pod-0",
 						Namespace: "default",
 						Containers: []*v1.ContainerResources{
-							&v1.ContainerResources{
+							{
 								Name: "test-cnt-0",
 								Devices: []*v1.ContainerDevices{
-									&v1.ContainerDevices{
+									{
 										ResourceName: "fake.io/resource",
 										DeviceIds:    []string{"devA"},
 										Topology: &v1.TopologyInfo{
 											Nodes: []*v1.NUMANode{
-												&v1.NUMANode{ID: 0},
+												{ID: 0},
 											},
 										},
 									},
 								},
 								CpuIds: []int64{0, 1},
+								Memory: []*v1.ContainerMemory{
+									{
+										MemoryType: "memory",
+										Size_:      1024,
+										Topology: &v1.TopologyInfo{
+											Nodes: []*v1.NUMANode{
+												{ID: 0},
+											},
+										},
+									},
+									{
+										MemoryType: "hugepages-2Mi",
+										Size_:      1024,
+										Topology: &v1.TopologyInfo{
+											Nodes: []*v1.NUMANode{
+												{ID: 0},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -102,20 +122,31 @@ func TestPodScanner(t *testing.T) {
 				So(len(res), ShouldBeGreaterThan, 0)
 
 				expected := []PodResources{
-					PodResources{
+					{
 						Name:      "test-pod-0",
 						Namespace: "default",
 						Containers: []ContainerResources{
-							ContainerResources{
+							{
 								Name: "test-cnt-0",
 								Resources: []ResourceInfo{
-									ResourceInfo{
+									{
 										Name: "cpu",
 										Data: []string{"0", "1"},
 									},
-									ResourceInfo{
-										Name: "fake.io/resource",
-										Data: []string{"devA"},
+									{
+										Name:     "fake.io/resource",
+										Data:     []string{"devA"},
+										Topology: []int{0},
+									},
+									{
+										Name:     "memory",
+										Data:     []string{"1024"},
+										Topology: []int{0},
+									},
+									{
+										Name:     "hugepages-2Mi",
+										Data:     []string{"1024"},
+										Topology: []int{0},
 									},
 								},
 							},
