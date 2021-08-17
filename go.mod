@@ -11,6 +11,7 @@ require (
 	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.8
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
+	github.com/prometheus/client_golang v1.11.0
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.0
