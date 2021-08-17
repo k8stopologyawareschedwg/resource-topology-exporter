@@ -9,9 +9,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dumpobject"
+	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 )
 
@@ -63,7 +63,7 @@ func updateReason(info MonitorInfo) string {
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
-	stdoutLogger.Printf("update: sending zone: '%s'", dumpobject.DumpObject(info.Zones))
+	stdoutLogger.Printf("update: sending zone: '%s'", dumpObject(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
@@ -91,7 +91,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 		if err != nil {
 			return fmt.Errorf("update failed to create v1alpha1.NodeResourceTopology!:%v", err)
 		}
-		log.Printf("update created CRD instance: %v", dumpobject.DumpObject(nrtCreated))
+		log.Printf("update created CRD instance: %v", dumpObject(nrtCreated))
 		return nil
 	}
 
@@ -138,4 +138,12 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo) chan<- struct{} {
 		}
 	}()
 	return done
+}
+
+func dumpObject(obj interface{}) string {
+	out, err := yaml.Marshal(obj)
+	if err != nil {
+		return fmt.Sprintf("<!!! FAILED TO MARSHAL %T (%v) !!!>\n", obj, err)
+	}
+	return string(out)
 }
