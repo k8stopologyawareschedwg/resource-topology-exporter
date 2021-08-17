@@ -34,6 +34,7 @@ import (
 	"github.com/jaypipes/ghw"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 )
 
 const (
@@ -69,6 +70,7 @@ func NewResourcesAggregator(sysfsRoot string, podResourceClient podresourcesapi.
 	//Pod Resource API client
 	resp, err := podResourceClient.GetAllocatableResources(ctx, &podresourcesapi.AllocatableResourcesRequest{})
 	if err != nil {
+		prometheus.UpdatePodResourceApiCallsFailureMetric("get_allocatable_resources")
 		return nil, fmt.Errorf("Can't receive response: %v.Get(_) = _, %v", podResourceClient, err)
 	}
 

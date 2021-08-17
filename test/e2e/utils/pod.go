@@ -39,7 +39,7 @@ func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
 		Spec: v1.PodSpec{
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
-				v1.Container{
+				{
 					Name:  "sleeper-gu-cnt",
 					Image: CentosImage,
 					// 1 hour (or >= 1h in general) is "forever" for our purposes
@@ -66,7 +66,7 @@ func MakeBestEffortSleeperPod() *v1.Pod {
 		Spec: v1.PodSpec{
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
-				v1.Container{
+				{
 					Name:  "sleeper-be-cnt",
 					Image: CentosImage,
 					// 1 hour (or >= 1h in general) is "forever" for our purposes

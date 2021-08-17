@@ -34,6 +34,8 @@ const (
 	// we rely on kind for our CI
 	defaultNodeName  = "kind-worker"
 	defaultNamespace = "default"
+	rteLabelName     = "resource-topology"
+	rteContainerName = "resource-topology-exporter-container"
 )
 
 // handleFlags sets up all flags and parses the command line.
