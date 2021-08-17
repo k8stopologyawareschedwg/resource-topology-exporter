@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
+
 	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 )
@@ -32,6 +34,11 @@ func main() {
 	cli, err := podrescli.NewFilteringClient(resourcemonitorArgs.PodResourceSocketPath, rteArgs.Debug, rteArgs.ReferenceContainer)
 	if err != nil {
 		log.Fatalf("failed to get podresources client: %v", err)
+	}
+
+	err = prometheus.InitPrometheus()
+	if err != nil {
+		log.Fatalf("failed to start prometheus server: %v", err)
 	}
 
 	err = resourcetopologyexporter.Execute(cli, nrtupdaterArgs, resourcemonitorArgs, rteArgs)

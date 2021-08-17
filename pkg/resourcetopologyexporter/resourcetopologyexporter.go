@@ -15,6 +15,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
@@ -207,8 +208,9 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater
 					Zones: zones,
 				}
 				tsEnd := time.Now()
+				tsDiff := tsEnd.Sub(tsBegin)
 
-				log.Printf("read request received at %v completed in %v", tsBegin, tsEnd.Sub(tsBegin))
+				prometheus.UpdateOperationDelayMetric("podresources_scan", float64(tsDiff.Milliseconds()))
 			case <-done:
 				log.Printf("read stop at %v", time.Now())
 				break

@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"log"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 )
 
 type PodResourcesScanner struct {
@@ -61,7 +63,8 @@ func (resMon *PodResourcesScanner) Scan() ([]PodResources, error) {
 	//Pod Resource API client
 	resp, err := resMon.podResourceClient.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("Can't receive response: %v.Get(_) = _, %v", resMon.podResourceClient, err)
+		prometheus.UpdatePodResourceApiCallsFailureMetric("list")
+		return nil, fmt.Errorf("can't receive response: %v.Get(_) = _, %v", resMon.podResourceClient, err)
 	}
 
 	var podResData []PodResources

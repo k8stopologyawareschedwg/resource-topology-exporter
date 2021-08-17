@@ -39,6 +39,8 @@ spec:
               fieldPath: metadata.name
         - name: REFERENCE_CONTAINER_NAME
           value: shared-pool-container
+        - name: METRICS_PORT
+          value: "${METRICS_PORT}"
         volumeMounts:
           - name: host-sys
             mountPath: "/host-sys"
@@ -47,6 +49,9 @@ spec:
             mountPath: "/host-var/lib/kubelet"
           - name: rte-config
             mountPath: "/etc/resource-topology-exporter"
+        ports:
+          - name: metrics-port
+            containerPort: ${METRICS_PORT}
       - name: shared-pool-container
         image: gcr.io/google_containers/pause-amd64:3.0
       volumes:

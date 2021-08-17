@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dumpobject"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 )
 
 const (
@@ -126,7 +126,8 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo) chan<- struct{} {
 				}
 				tsEnd := time.Now()
 
-				log.Printf("update request received at %v completed in %v", tsBegin, tsEnd.Sub(tsBegin))
+				tsDiff := tsEnd.Sub(tsBegin)
+				prometheus.UpdateOperationDelayMetric("node_resource_object_update", float64(tsDiff.Milliseconds()))
 				if te.args.Oneshot {
 					break
 				}
