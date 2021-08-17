@@ -96,15 +96,31 @@ func (resMon *PodResourcesScanner) Scan() ([]PodResources, error) {
 			}
 
 			for _, device := range container.GetDevices() {
+				topology := getTopology(device.GetTopology())
 				contRes.Resources = append(contRes.Resources, ResourceInfo{
-					Name: v1.ResourceName(device.ResourceName),
-					Data: device.DeviceIds,
+					Name:     v1.ResourceName(device.ResourceName),
+					Data:     device.DeviceIds,
+					Topology: topology,
+				})
+			}
+
+			for _, block := range container.GetMemory() {
+				if block.GetSize_() == 0 {
+					continue
+				}
+
+				topology := getTopology(block.GetTopology())
+				contRes.Resources = append(contRes.Resources, ResourceInfo{
+					Name:     v1.ResourceName(block.MemoryType),
+					Data:     []string{fmt.Sprintf("%d", block.GetSize_())},
+					Topology: topology,
 				})
 			}
 
 			if len(contRes.Resources) == 0 {
 				continue
 			}
+
 			podRes.Containers = append(podRes.Containers, contRes)
 		}
 
@@ -117,4 +133,21 @@ func (resMon *PodResourcesScanner) Scan() ([]PodResources, error) {
 	}
 
 	return podResData, nil
+}
+
+func getTopology(topologyInfo *podresourcesapi.TopologyInfo) []int {
+	if topologyInfo == nil {
+		return nil
+	}
+
+	var topology []int
+	for _, node := range topologyInfo.Nodes {
+		if node == nil {
+			continue
+		}
+
+		topology = append(topology, int(node.ID))
+	}
+
+	return topology
 }
