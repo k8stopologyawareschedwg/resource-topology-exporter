@@ -44,14 +44,14 @@ func getNodeName() (string, error) {
 
 func UpdatePodResourceApiCallsFailureMetric(funcName string) {
 	PodResourceApiCallsFailure.With(prometheus.Labels{
-		"node":      nodeName,
+		"node":          nodeName,
 		"function_name": funcName,
 	}).Inc()
 }
 
 func UpdateOperationDelayMetric(opName string, operationDelay float64) {
 	OperationDelay.With(prometheus.Labels{
-		"node": nodeName,
+		"node":           nodeName,
 		"operation_name": opName,
 	}).Set(operationDelay)
 }
