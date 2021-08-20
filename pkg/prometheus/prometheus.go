@@ -26,6 +26,11 @@ var (
 		Name: "rte_operation_delay_milliseconds",
 		Help: "The latency between exporting stages, milliseconds",
 	}, []string{"node", "operation_name", "trigger"})
+
+	WakeupDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "rte_wakeup_delay_milliseconds",
+		Help: "The wakeup delay of the monitor code, milliseconds",
+	}, []string{"node", "trigger"})
 )
 
 func getNodeName() (string, error) {
@@ -54,6 +59,13 @@ func UpdateOperationDelayMetric(opName, trigger string, operationDelay float64) 
 		"operation_name": opName,
 		"trigger":        trigger,
 	}).Set(operationDelay)
+}
+
+func UpdateWakeupDelayMetric(trigger string, wakeupDelay float64) {
+	WakeupDelay.With(prometheus.Labels{
+		"node":    nodeName,
+		"trigger": trigger,
+	}).Set(wakeupDelay)
 }
 
 func InitPrometheus() error {
