@@ -53,8 +53,9 @@ var _ = ginkgo.Describe("[RTE] metrics", func() {
 				CaptureStderr:      true,
 				PreserveWhitespace: false,
 			})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "%s", stderr)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "ExecWithOptions failed with %s:\n%s", err, stderr)
 			gomega.Expect(stdout).To(gomega.ContainSubstring("operation_delay"))
+			gomega.Expect(stdout).To(gomega.ContainSubstring("podresource_api_call_failures_total"))
 		})
 	})
 })
