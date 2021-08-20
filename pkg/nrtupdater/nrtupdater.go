@@ -47,19 +47,19 @@ type MonitorInfo struct {
 	Zones v1alpha1.ZoneList
 }
 
+func (mi MonitorInfo) UpdateReason() string {
+	if mi.Timer {
+		return RTEUpdatePeriodic
+	}
+	return RTEUpdateReactive
+}
+
 func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
 	te := &NRTUpdater{
 		args:     args,
 		tmPolicy: policy,
 	}
 	return te, nil
-}
-
-func updateReason(info MonitorInfo) string {
-	if info.Timer {
-		return RTEUpdatePeriodic
-	}
-	return RTEUpdateReactive
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
@@ -80,7 +80,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: te.args.Hostname,
 				Annotations: map[string]string{
-					AnnotationRTEUpdate: updateReason(info),
+					AnnotationRTEUpdate: info.UpdateReason(),
 				},
 			},
 			Zones:            info.Zones,
@@ -103,7 +103,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	if nrtMutated.Annotations == nil {
 		nrtMutated.Annotations = make(map[string]string)
 	}
-	nrtMutated.Annotations[AnnotationRTEUpdate] = updateReason(info)
+	nrtMutated.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
 	nrtMutated.Zones = info.Zones
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
@@ -127,7 +127,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo) chan<- struct{} {
 				tsEnd := time.Now()
 
 				tsDiff := tsEnd.Sub(tsBegin)
-				prometheus.UpdateOperationDelayMetric("node_resource_object_update", float64(tsDiff.Milliseconds()))
+				prometheus.UpdateOperationDelayMetric("node_resource_object_update", RTEUpdateReactive, float64(tsDiff.Milliseconds()))
 				if te.args.Oneshot {
 					break
 				}

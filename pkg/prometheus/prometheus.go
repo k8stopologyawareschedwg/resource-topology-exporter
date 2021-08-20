@@ -26,7 +26,7 @@ var (
 		prometheus.GaugeOpts{
 			Name: "operation_delay",
 			Help: "Represent the latency of the update operation",
-		}, []string{"node", "operation_name"})
+		}, []string{"node", "operation_name", "trigger"})
 )
 
 func getNodeName() (string, error) {
@@ -49,10 +49,11 @@ func UpdatePodResourceApiCallsFailureMetric(funcName string) {
 	}).Inc()
 }
 
-func UpdateOperationDelayMetric(opName string, operationDelay float64) {
+func UpdateOperationDelayMetric(opName, trigger string, operationDelay float64) {
 	OperationDelay.With(prometheus.Labels{
 		"node":           nodeName,
 		"operation_name": opName,
+		"trigger":        trigger,
 	}).Set(operationDelay)
 }
 

@@ -191,18 +191,21 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater
 			case pt := <-eventsChan:
 				tsBegin := time.Now()
 				zones, err := rm.resMon.Scan(rm.excludeList)
+				tsEnd := time.Now()
+
 				if err != nil {
 					log.Printf("failed to scan pod resources: %v\n", err)
 					continue
 				}
-				infoChannel <- nrtupdater.MonitorInfo{
+
+				monInfo := nrtupdater.MonitorInfo{
 					Timer: pt.Timer,
 					Zones: zones,
 				}
-				tsEnd := time.Now()
-				tsDiff := tsEnd.Sub(tsBegin)
+				infoChannel <- monInfo
 
-				prometheus.UpdateOperationDelayMetric("podresources_scan", float64(tsDiff.Milliseconds()))
+				tsDiff := tsEnd.Sub(tsBegin)
+				prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
 			case <-done:
 				log.Printf("read stop at %v", time.Now())
 				break
