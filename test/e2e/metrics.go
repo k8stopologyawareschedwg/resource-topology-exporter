@@ -6,7 +6,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
@@ -14,22 +14,24 @@ import (
 var _ = ginkgo.Describe("[RTE] metrics", func() {
 	var (
 		initialized bool
-		rtePod      *v1.Pod
+		rtePod      *corev1.Pod
 	)
 
 	f := framework.NewDefaultFramework("metrics")
 
 	ginkgo.BeforeEach(func() {
 		if !initialized {
-			pods, err := f.ClientSet.CoreV1().Pods(defaultNamespace).List(context.TODO(), metav1.ListOptions{})
+			var err error
+			var pods *corev1.PodList
+			sel := metav1.LabelSelector{
+				MatchLabels: map[string]string{"name": rteLabelName},
+			}
+			pods, err = f.ClientSet.CoreV1().Pods(defaultNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			for _, pod := range pods.Items {
-				if val, ok := pod.Labels["name"]; ok && val == rteLabelName {
-					rtePod = &pod
-				}
-			}
-			gomega.Expect(rtePod).ToNot(gomega.BeNil())
+			gomega.Expect(len(pods.Items)).To(gomega.Equal(1))
+			rtePod := &pods.Items[0]
+
 			initialized = true
 		}
 	})
