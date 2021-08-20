@@ -18,15 +18,14 @@ var nodeName string
 
 var (
 	PodResourceApiCallsFailure = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "podresource_api_call_failures_total",
+		Name: "rte_podresource_api_call_failures_total",
 		Help: "The total number of podresource api calls that failed by the updater",
 	}, []string{"node", "function_name"})
 
-	OperationDelay = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "operation_delay",
-			Help: "Represent the latency of the update operation",
-		}, []string{"node", "operation_name", "trigger"})
+	OperationDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "rte_operation_delay_milliseconds",
+		Help: "The latency between exporting stages, milliseconds",
+	}, []string{"node", "operation_name", "trigger"})
 )
 
 func getNodeName() (string, error) {
