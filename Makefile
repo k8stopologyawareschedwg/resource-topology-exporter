@@ -56,7 +56,8 @@ push: image
 
 .PHONY: test-unit
 test-unit:
-	go test ./pkg/...
+	@go test ./cmd/...
+	@go test ./pkg/...
 
 .PHONY: build-e2e
 build-e2e: _out/rte-e2e.test

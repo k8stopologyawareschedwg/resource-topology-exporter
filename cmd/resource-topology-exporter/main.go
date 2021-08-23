@@ -102,14 +102,6 @@ func parseArgs(args ...string) (ProgArgs, error) {
 	flags.StringVar(&pArgs.Resourcemonitor.SysfsRoot, "sysfs", "/sys", "Top-level component path of sysfs.")
 
 	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
-	conf, err := readConfig(configPath)
-	if err != nil {
-		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %v", err)
-	}
-	if len(conf.ExcludeList) != 0 {
-		pArgs.Resourcemonitor.ExcludeList.ExcludeList = conf.ExcludeList
-		log.Printf("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
-	}
 
 	flags.BoolVar(&pArgs.RTE.Debug, "debug", false, " Enable debug output.")
 	flags.StringVar(&pArgs.RTE.TopologyManagerPolicy, "topology-manager-policy", defaultTopologyManagerPolicy(), "Explicitly set the topology manager policy instead of reading from the kubelet.")
@@ -120,11 +112,21 @@ func parseArgs(args ...string) (ProgArgs, error) {
 	kubeletStateDirs := flags.String("kubelet-state-dir", "", "Kubelet state directory (RO access needed), for smart polling.")
 	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
-	pArgs.Version = *flags.Bool("Version", false, "Output Version and exit")
+	pArgs.Version = *flags.Bool("version", false, "Output version and exit")
 
-	err = flags.Parse(args)
+	err := flags.Parse(args)
 	if err != nil {
 		return pArgs, err
+	}
+
+	conf, err := readConfig(configPath)
+	if err != nil {
+		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %v", err)
+	}
+
+	if len(conf.ExcludeList) != 0 {
+		pArgs.Resourcemonitor.ExcludeList.ExcludeList = conf.ExcludeList
+		log.Printf("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
 	}
 
 	pArgs.RTE.KubeletStateDirs, err = setKubeletStateDirs(*kubeletStateDirs)
