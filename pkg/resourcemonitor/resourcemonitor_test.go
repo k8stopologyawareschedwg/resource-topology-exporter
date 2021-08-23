@@ -314,6 +314,15 @@ func TestNormalizeContainerDevices(t *testing.T) {
 				},
 			},
 		}
+
+		sort.Slice(res, func(i, j int) bool {
+			return res[i].ResourceName < res[j].ResourceName
+		})
+
+		sort.Slice(expected, func(i, j int) bool {
+			return expected[i].ResourceName < expected[j].ResourceName
+		})
+
 		log.Printf("result=%v", res)
 		log.Printf("expected=%v", expected)
 		log.Printf("diff=%s", cmp.Diff(res, expected))
