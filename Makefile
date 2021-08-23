@@ -90,3 +90,8 @@ gen-manifests:
 .PHONY: update-manifests
 update-manifests:
 	@curl -L $(TOPOLOGYAPI_MANIFESTS)/crd.yaml -o manifests/noderesourcetopologies_crd.yaml
+
+.PHONY: update-golden-files
+update-golden-files:
+	@go test ./cmd/... -update
+
