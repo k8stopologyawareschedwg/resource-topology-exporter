@@ -112,7 +112,7 @@ func parseArgs(args ...string) (ProgArgs, error) {
 	kubeletStateDirs := flags.String("kubelet-state-dir", "", "Kubelet state directory (RO access needed), for smart polling.")
 	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
-	pArgs.Version = *flags.Bool("Version", false, "Output Version and exit")
+	pArgs.Version = *flags.Bool("version", false, "Output version and exit")
 
 	err := flags.Parse(args)
 	if err != nil {
