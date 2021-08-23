@@ -102,14 +102,6 @@ func parseArgs(args ...string) (ProgArgs, error) {
 	flags.StringVar(&pArgs.Resourcemonitor.SysfsRoot, "sysfs", "/sys", "Top-level component path of sysfs.")
 
 	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
-	conf, err := readConfig(configPath)
-	if err != nil {
-		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %v", err)
-	}
-	if len(conf.ExcludeList) != 0 {
-		pArgs.Resourcemonitor.ExcludeList.ExcludeList = conf.ExcludeList
-		log.Printf("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
-	}
 
 	flags.BoolVar(&pArgs.RTE.Debug, "debug", false, " Enable debug output.")
 	flags.StringVar(&pArgs.RTE.TopologyManagerPolicy, "topology-manager-policy", defaultTopologyManagerPolicy(), "Explicitly set the topology manager policy instead of reading from the kubelet.")
@@ -122,9 +114,19 @@ func parseArgs(args ...string) (ProgArgs, error) {
 
 	pArgs.Version = *flags.Bool("Version", false, "Output Version and exit")
 
-	err = flags.Parse(args)
+	err := flags.Parse(args)
 	if err != nil {
 		return pArgs, err
+	}
+
+	conf, err := readConfig(configPath)
+	if err != nil {
+		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %v", err)
+	}
+
+	if len(conf.ExcludeList) != 0 {
+		pArgs.Resourcemonitor.ExcludeList.ExcludeList = conf.ExcludeList
+		log.Printf("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
 	}
 
 	pArgs.RTE.KubeletStateDirs, err = setKubeletStateDirs(*kubeletStateDirs)
