@@ -3,9 +3,7 @@ package resourcetopologyexporter
 import (
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -33,35 +31,6 @@ type Args struct {
 	KubeletStateDirs       []string
 	PodResourcesSocketPath string
 	SleepInterval          time.Duration
-}
-
-func ContainerIdentFromEnv() *podrescli.ContainerIdent {
-	cntIdent := podrescli.ContainerIdent{
-		Namespace:     os.Getenv("REFERENCE_NAMESPACE"),
-		PodName:       os.Getenv("REFERENCE_POD_NAME"),
-		ContainerName: os.Getenv("REFERENCE_CONTAINER_NAME"),
-	}
-	if cntIdent.Namespace == "" || cntIdent.PodName == "" || cntIdent.ContainerName == "" {
-		return nil
-	}
-	return &cntIdent
-}
-
-func ContainerIdentFromString(ident string) (*podrescli.ContainerIdent, error) {
-	if ident == "" {
-		return nil, nil
-	}
-	items := strings.Split(ident, "/")
-	if len(items) != 3 {
-		return nil, fmt.Errorf("malformed ident: %q", ident)
-	}
-	cntIdent := &podrescli.ContainerIdent{
-		Namespace:     strings.TrimSpace(items[0]),
-		PodName:       strings.TrimSpace(items[1]),
-		ContainerName: strings.TrimSpace(items[2]),
-	}
-	log.Printf("reference container: %s", cntIdent)
-	return cntIdent, nil
 }
 
 type PollTrigger struct {

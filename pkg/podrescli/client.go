@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -31,6 +33,39 @@ func (ci *ContainerIdent) String() string {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s/%s", ci.Namespace, ci.PodName, ci.ContainerName)
+}
+
+func (ci *ContainerIdent) IsEmpty() bool {
+	return ci.Namespace == "" || ci.PodName == "" || ci.ContainerName == ""
+}
+
+func ContainerIdentFromEnv() *ContainerIdent {
+	cntIdent := ContainerIdent{
+		Namespace:     os.Getenv("REFERENCE_NAMESPACE"),
+		PodName:       os.Getenv("REFERENCE_POD_NAME"),
+		ContainerName: os.Getenv("REFERENCE_CONTAINER_NAME"),
+	}
+	if cntIdent.IsEmpty() {
+		return nil
+	}
+	return &cntIdent
+}
+
+func ContainerIdentFromString(ident string) (*ContainerIdent, error) {
+	if ident == "" {
+		return nil, nil
+	}
+	items := strings.Split(ident, "/")
+	if len(items) != 3 {
+		return nil, fmt.Errorf("malformed ident: %q", ident)
+	}
+	cntIdent := &ContainerIdent{
+		Namespace:     strings.TrimSpace(items[0]),
+		PodName:       strings.TrimSpace(items[1]),
+		ContainerName: strings.TrimSpace(items[2]),
+	}
+	log.Printf("reference container: %s", cntIdent)
+	return cntIdent, nil
 }
 
 type PodResourcesFilter interface {
