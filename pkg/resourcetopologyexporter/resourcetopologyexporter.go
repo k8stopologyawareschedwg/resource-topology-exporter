@@ -34,7 +34,8 @@ type Args struct {
 }
 
 type PollTrigger struct {
-	Timer bool
+	Timer     bool
+	Timestamp time.Time
 }
 
 func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
@@ -76,21 +77,21 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		}
 	}
 
-	eventsChan <- PollTrigger{}
+	eventsChan <- PollTrigger{Timestamp: time.Now()}
 	log.Printf("initial update trigger")
 
 	ticker := time.NewTicker(rteArgs.SleepInterval)
 	for {
 		// TODO: what about closed channels?
 		select {
-		case <-ticker.C:
-			eventsChan <- PollTrigger{Timer: true}
+		case tickTs := <-ticker.C:
+			eventsChan <- PollTrigger{Timer: true, Timestamp: tickTs}
 			log.Printf("timer update trigger")
 
 		case event := <-watcher.Events:
 			log.Printf("fsnotify event from %q: %v", event.Name, event.Op)
 			if IsTriggeringFSNotifyEvent(event) {
-				eventsChan <- PollTrigger{}
+				eventsChan <- PollTrigger{Timestamp: time.Now()}
 				log.Printf("fsnotify update trigger")
 			}
 
@@ -155,23 +156,29 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater
 	infoChannel := make(chan nrtupdater.MonitorInfo)
 	done := make(chan struct{})
 	go func() {
+		lastWakeup := time.Now()
 		for {
 			select {
 			case pt := <-eventsChan:
+				var err error
+				monInfo := nrtupdater.MonitorInfo{Timer: pt.Timer}
+
+				tsWakeupDiff := pt.Timestamp.Sub(lastWakeup)
+				lastWakeup = pt.Timestamp
+				prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
+
 				tsBegin := time.Now()
-				zones, err := rm.resMon.Scan(rm.excludeList)
+				monInfo.Zones, err = rm.resMon.Scan(rm.excludeList)
+				tsEnd := time.Now()
+
 				if err != nil {
 					log.Printf("failed to scan pod resources: %v\n", err)
 					continue
 				}
-				infoChannel <- nrtupdater.MonitorInfo{
-					Timer: pt.Timer,
-					Zones: zones,
-				}
-				tsEnd := time.Now()
-				tsDiff := tsEnd.Sub(tsBegin)
+				infoChannel <- monInfo
 
-				prometheus.UpdateOperationDelayMetric("podresources_scan", float64(tsDiff.Milliseconds()))
+				tsDiff := tsEnd.Sub(tsBegin)
+				prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
 			case <-done:
 				log.Printf("read stop at %v", time.Now())
 				break

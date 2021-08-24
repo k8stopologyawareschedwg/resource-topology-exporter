@@ -18,15 +18,19 @@ var nodeName string
 
 var (
 	PodResourceApiCallsFailure = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "podresource_api_call_failures_total",
+		Name: "rte_podresource_api_call_failures_total",
 		Help: "The total number of podresource api calls that failed by the updater",
 	}, []string{"node", "function_name"})
 
-	OperationDelay = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "operation_delay",
-			Help: "Represent the latency of the update operation",
-		}, []string{"node", "operation_name"})
+	OperationDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "rte_operation_delay_milliseconds",
+		Help: "The latency between exporting stages, milliseconds",
+	}, []string{"node", "operation_name", "trigger"})
+
+	WakeupDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "rte_wakeup_delay_milliseconds",
+		Help: "The wakeup delay of the monitor code, milliseconds",
+	}, []string{"node", "trigger"})
 )
 
 func getNodeName() (string, error) {
@@ -49,11 +53,19 @@ func UpdatePodResourceApiCallsFailureMetric(funcName string) {
 	}).Inc()
 }
 
-func UpdateOperationDelayMetric(opName string, operationDelay float64) {
+func UpdateOperationDelayMetric(opName, trigger string, operationDelay float64) {
 	OperationDelay.With(prometheus.Labels{
 		"node":           nodeName,
 		"operation_name": opName,
+		"trigger":        trigger,
 	}).Set(operationDelay)
+}
+
+func UpdateWakeupDelayMetric(trigger string, wakeupDelay float64) {
+	WakeupDelay.With(prometheus.Labels{
+		"node":    nodeName,
+		"trigger": trigger,
+	}).Set(wakeupDelay)
 }
 
 func InitPrometheus() error {
