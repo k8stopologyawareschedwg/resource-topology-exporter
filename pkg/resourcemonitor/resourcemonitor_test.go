@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"log"
 	"sort"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -316,10 +317,33 @@ func TestNormalizeContainerDevices(t *testing.T) {
 		}
 
 		sort.Slice(res, func(i, j int) bool {
+			if res[i].ResourceName == res[j].ResourceName {
+				var sbi, sbj strings.Builder
+				for _, id := range res[i].DeviceIds {
+					sbi.WriteString(id)
+				}
+
+				for _, id := range res[i].DeviceIds {
+					sbj.WriteString(id)
+				}
+				return sbi.String() < sbj.String()
+			}
 			return res[i].ResourceName < res[j].ResourceName
 		})
 
+
 		sort.Slice(expected, func(i, j int) bool {
+			if expected[i].ResourceName == expected[j].ResourceName {
+				var sbi, sbj strings.Builder
+				for _, id := range expected[i].DeviceIds {
+					sbi.WriteString(id)
+				}
+
+				for _, id := range expected[i].DeviceIds {
+					sbj.WriteString(id)
+				}
+				return sbi.String() < sbj.String()
+			}
 			return expected[i].ResourceName < expected[j].ResourceName
 		})
 
