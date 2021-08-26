@@ -3,12 +3,11 @@ package nrtupdater
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 
 	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -22,11 +21,6 @@ const (
 const (
 	RTEUpdatePeriodic = "periodic"
 	RTEUpdateReactive = "reactive"
-)
-
-var (
-	stdoutLogger = log.New(os.Stdout, "", log.LstdFlags)
-	stderrLogger = log.New(os.Stderr, "", log.LstdFlags)
 )
 
 // Command line arguments
@@ -63,7 +57,7 @@ func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
-	stdoutLogger.Printf("update: sending zone: '%s'", utils.Dump(info.Zones))
+	klog.V(3).Infof("update: sending zone: '%s'", utils.Dump(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
@@ -91,7 +85,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 		if err != nil {
 			return fmt.Errorf("update failed to create v1alpha1.NodeResourceTopology!:%v", err)
 		}
-		log.Printf("update created CRD instance: %v", utils.Dump(nrtCreated))
+		klog.V(2).Infof("update created CRD instance: %v", utils.Dump(nrtCreated))
 		return nil
 	}
 
@@ -110,7 +104,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	if err != nil {
 		return fmt.Errorf("update failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
-	log.Printf("update changed CRD instance: %v", nrtUpdated)
+	klog.V(3).Infof("update changed CRD instance: %v", nrtUpdated)
 	return nil
 }
 
@@ -122,7 +116,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo) chan<- struct{} {
 			case info := <-infoChannel:
 				tsBegin := time.Now()
 				if err := te.Update(info); err != nil {
-					log.Printf("failed to update: %v", err)
+					klog.Warning("failed to update: %v", err)
 				}
 				tsEnd := time.Now()
 
@@ -132,7 +126,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo) chan<- struct{} {
 					break
 				}
 			case <-done:
-				log.Printf("update stop at %v", time.Now())
+				klog.Infof("update stop at %v", time.Now())
 				break
 			}
 		}

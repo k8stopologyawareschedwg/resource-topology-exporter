@@ -19,7 +19,6 @@ package resourcemonitor
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
@@ -109,18 +109,18 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
 	}
 	if !rm.args.RefreshAllocatable {
-		log.Printf("getting allocatable resources once")
+		klog.Infof("getting allocatable resources once")
 		if err := rm.updateNodeCapacity(); err != nil {
 			return nil, err
 		}
 	} else {
-		log.Printf("getting allocatable resources before each poll")
+		klog.Infof("getting allocatable resources before each poll")
 	}
 
 	if rm.args.Namespace != "" {
-		log.Printf("watching namespace %q", rm.args.Namespace)
+		klog.Infof("watching namespace %q", rm.args.Namespace)
 	} else {
-		log.Printf("watching all namespaces")
+		klog.Infof("watching all namespaces")
 	}
 	return rm, nil
 }
@@ -154,7 +154,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 		costs, err := makeCostsPerNumaNode(rm.topo.Nodes, nodeID)
 		if err != nil {
-			log.Printf("cannot find costs for NUMA node %d: %v", nodeID, err)
+			klog.Warningf("cannot find costs for NUMA node %d: %v", nodeID, err)
 		} else {
 			zone.Costs = topologyv1alpha1.CostList(costs)
 		}
@@ -170,7 +170,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 			size := resAlloc - resUsed
 			if size < 0 {
-				log.Printf("negative size for %q on zone %q", resName.String(), zone.Name)
+				klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
 				size = 0
 			}
 
@@ -223,7 +223,7 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 	for _, cpuID := range cpuIds {
 		nodeID, ok := coreIDToNodeIDMap[int(cpuID)]
 		if !ok {
-			log.Printf("cannot find the NUMA node for CPU %d", cpuID)
+			klog.Warningf("cannot find the NUMA node for CPU %d", cpuID)
 			continue
 		}
 		cpusPerNuma[nodeID] = append(cpusPerNuma[nodeID], fmt.Sprintf("%d", cpuID))

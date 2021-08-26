@@ -3,7 +3,6 @@ package podrescli
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 	"k8s.io/kubernetes/pkg/kubelet/apis/podresources"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
@@ -64,7 +64,7 @@ func ContainerIdentFromString(ident string) (*ContainerIdent, error) {
 		PodName:       strings.TrimSpace(items[1]),
 		ContainerName: strings.TrimSpace(items[2]),
 	}
-	log.Printf("reference container: %s", cntIdent)
+	klog.Infof("reference container: %s", cntIdent)
 	return cntIdent, nil
 }
 
@@ -83,7 +83,7 @@ type filteringClient struct {
 func (fc *filteringClient) FilterListResponse(resp *podresourcesapi.ListPodResourcesResponse) *podresourcesapi.ListPodResourcesResponse {
 	sharedPoolCPUs := findSharedPoolCPUsInListResponse(fc.refCnt, resp.GetPodResources())
 	if !fc.sharedPoolCPUs.Equals(sharedPoolCPUs) {
-		log.Printf("detected shared pool change: %v -> %v", fc.sharedPoolCPUs, sharedPoolCPUs)
+		klog.V(2).Infof("detected shared pool change: %q -> %q", fc.sharedPoolCPUs.String(), sharedPoolCPUs.String())
 		fc.sharedPoolCPUs = sharedPoolCPUs
 	}
 	for _, podRes := range resp.GetPodResources() {
@@ -92,7 +92,7 @@ func (fc *filteringClient) FilterListResponse(resp *podresourcesapi.ListPodResou
 			if fc.debug && !reflect.DeepEqual(cpuIds, cntRes.CpuIds) {
 				curCpus := cpuset.NewCPUSetInt64(cntRes.CpuIds...)
 				newCpus := cpuset.NewCPUSetInt64(cpuIds...)
-				log.Printf("performed pool change for %s/%s: %s -> %s", podRes.Name, cntRes.Name, curCpus, newCpus)
+				klog.Infof("performed pool change for %s/%s: %q -> %q", podRes.Name, cntRes.Name, curCpus.String(), newCpus.String())
 			}
 			cntRes.CpuIds = cpuIds
 		}
@@ -130,7 +130,7 @@ func NewFilteringClient(socketPath string, debug bool, referenceContainer *Conta
 	if err != nil {
 		return nil, fmt.Errorf("failed to create podresource client: %v", err)
 	}
-	log.Printf("connected to %q", socketPath)
+	klog.V(4).Infof("connected to %q", socketPath)
 	return NewFilteringClientFromLister(cli, debug, referenceContainer)
 }
 
