@@ -22,10 +22,13 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
+	goversion "github.com/hashicorp/go-version"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
@@ -34,7 +37,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 )
 
@@ -102,6 +108,25 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			gomega.Expect(finalNodeTopo.Annotations).ToNot(gomega.BeNil(), "missing annotations entirely")
 			reason := finalNodeTopo.Annotations[nrtupdater.AnnotationRTEUpdate]
 			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
+		})
+	})
+
+	ginkgo.Context("with the binary available", func() {
+		ginkgo.It("it should show the correct version", func() {
+			cmdline := []string{
+				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
+				"--version",
+			}
+			fmt.Fprintf(ginkgo.GinkgoWriter, "running: %v\n", cmdline)
+
+			cmd := exec.Command(cmdline[0], cmdline[1:]...)
+			cmd.Stderr = ginkgo.GinkgoWriter
+			out, err := cmd.Output()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			text := strings.TrimSpace(strings.Trim(string(out), version.ProgramName))
+			_, err = goversion.NewVersion(text)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		})
 	})
 })
