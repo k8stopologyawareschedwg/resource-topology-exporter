@@ -2,12 +2,12 @@ package resourcetopologyexporter
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 
+	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
@@ -65,20 +65,20 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	defer watcher.Close()
 
 	for _, stateDir := range rteArgs.KubeletStateDirs {
-		log.Printf("kubelet state dir: [%s]", stateDir)
+		klog.Infof("kubelet state dir: [%s]", stateDir)
 		if stateDir == "" {
 			continue
 		}
 		err := watcher.Add(stateDir)
 		if err != nil {
-			log.Printf("error adding watch on [%s]: %v", stateDir, err)
+			klog.Infof("error adding watch on [%s]: %v", stateDir, err)
 		} else {
-			log.Printf("added watch on [%s]", stateDir)
+			klog.Infof("added watch on [%s]", stateDir)
 		}
 	}
 
 	eventsChan <- PollTrigger{Timestamp: time.Now()}
-	log.Printf("initial update trigger")
+	klog.V(2).Infof("initial update trigger")
 
 	ticker := time.NewTicker(rteArgs.SleepInterval)
 	for {
@@ -86,18 +86,18 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		select {
 		case tickTs := <-ticker.C:
 			eventsChan <- PollTrigger{Timer: true, Timestamp: tickTs}
-			log.Printf("timer update trigger")
+			klog.V(4).Infof("timer update trigger")
 
 		case event := <-watcher.Events:
-			log.Printf("fsnotify event from %q: %v", event.Name, event.Op)
+			klog.V(5).Infof("fsnotify event from %q: %v", event.Name, event.Op)
 			if IsTriggeringFSNotifyEvent(event) {
 				eventsChan <- PollTrigger{Timestamp: time.Now()}
-				log.Printf("fsnotify update trigger")
+				klog.V(4).Infof("fsnotify update trigger")
 			}
 
 		case err := <-watcher.Errors:
 			// and yes, keep going
-			log.Printf("fsnotify error: %v", err)
+			klog.Warningf("fsnotify error: %v", err)
 		}
 	}
 
@@ -106,7 +106,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 
 func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (string, error) {
 	if rteArgs.TopologyManagerPolicy != "" {
-		log.Printf("using given Topology Manager policy %q", rteArgs.TopologyManagerPolicy)
+		klog.Infof("using given Topology Manager policy %q", rteArgs.TopologyManagerPolicy)
 		return rteArgs.TopologyManagerPolicy, nil
 	}
 	if rteArgs.KubeletConfigFile != "" {
@@ -114,7 +114,7 @@ func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs 
 		if err != nil {
 			return "", fmt.Errorf("error getting topology Manager Policy: %w", err)
 		}
-		log.Printf("detected kubelet Topology Manager policy %q", klConfig.TopologyManagerPolicy)
+		klog.Infof("detected kubelet Topology Manager policy %q", klConfig.TopologyManagerPolicy)
 		return klConfig.TopologyManagerPolicy, nil
 	}
 	return "", fmt.Errorf("cannot find the kubelet Topology Manager policy")
@@ -172,7 +172,7 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater
 				tsEnd := time.Now()
 
 				if err != nil {
-					log.Printf("failed to scan pod resources: %v\n", err)
+					klog.Warningf("failed to scan pod resources: %w\n", err)
 					continue
 				}
 				infoChannel <- monInfo
@@ -180,7 +180,7 @@ func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger) (<-chan nrtupdater
 				tsDiff := tsEnd.Sub(tsBegin)
 				prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
 			case <-done:
-				log.Printf("read stop at %v", time.Now())
+				klog.Infof("read stop at %v", time.Now())
 				break
 			}
 		}

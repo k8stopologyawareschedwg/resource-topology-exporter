@@ -2,10 +2,11 @@ package prometheus
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
+
+	"k8s.io/klog/v2"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -89,7 +90,7 @@ func InitPrometheus() error {
 
 	go func() {
 		if err = http.ListenAndServe(addr, nil); err != nil {
-			log.Fatalf("failed to run prometheus server; %v", err)
+			klog.Fatalf("failed to run prometheus server; %v", err)
 		}
 	}()
 
