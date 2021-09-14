@@ -76,16 +76,25 @@ func (r *ResourceExcludeList) String() string {
 // mapping resource -> count
 type resourceCounter map[v1.ResourceName]int64
 
+func (rc *resourceCounter) HasCPU() bool {
+	for res := range *rc {
+		if res.String() == "cpu" {
+			return true
+		}
+	}
+	return false
+}
+
 //mapping numa cell -> resource counter
 type perNUMAResourceCounter map[int]resourceCounter
 
 type resourceMonitor struct {
-	nodeName          string
-	args              Args
-	podResCli         podresourcesapi.PodResourcesListerClient
-	topo              *ghw.TopologyInfo
-	coreIDToNodeIDMap map[int]int
-	nodeCapacity      perNUMAResourceCounter
+	nodeName             string
+	args                 Args
+	podResCli            podresourcesapi.PodResourcesListerClient
+	topo                 *ghw.TopologyInfo
+	coreIDToNodeIDMap    map[int]int
+	nodeAllocatable      perNUMAResourceCounter
 }
 
 func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
@@ -101,15 +110,15 @@ func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args
 
 func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
 	rm := &resourceMonitor{
-		nodeName:          nodeName,
-		podResCli:         podResCli,
-		args:              args,
-		topo:              topo,
-		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
+		nodeName:             nodeName,
+		podResCli:            podResCli,
+		args:                 args,
+		topo:                 topo,
+		coreIDToNodeIDMap:    MakeCoreIDToNodeIDMap(topo),
 	}
 	if !rm.args.RefreshAllocatable {
 		klog.Infof("getting allocatable resources once")
-		if err := rm.updateNodeCapacity(); err != nil {
+		if err := rm.updateNodeAllocatable(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -126,7 +135,7 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 
 func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, error) {
 	if rm.args.RefreshAllocatable {
-		if err := rm.updateNodeCapacity(); err != nil {
+		if err := rm.updateNodeAllocatable(); err != nil {
 			return nil, err
 		}
 	}
@@ -144,7 +153,9 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 	excludeSet := excludeList.ToMapSet()
 	zones := make(topologyv1alpha1.ZoneList, 0)
-	for nodeID, resCounters := range rm.nodeCapacity {
+	// if there are no allocatable resources under a NUMA we might ended up with holes in the NRT objects.
+	// this is why we're using the topology info and not the nodeAllocatable
+	for nodeID := range rm.topo.Nodes {
 		zone := topologyv1alpha1.Zone{
 			Name:      makeZoneName(nodeID),
 			Type:      "Node",
@@ -155,39 +166,62 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 		if err != nil {
 			klog.Warningf("cannot find costs for NUMA node %d: %v", nodeID, err)
 		} else {
-			zone.Costs = topologyv1alpha1.CostList(costs)
+			zone.Costs = costs
 		}
 
-		for resName, resAlloc := range resCounters {
-			if set, ok := excludeSet["*"]; ok && set.Has(string(resName)) {
-				continue
-			}
-			if set, ok := excludeSet[rm.nodeName]; ok && set.Has(string(resName)) {
-				continue
-			}
-			resUsed := allocated[nodeID][resName]
+		// check if NUMA has some allocatable resources
+		resCounters, ok := rm.nodeAllocatable[nodeID]
+		if ok {
+			for resName, resAlloc := range resCounters {
+				if inExcludeSet(excludeSet, resName, rm.nodeName) {
+					continue
+				}
+				resUsed := allocated[nodeID][resName]
 
-			size := resAlloc - resUsed
-			if size < 0 {
-				klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
-				size = 0
-			}
+				size := resAlloc - resUsed
+				if size < 0 {
+					klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
+					size = 0
+				}
 
-			availableQty := *resource.NewQuantity(size, resource.DecimalSI)
-			capacityQty := *resource.NewQuantity(resAlloc, resource.DecimalSI)
-			zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
-				Name:        resName.String(),
-				Available:   availableQty,
-				Allocatable: capacityQty,
-				Capacity:    capacityQty,
-			})
+				availableQty := *resource.NewQuantity(size, resource.DecimalSI)
+				allocatableQty := *resource.NewQuantity(resAlloc, resource.DecimalSI)
+				capacityQty := allocatableQty
+				if resName == v1.ResourceCPU {
+					capacityQty = *resource.NewQuantity(cpuCapacity(rm.topo, nodeID), resource.DecimalSI)
+				}
+				if resName == v1.ResourceMemory || strings.HasPrefix(resName.String(), v1.ResourceHugePagesPrefix) {
+					// TODO when https://github.com/openshift-kni/resource-topology-exporter/pull/23 and https://github.com/jaypipes/ghw/pull/268
+					// get merged we should account memory capacity as well
+				}
+
+				zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
+					Name:        resName.String(),
+					Available:   availableQty,
+					Allocatable: allocatableQty,
+					Capacity:    capacityQty,
+				})
+			}
+		}
+		// NUMA node doesn't have any allocatable resources or any allocatable CPUs, but yet it exists in the topology
+		// thus all its CPUs are reserved
+		if !ok || !resCounters.HasCPU() {
+			if !inExcludeSet(excludeSet, v1.ResourceCPU, rm.nodeName) {
+				cpuCapacity(rm.topo, nodeID)
+				zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
+					Name:        string(v1.ResourceCPU),
+					Available:   resource.MustParse("0"),
+					Allocatable: resource.MustParse("0"),
+					Capacity:    *resource.NewQuantity(cpuCapacity(rm.topo, nodeID), resource.DecimalSI),
+				})
+			}
 		}
 		zones = append(zones, zone)
 	}
 	return zones, nil
 }
 
-func (rm *resourceMonitor) updateNodeCapacity() error {
+func (rm *resourceMonitor) updateNodeAllocatable() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 	allocRes, err := rm.podResCli.GetAllocatableResources(ctx, &podresourcesapi.AllocatableResourcesRequest{})
@@ -197,7 +231,7 @@ func (rm *resourceMonitor) updateNodeCapacity() error {
 	}
 
 	allDevs := NormalizeContainerDevices(allocRes.GetDevices(), allocRes.GetMemory(), allocRes.GetCpuIds(), rm.coreIDToNodeIDMap)
-	rm.nodeCapacity = ContainerDevicesToPerNUMAResourceCounters(allDevs)
+	rm.nodeAllocatable = ContainerDevicesToPerNUMAResourceCounters(allDevs)
 	return nil
 }
 
@@ -331,4 +365,23 @@ func findNodeByID(nodes []*ghw.TopologyNode, nodeID int) *ghw.TopologyNode {
 		}
 	}
 	return nil
+}
+
+func inExcludeSet(excludeSet map[string]sets.String, resName v1.ResourceName, nodeName string) bool {
+	if set, ok := excludeSet["*"]; ok && set.Has(string(resName)) {
+		return true
+	}
+	if set, ok := excludeSet[nodeName]; ok && set.Has(string(resName)) {
+		return true
+	}
+	return false
+}
+
+func cpuCapacity(topo *ghw.TopologyInfo, nodeID int) int64 {
+	nodeSrc := findNodeByID(topo.Nodes, nodeID)
+	logicalCoresPerNUMA := 0
+	for _, core := range nodeSrc.Cores {
+		logicalCoresPerNUMA += len(core.LogicalProcessors)
+	}
+	return int64(logicalCoresPerNUMA)
 }

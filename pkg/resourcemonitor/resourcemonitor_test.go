@@ -445,8 +445,10 @@ func TestResourcesScan(t *testing.T) {
 					},
 				},
 			},
+			// CPUId 0 and 1 are missing from the list below to simulate
+			// that they are not allocatable CPUs (kube-reserved or system-reserved)
 			CpuIds: []int64{
-				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+				2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
@@ -474,8 +476,8 @@ func TestResourcesScan(t *testing.T) {
 					Resources: topologyv1alpha1.ResourceInfoList{
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
-							Available:   resource.MustParse("12"),
-							Allocatable: resource.MustParse("12"),
+							Available:   resource.MustParse("11"),
+							Allocatable: resource.MustParse("11"),
 							Capacity:    resource.MustParse("12"),
 						},
 						topologyv1alpha1.ResourceInfo{
@@ -502,8 +504,8 @@ func TestResourcesScan(t *testing.T) {
 					Resources: topologyv1alpha1.ResourceInfoList{
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
-							Available:   resource.MustParse("12"),
-							Allocatable: resource.MustParse("12"),
+							Available:   resource.MustParse("11"),
+							Allocatable: resource.MustParse("11"),
 							Capacity:    resource.MustParse("12"),
 						},
 						topologyv1alpha1.ResourceInfo{
@@ -608,8 +610,10 @@ func TestResourcesScan(t *testing.T) {
 					},
 				},
 			},
+			// CPUId 0 is missing from the list below to simulate
+			// that it not allocatable (kube-reserved or system-reserved)
 			CpuIds: []int64{
-				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
@@ -665,8 +669,8 @@ func TestResourcesScan(t *testing.T) {
 					Resources: topologyv1alpha1.ResourceInfoList{
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
-							Available:   resource.MustParse("12"),
-							Allocatable: resource.MustParse("12"),
+							Available:   resource.MustParse("11"),
+							Allocatable: resource.MustParse("11"),
 							Capacity:    resource.MustParse("12"),
 						},
 						topologyv1alpha1.ResourceInfo{
