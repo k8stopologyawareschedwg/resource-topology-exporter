@@ -13,10 +13,9 @@ limitations under the License.
 
 package version
 
-
 const (
 	// ProgramName is the canonical name of this program
-    ProgramName = "resource-topology-exporter"
+	ProgramName             = "resource-topology-exporter"
 	undefinedVersion string = "undefined"
 )
 
