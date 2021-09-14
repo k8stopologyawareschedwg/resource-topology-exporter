@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/hashicorp/go-version v1.3.0
 	github.com/jaypipes/ghw v0.8.1-0.20210609141030-acb1a36eaf89
-	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.8
+	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.10
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.11.0

@@ -99,15 +99,15 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("checking the changes in the updated topology - expecting none")
 			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 
-			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
-			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
-			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
-				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+			initialAvailRes := availableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAvailRes := availableResourceListFromNodeResourceTopology(finalNodeTopo)
+			if len(initialAvailRes) == 0 || len(finalAvailRes) == 0 {
+				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAvailRes, finalAvailRes))
 			}
-			zoneName, resName, cmp, ok := cmpAllocatableResources(initialAllocRes, finalAllocRes)
+			zoneName, resName, cmp, ok := cmpAvailableResources(initialAvailRes, finalAvailRes)
 			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
 			if !ok {
-				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAvailRes, finalAvailRes))
 			}
 
 			// This is actually a workaround.
@@ -118,7 +118,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			// (hence, releasing the exclusively allocated CPUs) before to end the test, so this test can run with some leftovers hanging around,
 			// which makes the accounting harder. And this is what we handle here.
 			isGreaterEqual := (cmp >= 0)
-			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
+			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAvailRes, finalAvailRes))
 		})
 
 		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (guaranteed QOS, nonintegral cpu request)", func() {
@@ -139,15 +139,15 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("checking the changes in the updated topology - expecting none")
 			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 
-			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
-			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			initialAllocRes := availableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := availableResourceListFromNodeResourceTopology(finalNodeTopo)
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
-				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			zoneName, resName, cmp, ok := cmpAllocatableResources(initialAllocRes, finalAllocRes)
+			zoneName, resName, cmp, ok := cmpAvailableResources(initialAllocRes, finalAllocRes)
 			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
 			if !ok {
-				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+				ginkgo.Fail(fmt.Sprintf("failed to compare available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
 
 			// This is actually a workaround.
@@ -158,14 +158,14 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			// (hence, releasing the exclusively allocated CPUs) before to end the test, so this test can run with some leftovers hanging around,
 			// which makes the accounting harder. And this is what we handle here.
 			isGreaterEqual := (cmp >= 0)
-			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
+			gomega.Expect(isGreaterEqual).To(gomega.BeTrue(), fmt.Sprintf("final available resources not restored - cmp=%d initial=%v final=%v", cmp, initialAllocRes, finalAllocRes))
 		})
 
 		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
 			nodes, err := utils.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {
-				ginkgo.Skip("not enough allocatable cores for this test")
+				ginkgo.Skip("not enough available cores for this test")
 			}
 
 			ginkgo.By("getting the initial topology information")
@@ -190,14 +190,14 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			}, time.Minute, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			ginkgo.By("checking the changes in the updated topology")
 
-			initialAllocRes := allocatableResourceListFromNodeResourceTopology(initialNodeTopo)
-			finalAllocRes := allocatableResourceListFromNodeResourceTopology(finalNodeTopo)
+			initialAllocRes := availableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := availableResourceListFromNodeResourceTopology(finalNodeTopo)
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
-				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
+				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			zoneName, resName, isLess := lessAllocatableResources(initialAllocRes, finalAllocRes)
+			zoneName, resName, isLess := lessAvailableResources(initialAllocRes, finalAllocRes)
 			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
-			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final allocatable resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
+			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final available resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
 		ginkgo.It("should fill the node resource topologies CR with the data", func() {
@@ -284,9 +284,10 @@ func isValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) b
 		if strings.ToUpper(resource.Name) == "CPU" {
 			foundCpu = true
 		}
-		allocatable := resource.Allocatable.IntValue()
-		capacity := resource.Capacity.IntValue()
-		if (allocatable < 0 || capacity < 0) || (capacity < allocatable) {
+		available:= resource.Available.Value()
+		allocatable := resource.Capacity.Value()
+		capacity := resource.Capacity.Value()
+		if (available < 0 || allocatable < 0 || capacity < 0) || (capacity < available) || (capacity < allocatable) {
 			framework.Logf("malformed resource %v for zone %q", resource, zoneName)
 			return false
 		}
