@@ -19,6 +19,8 @@ jobs:
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: setup golang
       uses: actions/setup-go@v2

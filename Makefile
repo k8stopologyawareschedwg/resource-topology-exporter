@@ -9,12 +9,11 @@ IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
 RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
+LDFLAGS = -ldflags "-s -w"
 VERSION := $(shell git tag --sort=committerdate | head -n 1)
-ifeq ($(VERSION),)
-	VERSION = v0.1
-endif
-
+ifneq ($(VERSION),)
 LDFLAGS = -ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(VERSION)"
+endif
 
 .PHONY: all
 all: build
@@ -34,7 +33,7 @@ govet:
 	go vet
 
 outdir:
-	mkdir -p _out || :
+	@mkdir -p _out || :
 
 .PHONY: deps-update
 deps-update:
