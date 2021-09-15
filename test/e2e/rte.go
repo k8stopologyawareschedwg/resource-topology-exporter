@@ -33,7 +33,6 @@ import (
 	"github.com/onsi/gomega"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 
@@ -131,26 +130,26 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 })
 
-func allocatableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResourceTopology) map[string]v1.ResourceList {
-	allocRes := make(map[string]v1.ResourceList)
+func availableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResourceTopology) map[string]v1.ResourceList {
+	availRes := make(map[string]v1.ResourceList)
 	for _, zone := range nodeTopo.Zones {
 		if zone.Type != "Node" {
 			continue
 		}
 		resList := make(v1.ResourceList)
 		for _, res := range zone.Resources {
-			resList[v1.ResourceName(res.Name)] = *resource.NewQuantity(int64(res.Allocatable.IntValue()), resource.DecimalSI)
+			resList[v1.ResourceName(res.Name)] = res.Available
 		}
 		if len(resList) == 0 {
 			continue
 		}
-		allocRes[zone.Name] = resList
+		availRes[zone.Name] = resList
 	}
-	return allocRes
+	return availRes
 }
 
-func lessAllocatableResources(expected, got map[string]v1.ResourceList) (string, string, bool) {
-	zoneName, resName, cmp, ok := cmpAllocatableResources(expected, got)
+func lessAvailableResources(expected, got map[string]v1.ResourceList) (string, string, bool) {
+	zoneName, resName, cmp, ok := cmpAvailableResources(expected, got)
 	if !ok {
 		framework.Logf("-> cmp failed (not ok)")
 		return "", "", false
@@ -162,7 +161,7 @@ func lessAllocatableResources(expected, got map[string]v1.ResourceList) (string,
 	return "", "", false
 }
 
-func cmpAllocatableResources(expected, got map[string]v1.ResourceList) (string, string, int, bool) {
+func cmpAvailableResources(expected, got map[string]v1.ResourceList) (string, string, int, bool) {
 	if len(got) != len(expected) {
 		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", "", 0, false
