@@ -34,6 +34,7 @@ import (
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
 
 const (
@@ -215,12 +216,22 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
+	hpCounters, err := sysinfo.GetHugepageCounters(sysinfo.Handle{}, sysinfo.GetHugepages)
+	if err != nil {
+		return err
+	}
+
+	hp2Mi := sysinfo.HugepageResourceNameFromSize(sysinfo.HugepageSize2Mi)
+	hp1Gi := sysinfo.HugepageResourceNameFromSize(sysinfo.HugepageSize1Gi)
+
 	// we care only about reservable resources, thus:
 	// cpu, memory, hugepages
 	perNUMARc := make(perNUMAResourceCounter)
 	for nodeID := range rm.topo.Nodes {
 		perNUMARc[nodeID] = resourceCounter{
-			v1.ResourceCPU: cpuCapacity(rm.topo, nodeID),
+			v1.ResourceCPU:         cpuCapacity(rm.topo, nodeID),
+			v1.ResourceName(hp2Mi): hpCounters[hp2Mi][nodeID],
+			v1.ResourceName(hp1Gi): hpCounters[hp1Gi][nodeID],
 		}
 	}
 	rm.nodeCapacity = perNUMARc
