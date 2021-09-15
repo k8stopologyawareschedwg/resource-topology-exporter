@@ -89,12 +89,12 @@ func (rc *resourceCounter) HasCPU() bool {
 type perNUMAResourceCounter map[int]resourceCounter
 
 type resourceMonitor struct {
-	nodeName             string
-	args                 Args
-	podResCli            podresourcesapi.PodResourcesListerClient
-	topo                 *ghw.TopologyInfo
-	coreIDToNodeIDMap    map[int]int
-	nodeAllocatable      perNUMAResourceCounter
+	nodeName          string
+	args              Args
+	podResCli         podresourcesapi.PodResourcesListerClient
+	topo              *ghw.TopologyInfo
+	coreIDToNodeIDMap map[int]int
+	nodeAllocatable   perNUMAResourceCounter
 }
 
 func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
@@ -110,11 +110,11 @@ func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args
 
 func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
 	rm := &resourceMonitor{
-		nodeName:             nodeName,
-		podResCli:            podResCli,
-		args:                 args,
-		topo:                 topo,
-		coreIDToNodeIDMap:    MakeCoreIDToNodeIDMap(topo),
+		nodeName:          nodeName,
+		podResCli:         podResCli,
+		args:              args,
+		topo:              topo,
+		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
 	}
 	if !rm.args.RefreshAllocatable {
 		klog.Infof("getting allocatable resources once")
