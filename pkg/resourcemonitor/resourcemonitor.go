@@ -76,15 +76,6 @@ func (r *ResourceExcludeList) String() string {
 // mapping resource -> count
 type resourceCounter map[v1.ResourceName]int64
 
-func (rc *resourceCounter) HasCPU() bool {
-	for res := range *rc {
-		if res.String() == "cpu" {
-			return true
-		}
-	}
-	return false
-}
-
 //mapping numa cell -> resource counter
 type perNUMAResourceCounter map[int]resourceCounter
 
@@ -171,51 +162,45 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 		// check if NUMA has some allocatable resources
 		resCounters, ok := rm.nodeAllocatable[nodeID]
-		if ok {
-			for resName, resAlloc := range resCounters {
-				if inExcludeSet(excludeSet, resName, rm.nodeName) {
-					continue
-				}
-				resUsed := allocated[nodeID][resName]
-
-				size := resAlloc - resUsed
-				if size < 0 {
-					klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
-					size = 0
-				}
-
-				availableQty := *resource.NewQuantity(size, resource.DecimalSI)
-				allocatableQty := *resource.NewQuantity(resAlloc, resource.DecimalSI)
-				capacityQty := allocatableQty
-				if resName == v1.ResourceCPU {
-					capacityQty = *resource.NewQuantity(cpuCapacity(rm.topo, nodeID), resource.DecimalSI)
-				}
-				if resName == v1.ResourceMemory || strings.HasPrefix(resName.String(), v1.ResourceHugePagesPrefix) {
-					// TODO when https://github.com/openshift-kni/resource-topology-exporter/pull/23 and https://github.com/jaypipes/ghw/pull/268
-					// get merged we should account memory capacity as well
-				}
-
-				zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
-					Name:        resName.String(),
-					Available:   availableQty,
-					Allocatable: allocatableQty,
-					Capacity:    capacityQty,
-				})
-			}
+		if !ok {
+			// NUMA node doesn't have any allocatable resources. This means the returned counters map is empty.
+			// Yet, the node exists in the topology, thus we consider all its CPUs are reserved
+			resCounters[v1.ResourceCPU] = 0
 		}
-		// NUMA node doesn't have any allocatable resources or any allocatable CPUs, but yet it exists in the topology
-		// thus all its CPUs are reserved
-		if !ok || !resCounters.HasCPU() {
-			if !inExcludeSet(excludeSet, v1.ResourceCPU, rm.nodeName) {
-				cpuCapacity(rm.topo, nodeID)
-				zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
-					Name:        string(v1.ResourceCPU),
-					Available:   resource.MustParse("0"),
-					Allocatable: resource.MustParse("0"),
-					Capacity:    *resource.NewQuantity(cpuCapacity(rm.topo, nodeID), resource.DecimalSI),
-				})
+
+		for resName, resAlloc := range resCounters {
+			if inExcludeSet(excludeSet, resName, rm.nodeName) {
+				continue
 			}
+			resUsed := allocated[nodeID][resName]
+
+			size := resAlloc - resUsed
+			if size < 0 {
+				klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
+				size = 0
+			}
+
+			availableQty := *resource.NewQuantity(size, resource.DecimalSI)
+			allocatableQty := *resource.NewQuantity(resAlloc, resource.DecimalSI)
+			capacityQty := allocatableQty
+			if resName == v1.ResourceCPU {
+				capacityQty = *resource.NewQuantity(cpuCapacity(rm.topo, nodeID), resource.DecimalSI)
+			}
+			if resName == v1.ResourceMemory {
+				// TODO when https://github.com/jaypipes/ghw/pull/268 get merged we should account memory capacity as well
+			}
+			if strings.HasPrefix(resName.String(), v1.ResourceHugePagesPrefix) {
+				// TODO
+			}
+
+			zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
+				Name:        resName.String(),
+				Available:   availableQty,
+				Allocatable: allocatableQty,
+				Capacity:    capacityQty,
+			})
 		}
+
 		zones = append(zones, zone)
 	}
 	return zones, nil
