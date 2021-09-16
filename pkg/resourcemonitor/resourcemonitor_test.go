@@ -58,78 +58,78 @@ func TestMakeCoreIDToNodeIDMap(t *testing.T) {
 func TestNormalizeContainerDevices(t *testing.T) {
 	availRes := &v1.AllocatableResourcesResponse{
 		Devices: []*v1.ContainerDevices{
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-0"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-1"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-2"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-3"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netBBB-0"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netBBB-1"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&v1.ContainerDevices{
+			{
 				ResourceName: "fake.io/gpu",
 				DeviceIds:    []string{"gpuAAA"},
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
-						&v1.NUMANode{
+						{
 							ID: 1,
 						},
 					},
@@ -182,133 +182,133 @@ func TestNormalizeContainerDevices(t *testing.T) {
 	Convey("When normalizing the container devices from pod resources", t, func() {
 		res := NormalizeContainerDevices(availRes.GetDevices(), availRes.GetMemory(), availRes.GetCpuIds(), coreIDToNodeIDMap)
 		expected := []*podresourcesapi.ContainerDevices{
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-0"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-1"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-2"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-3"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netBBB-0"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netBBB-1"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "fake.io/gpu",
 				DeviceIds:    []string{"gpuAAA"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "cpu",
 				DeviceIds:    []string{"0", "2", "4", "6", "8", "10", "12", "14", "16", "18", "20", "22"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "cpu",
 				DeviceIds:    []string{"1", "3", "5", "7", "9", "11", "13", "15", "17", "19", "21", "23"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "memory",
 				DeviceIds:    []string{"1024"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 0,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "memory",
 				DeviceIds:    []string{"1024"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 1,
 						},
 					},
 				},
 			},
-			&podresourcesapi.ContainerDevices{
+			{
 				ResourceName: "hugepages-2Mi",
 				DeviceIds:    []string{"1024"},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						&podresourcesapi.NUMANode{
+						{
 							ID: 1,
 						},
 					},
@@ -330,7 +330,6 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			}
 			return res[i].ResourceName < res[j].ResourceName
 		})
-
 
 		sort.Slice(expected, func(i, j int) bool {
 			if expected[i].ResourceName == expected[j].ResourceName {
@@ -364,87 +363,196 @@ func TestResourcesScan(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	Convey("When I aggregate the node resources fake data and no pod allocation", t, func() {
-		availRes := &v1.AllocatableResourcesResponse{
-			Devices: []*v1.ContainerDevices{
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netAAA-0"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 0,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netAAA-1"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 0,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netAAA-2"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 0,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netAAA-3"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 0,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netBBB-0"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 1,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netBBB-1"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 1,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/gpu",
-					DeviceIds:    []string{"gpuAAA"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 1,
-							},
-						},
+	allContainerDevices := []*v1.ContainerDevices{
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netAAA-0"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 0,
 					},
 				},
 			},
+		},
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netAAA-1"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 0,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netAAA-2"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 0,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netAAA-3"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 0,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netBBB-0"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 1,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netBBB-1"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 1,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/gpu",
+			DeviceIds:    []string{"gpuAAA"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 1,
+					},
+				},
+			},
+		},
+	}
+
+	Convey("When I aggregate the node resources fake data and no pod allocation", t, func() {
+		availRes := &v1.AllocatableResourcesResponse{
+			Devices: allContainerDevices,
+			CpuIds: []int64{
+				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+			},
+		}
+
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
+		resMon, err := NewResourceMonitorWithTopology("TEST", &fakeTopo, mockPodResClient, Args{})
+		So(err, ShouldBeNil)
+
+		Convey("When aggregating resources", func() {
+			expected := topologyv1alpha1.ZoneList{
+				topologyv1alpha1.Zone{
+					Name: "node-0",
+					Type: "Node",
+					Costs: topologyv1alpha1.CostList{
+						topologyv1alpha1.CostInfo{
+							Name:  "node-0",
+							Value: 10,
+						},
+						topologyv1alpha1.CostInfo{
+							Name:  "node-1",
+							Value: 20,
+						},
+					},
+					Resources: topologyv1alpha1.ResourceInfoList{
+						topologyv1alpha1.ResourceInfo{
+							Name:        "cpu",
+							Available:   resource.MustParse("12"),
+							Allocatable: resource.MustParse("12"),
+							Capacity:    resource.MustParse("12"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/net",
+							Available:   resource.MustParse("4"),
+							Allocatable: resource.MustParse("4"),
+							Capacity:    resource.MustParse("4"),
+						},
+					},
+				},
+				topologyv1alpha1.Zone{
+					Name: "node-1",
+					Type: "Node",
+					Costs: topologyv1alpha1.CostList{
+						topologyv1alpha1.CostInfo{
+							Name:  "node-0",
+							Value: 20,
+						},
+						topologyv1alpha1.CostInfo{
+							Name:  "node-1",
+							Value: 10,
+						},
+					},
+					Resources: topologyv1alpha1.ResourceInfoList{
+						topologyv1alpha1.ResourceInfo{
+							Name:        "cpu",
+							Available:   resource.MustParse("12"),
+							Allocatable: resource.MustParse("12"),
+							Capacity:    resource.MustParse("12"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/gpu",
+							Available:   resource.MustParse("1"),
+							Allocatable: resource.MustParse("1"),
+							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/net",
+							Available:   resource.MustParse("2"),
+							Allocatable: resource.MustParse("2"),
+							Capacity:    resource.MustParse("2"),
+						},
+					},
+				},
+			}
+
+			resp := &v1.ListPodResourcesResponse{
+				PodResources: []*v1.PodResources{},
+			}
+			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
+			res, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			So(err, ShouldBeNil)
+
+			sort.Slice(res, func(i, j int) bool {
+				return res[i].Name < res[j].Name
+			})
+			for _, resource := range res {
+				sort.Slice(resource.Costs, func(x, y int) bool {
+					return resource.Costs[x].Name < resource.Costs[y].Name
+				})
+			}
+			for _, resource := range res {
+				sort.Slice(resource.Resources, func(x, y int) bool {
+					return resource.Resources[x].Name < resource.Resources[y].Name
+				})
+			}
+			log.Printf("result=%v", res)
+			log.Printf("expected=%v", expected)
+			log.Printf("diff=%s", cmp.Diff(res, expected))
+			So(cmp.Equal(res, expected), ShouldBeTrue)
+		})
+	})
+
+	Convey("When I aggregate the node resources fake data, no pod allocation and some reserved CPUs", t, func() {
+		availRes := &v1.AllocatableResourcesResponse{
+			Devices: allContainerDevices,
 			// CPUId 0 and 1 are missing from the list below to simulate
 			// that they are not allocatable CPUs (kube-reserved or system-reserved)
 			CpuIds: []int64{
@@ -551,65 +659,235 @@ func TestResourcesScan(t *testing.T) {
 		})
 	})
 
-	Convey("When I aggregate the node resources fake data and some pod allocation", t, func() {
-		allocRes := &v1.AllocatableResourcesResponse{
-			Devices: []*v1.ContainerDevices{
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netAAA"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 0,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/resourceToBeExcluded",
-					DeviceIds:    []string{"excludeMeA"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 0,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/net",
-					DeviceIds:    []string{"netBBB"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 1,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/gpu",
-					DeviceIds:    []string{"gpuAAA"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 1,
-							},
-						},
-					},
-				},
-				&v1.ContainerDevices{
-					ResourceName: "fake.io/resourceToBeExcluded",
-					DeviceIds:    []string{"excludeMeB"},
-					Topology: &v1.TopologyInfo{
-						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
-								ID: 1,
-							},
-						},
+	minimalContainerDevices := []*v1.ContainerDevices{
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netAAA"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 0,
 					},
 				},
 			},
+		},
+		{
+			ResourceName: "fake.io/resourceToBeExcluded",
+			DeviceIds:    []string{"excludeMeA"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 0,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/net",
+			DeviceIds:    []string{"netBBB"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 1,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/gpu",
+			DeviceIds:    []string{"gpuAAA"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 1,
+					},
+				},
+			},
+		},
+		{
+			ResourceName: "fake.io/resourceToBeExcluded",
+			DeviceIds:    []string{"excludeMeB"},
+			Topology: &v1.TopologyInfo{
+				Nodes: []*v1.NUMANode{
+					{
+						ID: 1,
+					},
+				},
+			},
+		},
+	}
+
+	Convey("When I aggregate the node resources fake data and some pod allocation", t, func() {
+		allocRes := &v1.AllocatableResourcesResponse{
+			Devices: minimalContainerDevices,
+			CpuIds: []int64{
+				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+			},
+		}
+
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
+		resMon, err := NewResourceMonitorWithTopology("TEST", &fakeTopo, mockPodResClient, Args{})
+		So(err, ShouldBeNil)
+
+		Convey("When aggregating resources", func() {
+			resp := &v1.ListPodResourcesResponse{
+				PodResources: []*v1.PodResources{
+					{
+						Name:      "test-pod-0",
+						Namespace: "default",
+						Containers: []*v1.ContainerResources{
+							{
+								Name:   "test-cnt-0",
+								CpuIds: []int64{5, 7},
+								Devices: []*v1.ContainerDevices{
+									{
+										ResourceName: "fake.io/net",
+										DeviceIds:    []string{"netBBB"},
+										Topology: &v1.TopologyInfo{
+											Nodes: []*v1.NUMANode{
+												{
+													ID: 1,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			expected := topologyv1alpha1.ZoneList{
+				topologyv1alpha1.Zone{
+					Name: "node-0",
+					Type: "Node",
+					Costs: topologyv1alpha1.CostList{
+						topologyv1alpha1.CostInfo{
+							Name:  "node-0",
+							Value: 10,
+						},
+						topologyv1alpha1.CostInfo{
+							Name:  "node-1",
+							Value: 20,
+						},
+					},
+					Resources: topologyv1alpha1.ResourceInfoList{
+						topologyv1alpha1.ResourceInfo{
+							Name:        "cpu",
+							Available:   resource.MustParse("12"),
+							Allocatable: resource.MustParse("12"),
+							Capacity:    resource.MustParse("12"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/net",
+							Available:   resource.MustParse("1"),
+							Allocatable: resource.MustParse("1"),
+							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/resourceToBeExcluded",
+							Available:   resource.MustParse("1"),
+							Allocatable: resource.MustParse("1"),
+							Capacity:    resource.MustParse("1"),
+						},
+					},
+				},
+				topologyv1alpha1.Zone{
+					Name: "node-1",
+					Type: "Node",
+					Costs: topologyv1alpha1.CostList{
+						topologyv1alpha1.CostInfo{
+							Name:  "node-0",
+							Value: 20,
+						},
+						topologyv1alpha1.CostInfo{
+							Name:  "node-1",
+							Value: 10,
+						},
+					},
+					Resources: topologyv1alpha1.ResourceInfoList{
+						topologyv1alpha1.ResourceInfo{
+							Name:        "cpu",
+							Available:   resource.MustParse("10"),
+							Allocatable: resource.MustParse("12"),
+							Capacity:    resource.MustParse("12"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/gpu",
+							Available:   resource.MustParse("1"),
+							Allocatable: resource.MustParse("1"),
+							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/net",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("1"),
+							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "fake.io/resourceToBeExcluded",
+							Available:   resource.MustParse("1"),
+							Allocatable: resource.MustParse("1"),
+							Capacity:    resource.MustParse("1"),
+						},
+					},
+				},
+			}
+
+			excludeList := ResourceExcludeList{
+				map[string][]string{
+					"*": {
+						"fake.io/resourceToBeExcluded",
+					},
+				},
+			}
+
+			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
+			res, err := resMon.Scan(excludeList)
+			So(err, ShouldBeNil)
+			// Check if resources were excluded correctly
+			for _, zone := range res {
+				for _, resource := range zone.Resources {
+					assert.NotEqual(t, resource.Name, "fake.io/resourceToBeExcluded", "fake.io/resourceToBeExcluded has to be excluded")
+				}
+			}
+
+			// Add devices after they have been removed by the exclude list
+			for i := range res {
+				res[i].Resources = append(res[i].Resources, topologyv1alpha1.ResourceInfo{
+					Name:        "fake.io/resourceToBeExcluded",
+					Available:   resource.MustParse("1"),
+					Allocatable: resource.MustParse("1"),
+					Capacity:    resource.MustParse("1"),
+				})
+			}
+
+			sort.Slice(res, func(i, j int) bool {
+				return res[i].Name < res[j].Name
+			})
+			for _, resource := range res {
+				sort.Slice(resource.Costs, func(x, y int) bool {
+					return resource.Costs[x].Name < resource.Costs[y].Name
+				})
+			}
+			for _, resource := range res {
+				sort.Slice(resource.Resources, func(x, y int) bool {
+					return resource.Resources[x].Name < resource.Resources[y].Name
+				})
+			}
+			log.Printf("result=%v", res)
+			log.Printf("expected=%v", expected)
+			log.Printf("diff=%s", cmp.Diff(res, expected))
+			So(cmp.Equal(res, expected), ShouldBeTrue)
+		})
+	})
+
+	Convey("When I aggregate the node resources fake data, some pod allocation and some reserved CPUs", t, func() {
+		allocRes := &v1.AllocatableResourcesResponse{
+			Devices: minimalContainerDevices,
 			// CPUId 0 is missing from the list below to simulate
 			// that it not allocatable (kube-reserved or system-reserved)
 			CpuIds: []int64{
@@ -626,20 +904,20 @@ func TestResourcesScan(t *testing.T) {
 		Convey("When aggregating resources", func() {
 			resp := &v1.ListPodResourcesResponse{
 				PodResources: []*v1.PodResources{
-					&v1.PodResources{
+					{
 						Name:      "test-pod-0",
 						Namespace: "default",
 						Containers: []*v1.ContainerResources{
-							&v1.ContainerResources{
+							{
 								Name:   "test-cnt-0",
 								CpuIds: []int64{5, 7},
 								Devices: []*v1.ContainerDevices{
-									&v1.ContainerDevices{
+									{
 										ResourceName: "fake.io/net",
 										DeviceIds:    []string{"netBBB"},
 										Topology: &v1.TopologyInfo{
 											Nodes: []*v1.NUMANode{
-												&v1.NUMANode{
+												{
 													ID: 1,
 												},
 											},
@@ -785,56 +1063,56 @@ func TestResourcesScan(t *testing.T) {
 		Convey("When aggregating resources", func() {
 			allocRes := &v1.AllocatableResourcesResponse{
 				Devices: []*v1.ContainerDevices{
-					&v1.ContainerDevices{
+					{
 						ResourceName: "fake.io/net",
 						DeviceIds:    []string{"netAAA"},
 						Topology: &v1.TopologyInfo{
 							Nodes: []*v1.NUMANode{
-								&v1.NUMANode{
+								{
 									ID: 0,
 								},
 							},
 						},
 					},
-					&v1.ContainerDevices{
+					{
 						ResourceName: "fake.io/resourceToBeExcluded",
 						DeviceIds:    []string{"excludeMeA"},
 						Topology: &v1.TopologyInfo{
 							Nodes: []*v1.NUMANode{
-								&v1.NUMANode{
+								{
 									ID: 0,
 								},
 							},
 						},
 					},
-					&v1.ContainerDevices{
+					{
 						ResourceName: "fake.io/net",
 						DeviceIds:    []string{"netBBB"},
 						Topology: &v1.TopologyInfo{
 							Nodes: []*v1.NUMANode{
-								&v1.NUMANode{
+								{
 									ID: 1,
 								},
 							},
 						},
 					},
-					&v1.ContainerDevices{
+					{
 						ResourceName: "fake.io/gpu",
 						DeviceIds:    []string{"gpuAAA"},
 						Topology: &v1.TopologyInfo{
 							Nodes: []*v1.NUMANode{
-								&v1.NUMANode{
+								{
 									ID: 1,
 								},
 							},
 						},
 					},
-					&v1.ContainerDevices{
+					{
 						ResourceName: "fake.io/resourceToBeExcluded",
 						DeviceIds:    []string{"excludeMeB"},
 						Topology: &v1.TopologyInfo{
 							Nodes: []*v1.NUMANode{
-								&v1.NUMANode{
+								{
 									ID: 1,
 								},
 							},
@@ -849,20 +1127,20 @@ func TestResourcesScan(t *testing.T) {
 
 			resp := &v1.ListPodResourcesResponse{
 				PodResources: []*v1.PodResources{
-					&v1.PodResources{
+					{
 						Name:      "test-pod-0",
 						Namespace: "default",
 						Containers: []*v1.ContainerResources{
-							&v1.ContainerResources{
+							{
 								Name:   "test-cnt-0",
 								CpuIds: []int64{5, 7},
 								Devices: []*v1.ContainerDevices{
-									&v1.ContainerDevices{
+									{
 										ResourceName: "fake.io/net",
 										DeviceIds:    []string{"netBBB"},
 										Topology: &v1.TopologyInfo{
 											Nodes: []*v1.NUMANode{
-												&v1.NUMANode{
+												{
 													ID: 1,
 												},
 											},

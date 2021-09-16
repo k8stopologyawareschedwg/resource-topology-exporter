@@ -284,7 +284,7 @@ func isValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) b
 		if strings.ToUpper(resource.Name) == "CPU" {
 			foundCpu = true
 		}
-		available:= resource.Available.Value()
+		available := resource.Available.Value()
 		allocatable := resource.Capacity.Value()
 		capacity := resource.Capacity.Value()
 		if (available < 0 || allocatable < 0 || capacity < 0) || (capacity < available) || (capacity < allocatable) {
