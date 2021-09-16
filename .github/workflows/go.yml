@@ -18,8 +18,11 @@ jobs:
       with:
         go-version: 1.16
 
+    - name: format
+      run: ./hack/check-format.sh
+
     - name: build
       run: make all
 
-    - name: Test
+    - name: test
       run: make test-unit
