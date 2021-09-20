@@ -85,6 +85,7 @@ type resourceMonitor struct {
 	args              Args
 	podResCli         podresourcesapi.PodResourcesListerClient
 	topo              *ghw.TopologyInfo
+	memRep            sysinfo.MemoryReporter
 	coreIDToNodeIDMap map[int]int
 	nodeCapacity      perNUMAResourceCounter
 	nodeAllocatable   perNUMAResourceCounter
@@ -98,15 +99,20 @@ func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args
 		return nil, err
 	}
 	nodeName := os.Getenv("NODE_NAME")
-	return NewResourceMonitorWithTopology(nodeName, topo, podResCli, args)
+	return NewResourceMonitorWithParameters(nodeName, topo, sysinfo.Handle{}, podResCli, args)
 }
 
 func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
+	return NewResourceMonitorWithParameters(nodeName, topo, sysinfo.Handle{}, podResCli, args)
+}
+
+func NewResourceMonitorWithParameters(nodeName string, topo *ghw.TopologyInfo, memRep sysinfo.MemoryReporter, podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
 	rm := &resourceMonitor{
 		nodeName:          nodeName,
 		podResCli:         podResCli,
 		args:              args,
 		topo:              topo,
+		memRep:            memRep,
 		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
 	}
 	if !rm.args.RefreshNodeResources {
@@ -147,7 +153,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 		return nil, err
 	}
 
-	allDevs := GetAllContainerDevices(resp.GetPodResources(), rm.args.Namespace, rm.coreIDToNodeIDMap)
+	allDevs := GetAllContainerDevices(resp.GetPodResources(), rm.args.Namespace, rm.topo, rm.coreIDToNodeIDMap)
 	allocated := ContainerDevicesToPerNUMAResourceCounters(allDevs)
 
 	excludeSet := excludeList.ToMapSet()
@@ -221,7 +227,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
-	memCounters, err := sysinfo.GetMemoryResourceCounters(sysinfo.Handle{})
+	memCounters, err := sysinfo.GetMemoryResourceCounters(rm.memRep)
 	if err != nil {
 		return err
 	}
@@ -253,12 +259,12 @@ func (rm *resourceMonitor) updateNodeAllocatable() error {
 		return err
 	}
 
-	allDevs := NormalizeContainerDevices(allocRes.GetDevices(), allocRes.GetMemory(), allocRes.GetCpuIds(), rm.coreIDToNodeIDMap)
+	allDevs := NormalizeContainerDevices(allocRes.GetDevices(), allocRes.GetMemory(), allocRes.GetCpuIds(), rm.topo, rm.coreIDToNodeIDMap)
 	rm.nodeAllocatable = ContainerDevicesToPerNUMAResourceCounters(allDevs)
 	return nil
 }
 
-func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace string, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
+func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace string, topo *ghw.TopologyInfo, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
 	allCntRes := []*podresourcesapi.ContainerDevices{}
 	for _, pr := range podRes {
 		// filter by namespace (if given)
@@ -266,24 +272,33 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 			continue
 		}
 		for _, cnt := range pr.GetContainers() {
-			allCntRes = append(allCntRes, NormalizeContainerDevices(cnt.GetDevices(), cnt.GetMemory(), cnt.GetCpuIds(), coreIDToNodeIDMap)...)
+			allCntRes = append(allCntRes, NormalizeContainerDevices(cnt.GetDevices(), cnt.GetMemory(), cnt.GetCpuIds(), topo, coreIDToNodeIDMap)...)
 		}
 
 	}
 	return allCntRes
 }
 
-func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
+func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, topo *ghw.TopologyInfo, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
 	contDevs := append([]*podresourcesapi.ContainerDevices{}, devices...)
 
-	cpusPerNuma := make(map[int][]string)
+	cpusPerNuma := make(map[int64][]string)
+	memoryPerNuma := make(map[int64]map[string]uint64)
+	for _, node := range topo.Nodes {
+		nodeID := int64(node.ID)
+		cpusPerNuma[nodeID] = []string{}
+		memoryPerNuma[nodeID] = map[string]uint64{
+			string(v1.ResourceMemory): uint64(0),
+		}
+	}
+
 	for _, cpuID := range cpuIds {
 		nodeID, ok := coreIDToNodeIDMap[int(cpuID)]
 		if !ok {
 			klog.Warningf("cannot find the NUMA node for CPU %d", cpuID)
 			continue
 		}
-		cpusPerNuma[nodeID] = append(cpusPerNuma[nodeID], fmt.Sprintf("%d", cpuID))
+		cpusPerNuma[int64(nodeID)] = append(cpusPerNuma[int64(nodeID)], fmt.Sprintf("%d", cpuID))
 	}
 
 	for nodeID, cpuList := range cpusPerNuma {
@@ -299,18 +314,25 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 	}
 
 	for _, block := range memoryBlocks {
-		blockSize := block.GetSize_()
-		if blockSize == 0 {
-			continue
-		}
-
 		for _, node := range block.GetTopology().GetNodes() {
+			perNumaBlocks, ok := memoryPerNuma[node.ID]
+			if !ok {
+				klog.Warningf("cannot find the NUMA node for memory block reported on node %d", node.ID)
+				continue
+			}
+			perNumaBlocks[block.MemoryType] += block.GetSize_()
+			memoryPerNuma[node.ID] = perNumaBlocks
+		}
+	}
+
+	for nodeID, perNumaBlocks := range memoryPerNuma {
+		for memoryType, memorySize := range perNumaBlocks {
 			contDevs = append(contDevs, &podresourcesapi.ContainerDevices{
-				ResourceName: block.MemoryType,
-				DeviceIds:    []string{fmt.Sprintf("%d", blockSize)},
+				ResourceName: memoryType,
+				DeviceIds:    []string{fmt.Sprintf("%d", memorySize)},
 				Topology: &podresourcesapi.TopologyInfo{
 					Nodes: []*podresourcesapi.NUMANode{
-						{ID: int64(node.ID)},
+						{ID: int64(nodeID)},
 					},
 				},
 			})

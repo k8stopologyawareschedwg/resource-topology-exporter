@@ -34,7 +34,7 @@ type Hugepages struct {
 
 type PerNUMACounters map[int]int64
 
-func GetHugepages(hnd Handle) ([]*Hugepages, error) {
+func (hnd Handle) GetHugepages() ([]*Hugepages, error) {
 	entries, err := ioutil.ReadDir(hnd.SysDevicesNodes())
 	if err != nil {
 		return nil, err

@@ -30,6 +30,11 @@ const (
 	HugepageSize1Gi = 1048576
 )
 
+type MemoryReporter interface {
+	GetMemory() (map[int]int64, error)
+	GetHugepages() ([]*Hugepages, error)
+}
+
 type Handle struct {
 	Root string
 }
@@ -42,13 +47,13 @@ func (hnd Handle) SysDevicesNodesNodeNth(nodeID int) string {
 	return filepath.Join(hnd.Root, SysDevicesNode, fmt.Sprintf("node%d", nodeID))
 }
 
-func GetMemoryResourceCounters(hnd Handle) (map[string]PerNUMACounters, error) {
+func GetMemoryResourceCounters(mr MemoryReporter) (map[string]PerNUMACounters, error) {
 	memResource := string(v1.ResourceMemory)
 	numaCounters := map[string]PerNUMACounters{
 		memResource: make(PerNUMACounters),
 	}
 
-	hugepages, err := GetHugepages(hnd)
+	hugepages, err := mr.GetHugepages()
 	if err != nil {
 		return numaCounters, err
 	}
@@ -64,7 +69,7 @@ func GetMemoryResourceCounters(hnd Handle) (map[string]PerNUMACounters, error) {
 		numaCounters[resourceName] = numaDevs
 	}
 
-	memory, err := GetMemory(hnd)
+	memory, err := mr.GetMemory()
 	if err != nil {
 		return numaCounters, err
 	}

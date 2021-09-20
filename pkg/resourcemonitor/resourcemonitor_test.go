@@ -35,6 +35,7 @@ import (
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
 
 func TestMakeCoreIDToNodeIDMap(t *testing.T) {
@@ -180,7 +181,13 @@ func TestNormalizeContainerDevices(t *testing.T) {
 	coreIDToNodeIDMap := getExpectedCoreToNodeMap()
 
 	Convey("When normalizing the container devices from pod resources", t, func() {
-		res := NormalizeContainerDevices(availRes.GetDevices(), availRes.GetMemory(), availRes.GetCpuIds(), coreIDToNodeIDMap)
+		topo := ghw.TopologyInfo{
+			Nodes: []*ghw.TopologyNode{
+				{ID: 0},
+				{ID: 1},
+			},
+		}
+		res := NormalizeContainerDevices(availRes.GetDevices(), availRes.GetMemory(), availRes.GetCpuIds(), &topo, coreIDToNodeIDMap)
 		expected := []*podresourcesapi.ContainerDevices{
 			{
 				ResourceName: "fake.io/net",
@@ -356,8 +363,33 @@ func TestNormalizeContainerDevices(t *testing.T) {
 // TODO: add testcase for
 // - a pod with non-integral CPUs and devices, we need to not decrement the CPUs but do that for devices.
 
+type fakeMemoryReporter struct {
+	Memory    map[int]int64
+	Hugepages []*sysinfo.Hugepages
+}
+
+func (fmr fakeMemoryReporter) GetMemory() (map[int]int64, error) {
+	return fmr.Memory, nil
+}
+
+func (fmr fakeMemoryReporter) GetHugepages() ([]*sysinfo.Hugepages, error) {
+	return fmr.Hugepages, nil
+}
+
 func TestResourcesScan(t *testing.T) {
-	fakeTopo := ghw.TopologyInfo{}
+	fakeTopo := ghw.TopologyInfo{
+		Nodes: []*ghw.TopologyNode{
+			{ID: 0},
+			{ID: 1},
+		},
+	}
+	fakeMemRep := fakeMemoryReporter{
+		Memory: map[int]int64{
+			0: int64(16638164992),
+			1: int64(16638164992),
+		},
+	}
+
 	Convey("When recovering test topology from JSON data", t, func() {
 		err := json.Unmarshal([]byte(testTopology), &fakeTopo)
 		So(err, ShouldBeNil)
@@ -454,7 +486,7 @@ func TestResourcesScan(t *testing.T) {
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
-		resMon, err := NewResourceMonitorWithTopology("TEST", &fakeTopo, mockPodResClient, Args{})
+		resMon, err := NewResourceMonitorWithParameters("TEST", &fakeTopo, fakeMemRep, mockPodResClient, Args{})
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
@@ -484,6 +516,12 @@ func TestResourcesScan(t *testing.T) {
 							Available:   resource.MustParse("4"),
 							Allocatable: resource.MustParse("4"),
 							Capacity:    resource.MustParse("4"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
 						},
 					},
 				},
@@ -519,6 +557,12 @@ func TestResourcesScan(t *testing.T) {
 							Allocatable: resource.MustParse("2"),
 							Capacity:    resource.MustParse("2"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
+						},
 					},
 				},
 			}
@@ -529,6 +573,8 @@ func TestResourcesScan(t *testing.T) {
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			res, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
+
+			// TODO: reset memory
 
 			sort.Slice(res, func(i, j int) bool {
 				return res[i].Name < res[j].Name
@@ -594,6 +640,12 @@ func TestResourcesScan(t *testing.T) {
 							Allocatable: resource.MustParse("4"),
 							Capacity:    resource.MustParse("4"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
+						},
 					},
 				},
 				topologyv1alpha1.Zone{
@@ -627,6 +679,12 @@ func TestResourcesScan(t *testing.T) {
 							Available:   resource.MustParse("2"),
 							Allocatable: resource.MustParse("2"),
 							Capacity:    resource.MustParse("2"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
 						},
 					},
 				},
@@ -793,6 +851,12 @@ func TestResourcesScan(t *testing.T) {
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
+						},
 					},
 				},
 				topologyv1alpha1.Zone{
@@ -832,6 +896,12 @@ func TestResourcesScan(t *testing.T) {
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
 						},
 					},
 				},
@@ -963,6 +1033,12 @@ func TestResourcesScan(t *testing.T) {
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
+						},
 					},
 				},
 				topologyv1alpha1.Zone{
@@ -1002,6 +1078,12 @@ func TestResourcesScan(t *testing.T) {
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("0"),
 						},
 					},
 				},
@@ -1186,6 +1268,12 @@ func TestResourcesScan(t *testing.T) {
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("16638164992"),
+						},
 					},
 				},
 				topologyv1alpha1.Zone{
@@ -1225,6 +1313,12 @@ func TestResourcesScan(t *testing.T) {
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   resource.MustParse("0"),
+							Allocatable: resource.MustParse("0"),
+							Capacity:    resource.MustParse("16638164992"),
 						},
 					},
 				},

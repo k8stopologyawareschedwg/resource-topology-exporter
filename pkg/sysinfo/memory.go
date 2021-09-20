@@ -22,7 +22,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func GetMemory(hnd Handle) (map[int]int64, error) {
+func (hnd Handle) GetMemory() (map[int]int64, error) {
 	entries, err := ioutil.ReadDir(hnd.SysDevicesNodes())
 	if err != nil {
 		return nil, err
