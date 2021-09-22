@@ -1057,7 +1057,7 @@ func TestResourcesScan(t *testing.T) {
 
 	Convey("When I aggregate the node resources fake data and some pod allocation, with refresh allocation", t, func() {
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
-		resMon, err := NewResourceMonitorWithTopology("TEST", &fakeTopo, mockPodResClient, Args{RefreshAllocatable: true})
+		resMon, err := NewResourceMonitorWithTopology("TEST", &fakeTopo, mockPodResClient, Args{RefreshNodeResources: true})
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {

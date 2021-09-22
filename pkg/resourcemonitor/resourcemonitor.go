@@ -34,6 +34,7 @@ import (
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
 
 const (
@@ -46,10 +47,10 @@ type ResourceExcludeList struct {
 }
 
 type Args struct {
-	Namespace          string
-	SysfsRoot          string
-	ExcludeList        ResourceExcludeList
-	RefreshAllocatable bool
+	Namespace            string
+	SysfsRoot            string
+	ExcludeList          ResourceExcludeList
+	RefreshNodeResources bool
 }
 
 type ResourceMonitor interface {
@@ -85,6 +86,7 @@ type resourceMonitor struct {
 	podResCli         podresourcesapi.PodResourcesListerClient
 	topo              *ghw.TopologyInfo
 	coreIDToNodeIDMap map[int]int
+	nodeCapacity      perNUMAResourceCounter
 	nodeAllocatable   perNUMAResourceCounter
 }
 
@@ -107,8 +109,11 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 		topo:              topo,
 		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
 	}
-	if !rm.args.RefreshAllocatable {
-		klog.Infof("getting allocatable resources once")
+	if !rm.args.RefreshNodeResources {
+		klog.Infof("getting node resources once")
+		if err := rm.updateNodeCapacity(); err != nil {
+			return nil, err
+		}
 		if err := rm.updateNodeAllocatable(); err != nil {
 			return nil, err
 		}
@@ -125,7 +130,10 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 }
 
 func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, error) {
-	if rm.args.RefreshAllocatable {
+	if rm.args.RefreshNodeResources {
+		if err := rm.updateNodeCapacity(); err != nil {
+			return nil, err
+		}
 		if err := rm.updateNodeAllocatable(); err != nil {
 			return nil, err
 		}
@@ -160,6 +168,9 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 			zone.Costs = costs
 		}
 
+		resCapCounters := rm.nodeCapacity[nodeID]
+		// the case of zero-value is handled below
+
 		// check if NUMA has some allocatable resources
 		resCounters, ok := rm.nodeAllocatable[nodeID]
 		if !ok {
@@ -172,38 +183,59 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 			if inExcludeSet(excludeSet, resName, rm.nodeName) {
 				continue
 			}
+			resCapacity := resCapCounters[resName]
+			if resCapacity == 0 {
+				klog.Warningf("zero capacity for resource %q on NUMA cell %d", resName, nodeID)
+				resCapacity = resAlloc
+			}
+			if resAlloc > resCapacity {
+				klog.Warningf("allocated more than capacity for %q on zone %q", resName.String(), zone.Name)
+				// we trust more kubelet than ourselves atm.
+				resCapacity = resAlloc
+			}
+
 			resUsed := allocated[nodeID][resName]
 
-			size := resAlloc - resUsed
-			if size < 0 {
+			resAvail := resAlloc - resUsed
+			if resAvail < 0 {
 				klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
-				size = 0
-			}
-
-			availableQty := *resource.NewQuantity(size, resource.DecimalSI)
-			allocatableQty := *resource.NewQuantity(resAlloc, resource.DecimalSI)
-			capacityQty := allocatableQty
-			if resName == v1.ResourceCPU {
-				capacityQty = *resource.NewQuantity(cpuCapacity(rm.topo, nodeID), resource.DecimalSI)
-			}
-			if resName == v1.ResourceMemory {
-				// TODO when https://github.com/jaypipes/ghw/pull/268 get merged we should account memory capacity as well
-			}
-			if strings.HasPrefix(resName.String(), v1.ResourceHugePagesPrefix) {
-				// TODO
+				resAvail = 0
 			}
 
 			zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
 				Name:        resName.String(),
-				Available:   availableQty,
-				Allocatable: allocatableQty,
-				Capacity:    capacityQty,
+				Available:   *resource.NewQuantity(resAvail, resource.DecimalSI),
+				Allocatable: *resource.NewQuantity(resAlloc, resource.DecimalSI),
+				Capacity:    *resource.NewQuantity(resCapacity, resource.DecimalSI),
 			})
 		}
 
 		zones = append(zones, zone)
 	}
 	return zones, nil
+}
+
+func (rm *resourceMonitor) updateNodeCapacity() error {
+	hpCounters, err := sysinfo.GetHugepageCounters(sysinfo.Handle{}, sysinfo.GetHugepages)
+	if err != nil {
+		return err
+	}
+
+	hp2Mi := sysinfo.HugepageResourceNameFromSize(sysinfo.HugepageSize2Mi)
+	hp1Gi := sysinfo.HugepageResourceNameFromSize(sysinfo.HugepageSize1Gi)
+
+	// we care only about reservable resources, thus:
+	// cpu, memory, hugepages
+	perNUMARc := make(perNUMAResourceCounter)
+	for nodeID := range rm.topo.Nodes {
+		perNUMARc[nodeID] = resourceCounter{
+			v1.ResourceCPU:         cpuCapacity(rm.topo, nodeID),
+			v1.ResourceName(hp2Mi): hpCounters[hp2Mi][nodeID],
+			v1.ResourceName(hp1Gi): hpCounters[hp1Gi][nodeID],
+		}
+	}
+	rm.nodeCapacity = perNUMARc
+	return nil
 }
 
 func (rm *resourceMonitor) updateNodeAllocatable() error {
