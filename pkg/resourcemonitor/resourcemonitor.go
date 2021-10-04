@@ -216,7 +216,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
-	hpCounters, err := sysinfo.GetHugepageCounters(sysinfo.Handle{}, sysinfo.GetHugepages)
+	memCounters, err := sysinfo.GetMemoryResourceCounters(sysinfo.Handle{})
 	if err != nil {
 		return err
 	}
@@ -230,8 +230,9 @@ func (rm *resourceMonitor) updateNodeCapacity() error {
 	for nodeID := range rm.topo.Nodes {
 		perNUMARc[nodeID] = resourceCounter{
 			v1.ResourceCPU:         cpuCapacity(rm.topo, nodeID),
-			v1.ResourceName(hp2Mi): hpCounters[hp2Mi][nodeID],
-			v1.ResourceName(hp1Gi): hpCounters[hp1Gi][nodeID],
+			v1.ResourceMemory:      memCounters[string(v1.ResourceMemory)][nodeID],
+			v1.ResourceName(hp2Mi): memCounters[hp2Mi][nodeID],
+			v1.ResourceName(hp1Gi): memCounters[hp1Gi][nodeID],
 		}
 	}
 	rm.nodeCapacity = perNUMARc

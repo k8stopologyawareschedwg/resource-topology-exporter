@@ -25,27 +25,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	SysDevicesNode = "/sys/devices/system/node"
-)
-
-const (
-	HugepageSize2Mi = 2048
-	HugepageSize1Gi = 1048576
-)
-
-type Handle struct {
-	Root string
-}
-
-func (hnd Handle) SysDevicesNodes() string {
-	return filepath.Join(hnd.Root, SysDevicesNode)
-}
-
-func (hnd Handle) SysDevicesNodesNodeNth(nodeID int) string {
-	return filepath.Join(hnd.Root, SysDevicesNode, fmt.Sprintf("node%d", nodeID))
-}
-
 // TODO review
 type Hugepages struct {
 	NodeID int
@@ -54,27 +33,6 @@ type Hugepages struct {
 }
 
 type PerNUMACounters map[int]int64
-
-func GetHugepageCounters(hnd Handle, getHPs func(Handle) ([]*Hugepages, error)) (map[string]PerNUMACounters, error) {
-	numaCounters := make(map[string]PerNUMACounters)
-	hugepages, err := getHPs(hnd)
-	if err != nil {
-		return numaCounters, err
-	}
-
-	for _, hpage := range hugepages {
-		resourceName := HugepageResourceNameFromSize(hpage.SizeKB)
-		numaDevs, ok := numaCounters[resourceName]
-		if !ok {
-			numaDevs = make(PerNUMACounters)
-		}
-
-		numaDevs[hpage.NodeID] = int64(hpage.Total)
-		numaCounters[resourceName] = numaDevs
-	}
-
-	return numaCounters, nil
-}
 
 func GetHugepages(hnd Handle) ([]*Hugepages, error) {
 	entries, err := ioutil.ReadDir(hnd.SysDevicesNodes())
