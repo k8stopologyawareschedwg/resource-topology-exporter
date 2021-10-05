@@ -75,7 +75,7 @@ func TestHugepagesForNode(t *testing.T) {
 		t.Errorf("failed to setup hugepages on node %d the fake tree on %q: %v", 0, rootDir, err)
 	}
 
-	hpCounters, err := GetHugepageCounters(Handle{rootDir}, GetHugepages)
+	hpCounters, err := GetMemoryResourceCounters(Handle{rootDir})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
