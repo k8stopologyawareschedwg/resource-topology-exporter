@@ -6,6 +6,9 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
 defaults:
   run:
     shell: bash
@@ -14,8 +17,7 @@ jobs:
   release-build:
     runs-on: ubuntu-20.04
     env:
-      # TODO
-      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
@@ -40,25 +42,30 @@ jobs:
         make build-e2e
 
     - name: build image
-      run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image
+      id: build-image
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: quay.io/k8stopologyawarewg/resource-topology-exporter
+        tags: ${{ env.RELEASE_VERSION}}
+        dockerfiles: |
+          ./images/Dockerfile
 
     - name: generate manifests
       run: |
-        make outdir
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=10s make gen-manifests | tee _out/resource-topology-exporter.yaml
+        mkdir _dist
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE}:${{ env.RELEASE_VERSION }} RTE_POLL_INTERVAL=10s make gen-manifests | tee _dist/resource-topology-exporter-${{ env.RELEASE_VERSION }}.yaml
 
     - name: create K8S kind cluster
       run: |
         # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
         kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
-        kind load docker-image ${RTE_CONTAINER_IMAGE}
+        kind load docker-image ${RTE_CONTAINER_IMAGE}:${{ env.RELEASE_VERSION }}
 
     - name: deploy RTE
       run: |
         # TODO: what about the other workers (if any)?
         kubectl label node kind-worker node-role.kubernetes.io/worker=''
-        kubectl create -f _out/resource-topology-exporter.yaml
+        kubectl create -f _dist/resource-topology-exporter-${{ env.RELEASE_VERSION }}.yaml
 
     - name: cluster info
       run: |
@@ -78,22 +85,34 @@ jobs:
         export KUBECONFIG=${HOME}/.kube/config 
         _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraConsuming\]'
 
-    - name: fix build artifacts
-      run: |
-        mv _out/resource-topology-exporter.yaml resource-topology-exporter-${{ env.RELEASE_VERSION }}.yaml
-        mv _out/resource-topology-exporter resource-topology-exporter-${{ env.RELEASE_VERSION }}-linux-amd64
-        make clean outdir
-        mv resource-topology-exporter-${{ env.RELEASE_VERSION}}* _out/
-
     - name: compute signature
       run: |
-        pushd _out && sha256sum * >> ../SHA256SUMS && mv ../SHA256SUMS . && popd
+        pushd _dist && sha256sum * >> ../SHA256SUMS && mv ../SHA256SUMS . && popd
 
     - name: upload build artifacts
       uses: actions/upload-artifact@v2
       with:
         name: build-artifacts
-        path: _out/*
+        path: _dist/*
+
+    - name: create release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "_dist/*"
+        token: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+
+    - name: push to quay
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.build-image.outputs.image }}
+        tags: ${{ steps.build-image.outputs.tags }}
+        registry: quay.io/openshift-kni
+        username: ${{ secrets.QUAY_IO_USERNAME }}
+        password: ${{ secrets.QUAY_IO_ROBOTOKEN }}
+
+    - name: print image url
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
     - name: export kind logs
       if: ${{ failure() }}
@@ -106,25 +125,3 @@ jobs:
       with:
         name: kind-logs
         path: /tmp/kind-logs
-
-  release:
-    needs: [release-build]
-    runs-on: ubuntu-20.04
-    steps:
-    - name: checkout sources
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-
-    # todo: create changelog and/or release body
-
-    - name: download again the build artifacts
-      uses: actions/download-artifact@v2
-      with:
-        name: build-artifacts
-
-    - name: create release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: "SHA256SUMS,resource-topology-exporter-v*.yaml,resource-topology-exporter-v*-linux-amd64"
-        token: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
