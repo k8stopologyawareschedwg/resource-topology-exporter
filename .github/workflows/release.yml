@@ -41,29 +41,20 @@ jobs:
       run: |
         make build-e2e
 
-    - name: build binaries
-      run: |
-        make binaries
-
     - name: build image
-      id: build-image
-      uses: redhat-actions/buildah-build@v2
-      with:
-        image: quay.io/k8stopologyawarewg/resource-topology-exporter
-        tags: ${{ env.RELEASE_VERSION}}
-        dockerfiles: |
-          ./images/Dockerfile
+      run: |
+        RTE_CONTAINER_IMAGE=${{ env.RTE_CONTAINER_IMAGE }}:${{ env.RELEASE_VERSION }} RUNTIME=docker make image
 
     - name: generate manifests
       run: |
         mkdir _dist
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE}:${{ env.RELEASE_VERSION }} RTE_POLL_INTERVAL=10s make gen-manifests | tee _dist/resource-topology-exporter-${{ env.RELEASE_VERSION }}.yaml
+        RTE_CONTAINER_IMAGE=${{ env.RTE_CONTAINER_IMAGE }}:${{ env.RELEASE_VERSION }} RTE_POLL_INTERVAL=10s make gen-manifests | tee _dist/resource-topology-exporter-${{ env.RELEASE_VERSION }}.yaml
 
     - name: create K8S kind cluster
       run: |
         # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
         kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
-        kind load docker-image ${RTE_CONTAINER_IMAGE}:${{ env.RELEASE_VERSION }}
+        kind load docker-image ${{ env.RTE_CONTAINER_IMAGE }}:${{ env.RELEASE_VERSION }}
 
     - name: deploy RTE
       run: |
@@ -109,8 +100,8 @@ jobs:
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
-        image: ${{ steps.build-image.outputs.image }}
-        tags: ${{ steps.build-image.outputs.tags }}
+        image: ${{ env.RTE_CONTAINER_IMAGE }}
+        tags: ${{ env.RELEASE_VERSION }}
         registry: quay.io/openshift-kni
         username: ${{ secrets.QUAY_IO_USERNAME }}
         password: ${{ secrets.QUAY_IO_ROBOTOKEN }}
