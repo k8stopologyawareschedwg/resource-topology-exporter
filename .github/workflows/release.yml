@@ -96,18 +96,16 @@ jobs:
         artifacts: "_dist/*"
         token: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
 
-    - name: push to quay
-      id: push-to-quay
-      uses: redhat-actions/push-to-registry@v2
+    - name: login to quay.io
+      uses: docker/login-action@v1
       with:
-        image: ${{ env.RTE_CONTAINER_IMAGE }}
-        tags: ${{ env.RELEASE_VERSION }}
-        registry: quay.io/openshift-kni
+        registry: quay.io
         username: ${{ secrets.QUAY_IO_USERNAME }}
         password: ${{ secrets.QUAY_IO_ROBOTOKEN }}
 
-    - name: print image url
-      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+    - name: publish image
+      run: |
+        docker push ${{ env.RTE_CONTAINER_IMAGE }}:${{ env.RELEASE_VERSION }}
 
     - name: export kind logs
       if: ${{ failure() }}
