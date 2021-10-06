@@ -17,7 +17,7 @@ jobs:
   release:
     runs-on: ubuntu-20.04
     env:
-      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawareschedwg/resource-topology-exporter
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
