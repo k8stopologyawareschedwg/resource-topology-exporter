@@ -14,7 +14,7 @@ defaults:
     shell: bash
 
 jobs:
-  release-build:
+  release:
     runs-on: ubuntu-20.04
     env:
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter
@@ -40,6 +40,10 @@ jobs:
     - name: build test binary
       run: |
         make build-e2e
+
+    - name: build binaries
+      run: |
+        make binaries
 
     - name: build image
       id: build-image
