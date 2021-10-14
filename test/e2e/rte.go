@@ -23,6 +23,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -43,6 +44,12 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 )
 
+const (
+	rteLabelName     = "resource-topology"
+	rteContainerName = "resource-topology-exporter-container"
+	defaultNamespace = "default"
+)
+
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
 	var (
 		initialized         bool
@@ -59,7 +66,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		var err error
 
 		if !initialized {
-			nodeName = getNodeName()
+			nodeName = utils.GetNodeName()
 			namespace = getNamespaceName()
 
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
@@ -194,4 +201,11 @@ func cmpResourceList(expected, got v1.ResourceList) (string, int, bool) {
 		}
 	}
 	return "", 0, true
+}
+
+func getNamespaceName() string {
+	if nsName, ok := os.LookupEnv("E2E_NAMESPACE_NAME"); ok {
+		return nsName
+	}
+	return defaultNamespace
 }

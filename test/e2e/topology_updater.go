@@ -57,7 +57,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		var err error
 
 		if !initialized {
-			nodeName = getNodeName()
+			nodeName = utils.GetNodeName()
 			namespace = getNamespaceName()
 
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
