@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"os"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -14,6 +15,8 @@ import (
 const (
 	// RoleWorker contains the worker role
 	RoleWorker = "worker"
+	// DefaultNodeName we rely on kind for our CI
+	DefaultNodeName = "kind-worker"
 )
 
 const (
@@ -68,4 +71,11 @@ func FilterNodesWithEnoughCores(nodes []v1.Node, cpuAmount string) ([]v1.Node, e
 	}
 
 	return resNodes, nil
+}
+
+func GetNodeName() string {
+	if nodeName, ok := os.LookupEnv("E2E_WORKER_NODE_NAME"); ok {
+		return nodeName
+	}
+	return DefaultNodeName
 }

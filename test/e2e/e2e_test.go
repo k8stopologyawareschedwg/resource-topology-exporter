@@ -30,14 +30,6 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework/testfiles"
 )
 
-const (
-	// we rely on kind for our CI
-	defaultNodeName  = "kind-worker"
-	defaultNamespace = "default"
-	rteLabelName     = "resource-topology"
-	rteContainerName = "resource-topology-exporter-container"
-)
-
 // handleFlags sets up all flags and parses the command line.
 func handleFlags() {
 	config.CopyFlags(config.Flags, flag.CommandLine)
@@ -67,18 +59,4 @@ func TestMain(m *testing.M) {
 
 func TestE2E(t *testing.T) {
 	e2ekube.RunE2ETests(t)
-}
-
-func getNodeName() string {
-	if nodeName, ok := os.LookupEnv("E2E_WORKER_NODE_NAME"); ok {
-		return nodeName
-	}
-	return defaultNodeName
-}
-
-func getNamespaceName() string {
-	if nsName, ok := os.LookupEnv("E2E_NAMESPACE_NAME"); ok {
-		return nsName
-	}
-	return defaultNamespace
 }
