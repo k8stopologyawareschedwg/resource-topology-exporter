@@ -1,4 +1,24 @@
-package e2e
+/*
+Copyright 2020 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+/*
+ * resource-topology-exporter specific tests
+ */
+
+package rte
 
 import (
 	"context"
@@ -11,6 +31,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
+
+	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
 var _ = ginkgo.Describe("[RTE] metrics", func() {
@@ -27,9 +49,9 @@ var _ = ginkgo.Describe("[RTE] metrics", func() {
 			var err error
 			var pods *corev1.PodList
 			sel := metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": rteLabelName},
+				MatchLabels: map[string]string{"name": e2etestenv.RTELabelName},
 			}
-			pods, err = f.ClientSet.CoreV1().Pods(defaultNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
+			pods, err = f.ClientSet.CoreV1().Pods(e2etestenv.DefaultNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			gomega.Expect(len(pods.Items)).To(gomega.Equal(1))
@@ -47,7 +69,7 @@ var _ = ginkgo.Describe("[RTE] metrics", func() {
 				Command:            []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)},
 				Namespace:          rtePod.Namespace,
 				PodName:            rtePod.Name,
-				ContainerName:      rteContainerName,
+				ContainerName:      e2etestenv.RTEContainerName,
 				Stdin:              nil,
 				CaptureStdout:      true,
 				CaptureStderr:      true,
