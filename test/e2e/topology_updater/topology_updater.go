@@ -19,17 +19,15 @@ limitations under the License.
  * please note the test logic itself is shared, the fixture setup/teardown code may be different.
  */
 
-package e2e
+package topology_updater
 
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
@@ -38,6 +36,11 @@ import (
 	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2ekubelet "k8s.io/kubernetes/test/e2e/framework/kubelet"
+
+	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
+	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
+	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
+	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
 var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater", func() {
@@ -57,8 +60,8 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		var err error
 
 		if !initialized {
-			nodeName = utils.GetNodeName()
-			namespace = getNamespaceName()
+			nodeName = e2etestenv.GetNodeName()
+			namespace = e2etestenv.GetNamespaceName()
 
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -66,7 +69,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			workerNodes, err = utils.GetWorkerNodes(f)
+			workerNodes, err = e2enodes.GetWorkerNodes(f)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			// intentionally done once
@@ -83,28 +86,28 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 	ginkgo.Context("with cluster configured", func() {
 		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (best effort QOS)", func() {
 			ginkgo.By("getting the initial topology information")
-			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
-			sleeperPod := utils.MakeBestEffortSleeperPod()
+			sleeperPod := e2epods.MakeBestEffortSleeperPod()
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
 			podMap[pod.Name] = pod
-			defer utils.DeletePodsAsync(f, podMap)
+			defer e2epods.DeletePodsAsync(f, podMap)
 
 			cooldown := 30 * time.Second
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
 			// the object, hance the resource version must NOT change, so we can only sleep
 			time.Sleep(cooldown)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
-			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			finalNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 
-			initialAvailRes := availableResourceListFromNodeResourceTopology(initialNodeTopo)
-			finalAvailRes := availableResourceListFromNodeResourceTopology(finalNodeTopo)
+			initialAvailRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAvailRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(finalNodeTopo)
 			if len(initialAvailRes) == 0 || len(finalAvailRes) == 0 {
 				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAvailRes, finalAvailRes))
 			}
-			zoneName, resName, cmp, ok := cmpAvailableResources(initialAvailRes, finalAvailRes)
+			zoneName, resName, cmp, ok := e2enodetopology.CmpAvailableResources(initialAvailRes, finalAvailRes)
 			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAvailRes, finalAvailRes))
@@ -123,28 +126,28 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (guaranteed QOS, nonintegral cpu request)", func() {
 			ginkgo.By("getting the initial topology information")
-			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (guaranteed QoS, nonintegral request)")
-			sleeperPod := utils.MakeGuaranteedSleeperPod("500m")
+			sleeperPod := e2epods.MakeGuaranteedSleeperPod("500m")
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
 			podMap[pod.Name] = pod
-			defer utils.DeletePodsAsync(f, podMap)
+			defer e2epods.DeletePodsAsync(f, podMap)
 
 			cooldown := 30 * time.Second
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
 			// the object, hance the resource version must NOT change, so we can only sleep
 			time.Sleep(cooldown)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
-			finalNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			finalNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 
-			initialAllocRes := availableResourceListFromNodeResourceTopology(initialNodeTopo)
-			finalAllocRes := availableResourceListFromNodeResourceTopology(finalNodeTopo)
+			initialAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(finalNodeTopo)
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
 				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			zoneName, resName, cmp, ok := cmpAvailableResources(initialAllocRes, finalAllocRes)
+			zoneName, resName, cmp, ok := e2enodetopology.CmpAvailableResources(initialAllocRes, finalAllocRes)
 			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
@@ -162,21 +165,21 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		})
 
 		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
-			nodes, err := utils.FilterNodesWithEnoughCores(workerNodes, "1000m")
+			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {
 				ginkgo.Skip("not enough available cores for this test")
 			}
 
 			ginkgo.By("getting the initial topology information")
-			initialNodeTopo := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			ginkgo.By("creating a pod consuming exclusive CPUs")
-			sleeperPod := utils.MakeGuaranteedSleeperPod("1000m")
+			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
 			podMap[pod.Name] = pod
-			defer utils.DeletePodsAsync(f, podMap)
+			defer e2epods.DeletePodsAsync(f, podMap)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha1.NodeResourceTopology
@@ -190,107 +193,20 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			}, time.Minute, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			ginkgo.By("checking the changes in the updated topology")
 
-			initialAllocRes := availableResourceListFromNodeResourceTopology(initialNodeTopo)
-			finalAllocRes := availableResourceListFromNodeResourceTopology(finalNodeTopo)
+			initialAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(initialNodeTopo)
+			finalAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(finalNodeTopo)
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
 				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			zoneName, resName, isLess := lessAvailableResources(initialAllocRes, finalAllocRes)
+			zoneName, resName, isLess := e2enodetopology.LessAvailableResources(initialAllocRes, finalAllocRes)
 			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
 			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final available resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
 		ginkgo.It("should fill the node resource topologies CR with the data", func() {
-			nodeTopology := getNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
-			isValid := isValidNodeTopology(nodeTopology, kubeletConfig)
+			nodeTopology := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			isValid := e2enodetopology.IsValidNodeTopology(nodeTopology, kubeletConfig)
 			gomega.Expect(isValid).To(gomega.BeTrue(), "received invalid topology: %v", nodeTopology)
 		})
 	})
 })
-
-func getNodeTopology(topologyClient *topologyclientset.Clientset, nodeName, namespace string) *v1alpha1.NodeResourceTopology {
-	var nodeTopology *v1alpha1.NodeResourceTopology
-	var err error
-	gomega.EventuallyWithOffset(1, func() bool {
-		nodeTopology, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			framework.Logf("failed to get the node topology resource: %v", err)
-			return false
-		}
-		return true
-	}, time.Minute, 5*time.Second).Should(gomega.BeTrue())
-	return nodeTopology
-}
-
-func isValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, kubeletConfig *kubeletconfig.KubeletConfiguration) bool {
-	if nodeTopology == nil || len(nodeTopology.TopologyPolicies) == 0 {
-		framework.Logf("failed to get topology policy from the node topology resource")
-		return false
-	}
-
-	if kubeletConfig != nil {
-		if nodeTopology.TopologyPolicies[0] != (*kubeletConfig).TopologyManagerPolicy {
-			return false
-		}
-	}
-
-	if nodeTopology.Zones == nil || len(nodeTopology.Zones) == 0 {
-		framework.Logf("failed to get topology zones from the node topology resource")
-		return false
-	}
-
-	foundNodes := 0
-	for _, zone := range nodeTopology.Zones {
-		// TODO constant not in the APIs
-		if !strings.HasPrefix(strings.ToUpper(zone.Type), "NODE") {
-			continue
-		}
-		foundNodes++
-
-		if !isValidCostList(zone.Name, zone.Costs) {
-			return false
-		}
-
-		if !isValidResourceList(zone.Name, zone.Resources) {
-			return false
-		}
-	}
-	return foundNodes > 0
-}
-
-func isValidCostList(zoneName string, costs v1alpha1.CostList) bool {
-	if len(costs) == 0 {
-		framework.Logf("failed to get topology costs for zone %q from the node topology resource", zoneName)
-		return false
-	}
-
-	// TODO cross-validate zone names
-	for _, cost := range costs {
-		if cost.Name == "" || cost.Value < 0 {
-			framework.Logf("malformed cost %v for zone %q", cost, zoneName)
-		}
-	}
-	return true
-}
-
-func isValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) bool {
-	if len(resources) == 0 {
-		framework.Logf("failed to get topology resources for zone %q from the node topology resource", zoneName)
-		return false
-	}
-	foundCpu := false
-	for _, resource := range resources {
-		// TODO constant not in the APIs
-		if strings.ToUpper(resource.Name) == "CPU" {
-			foundCpu = true
-		}
-		available := resource.Available.Value()
-		allocatable := resource.Capacity.Value()
-		capacity := resource.Capacity.Value()
-		if (available < 0 || allocatable < 0 || capacity < 0) || (capacity < available) || (capacity < allocatable) {
-			framework.Logf("malformed resource %v for zone %q", resource, zoneName)
-			return false
-		}
-	}
-	return foundCpu
-}
