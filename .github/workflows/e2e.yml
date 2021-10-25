@@ -17,6 +17,7 @@ jobs:
       # TODO
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
       E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
+      RTE_POLL_INTERVAL: 10s
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
@@ -39,7 +40,7 @@ jobs:
 
     - name: generate manifests
       run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=10s make gen-manifests | tee rte-e2e.yaml
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} make gen-manifests | tee rte-e2e.yaml
 
     - name: create K8S kind cluster
       run: |
