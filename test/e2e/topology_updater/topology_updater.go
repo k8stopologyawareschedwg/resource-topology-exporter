@@ -122,6 +122,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (guaranteed QoS, nonintegral request)")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("500m")
+			defer e2epods.Cooldown(f)
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
@@ -166,8 +167,11 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			ginkgo.By("getting the initial topology information")
 			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			framework.Logf("initial topology information: %#v", initialNodeTopo)
+
 			ginkgo.By("creating a pod consuming exclusive CPUs")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
+			defer e2epods.Cooldown(f)
 
 			podMap := make(map[string]*v1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
@@ -184,8 +188,9 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 				}
 				return finalNodeTopo.ObjectMeta.ResourceVersion != initialNodeTopo.ObjectMeta.ResourceVersion
 			}, time.Minute, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
-			ginkgo.By("checking the changes in the updated topology")
+			framework.Logf("final topology information: %#v", initialNodeTopo)
 
+			ginkgo.By("checking the changes in the updated topology")
 			initialAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(initialNodeTopo)
 			finalAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(finalNodeTopo)
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
