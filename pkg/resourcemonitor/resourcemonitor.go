@@ -168,7 +168,10 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 			zone.Costs = costs
 		}
 
-		resCapCounters := rm.nodeCapacity[nodeID]
+		resCapCounters, ok := rm.nodeCapacity[nodeID]
+		if !ok {
+			resCapCounters = make(resourceCounter)
+		}
 		// the case of zero-value is handled below
 
 		// check if NUMA has some allocatable resources
@@ -176,6 +179,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 		if !ok {
 			// NUMA node doesn't have any allocatable resources. This means the returned counters map is empty.
 			// Yet, the node exists in the topology, thus we consider all its CPUs are reserved
+			resCounters = make(resourceCounter)
 			resCounters[v1.ResourceCPU] = 0
 		}
 
@@ -183,8 +187,9 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 			if inExcludeSet(excludeSet, resName, rm.nodeName) {
 				continue
 			}
-			resCapacity := resCapCounters[resName]
-			if resCapacity == 0 {
+
+			resCapacity, ok := resCapCounters[resName]
+			if !ok || resCapacity == 0 {
 				klog.Warningf("zero capacity for resource %q on NUMA cell %d", resName, nodeID)
 				resCapacity = resAlloc
 			}
