@@ -92,7 +92,7 @@ func (s *ArgsParseTestSuite) TestArgsParse() {
 			So(err, ShouldBeNil)
 
 			// compare the default values from the file with the output from the parseArgs function
-			So(pArgsAsJson, ShouldResemble, expected)
+			So(string(pArgsAsJson), ShouldResemble, string(expected))
 		})
 	})
 }
