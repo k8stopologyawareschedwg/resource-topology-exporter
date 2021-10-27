@@ -34,16 +34,11 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
-)
-
-const (
-	rteLabelName     = "resource-topology"
-	rteContainerName = "resource-topology-exporter-container"
-	defaultNamespace = "default"
 )
 
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
