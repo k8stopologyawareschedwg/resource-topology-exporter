@@ -28,16 +28,34 @@ const (
 	RTEContainerName = "resource-topology-exporter-container"
 )
 
+var (
+	currentNodeName  string
+	currentNamespace string
+)
+
+func init() {
+	currentNodeName = DefaultNodeName
+	currentNamespace = DefaultNamespace
+}
+
 func GetNodeName() string {
 	if nodeName, ok := os.LookupEnv("E2E_WORKER_NODE_NAME"); ok {
 		return nodeName
 	}
-	return DefaultNodeName
+	return currentNodeName
 }
 
 func GetNamespaceName() string {
 	if nsName, ok := os.LookupEnv("E2E_NAMESPACE_NAME"); ok {
 		return nsName
 	}
-	return DefaultNamespace
+	return currentNamespace
+}
+
+func SetNodeName(nodeName string) {
+	currentNodeName = nodeName
+}
+
+func SetNamespaceName(namespaceName string) {
+	currentNamespace = namespaceName
 }
