@@ -27,7 +27,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -45,16 +44,14 @@ func GetNodeTopology(topologyClient *topologyclientset.Clientset, nodeName, name
 	return nodeTopology
 }
 
-func IsValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, kubeletConfig *kubeletconfig.KubeletConfiguration) bool {
+func IsValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, tmPolicy string) bool {
 	if nodeTopology == nil || len(nodeTopology.TopologyPolicies) == 0 {
 		framework.Logf("failed to get topology policy from the node topology resource")
 		return false
 	}
 
-	if kubeletConfig != nil {
-		if nodeTopology.TopologyPolicies[0] != (*kubeletConfig).TopologyManagerPolicy {
-			return false
-		}
+	if nodeTopology.TopologyPolicies[0] != tmPolicy {
+		return false
 	}
 
 	if nodeTopology.Zones == nil || len(nodeTopology.Zones) == 0 {

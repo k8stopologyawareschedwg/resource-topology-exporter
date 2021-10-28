@@ -33,9 +33,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	"k8s.io/kubernetes/test/e2e/framework"
-	e2ekubelet "k8s.io/kubernetes/test/e2e/framework/kubelet"
 
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
@@ -47,7 +45,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 	var (
 		initialized         bool
 		namespace           string
-		kubeletConfig       *kubeletconfig.KubeletConfiguration
+		tmPolicy            string
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
 		workerNodes         []v1.Node
@@ -72,12 +70,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			topologyUpdaterNode = &workerNodes[0]
 			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
 
-			// intentionally done once
-			kubeletConfig, err = e2ekubelet.GetCurrentKubeletConfig(topologyUpdaterNode.Name, "", true)
-			if err != nil {
-				// TODO: the test started to flake on GH actions CI
-				framework.Logf("cannot get kubelet config on node %q: %v", topologyUpdaterNode.Name, err)
-			}
+			tmPolicy = e2etestenv.GetTopologyManagerPolicy()
 
 			initialized = true
 		}
@@ -205,7 +198,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 		ginkgo.It("should fill the node resource topologies CR with the data", func() {
 			nodeTopology := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
-			isValid := e2enodetopology.IsValidNodeTopology(nodeTopology, kubeletConfig)
+			isValid := e2enodetopology.IsValidNodeTopology(nodeTopology, tmPolicy)
 			gomega.Expect(isValid).To(gomega.BeTrue(), "received invalid topology: %v", nodeTopology)
 		})
 	})

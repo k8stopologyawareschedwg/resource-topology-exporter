@@ -16,6 +16,7 @@ jobs:
     env:
       # TODO
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+      E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
