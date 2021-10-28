@@ -46,7 +46,6 @@ import (
 var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater", func() {
 	var (
 		initialized         bool
-		nodeName            string
 		namespace           string
 		kubeletConfig       *kubeletconfig.KubeletConfiguration
 		topologyClient      *topologyclientset.Clientset
@@ -60,23 +59,24 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		var err error
 
 		if !initialized {
-			nodeName = e2etestenv.GetNodeName()
 			namespace = e2etestenv.GetNamespaceName()
 
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
 			workerNodes, err = e2enodes.GetWorkerNodes(f)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+			// pick any worker node. The (implicit, TODO: make explicit) assumption is
+			// the daemonset runs on CI on all the worker nodes.
+			topologyUpdaterNode = &workerNodes[0]
+			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
+
 			// intentionally done once
-			kubeletConfig, err = e2ekubelet.GetCurrentKubeletConfig(nodeName, "", true)
+			kubeletConfig, err = e2ekubelet.GetCurrentKubeletConfig(topologyUpdaterNode.Name, "", true)
 			if err != nil {
 				// TODO: the test started to flake on GH actions CI
-				framework.Logf("cannot get kubelet config on node %q: %v", nodeName, err)
+				framework.Logf("cannot get kubelet config on node %q: %v", topologyUpdaterNode.Name, err)
 			}
 
 			initialized = true

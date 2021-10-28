@@ -44,7 +44,6 @@ import (
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
 	var (
 		initialized         bool
-		nodeName            string
 		namespace           string
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
@@ -57,17 +56,18 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		var err error
 
 		if !initialized {
-			nodeName = e2etestenv.GetNodeName()
 			namespace = e2etestenv.GetNamespaceName()
 
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			topologyUpdaterNode, err = f.ClientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
 			workerNodes, err = e2enodes.GetWorkerNodes(f)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			// pick any worker node. The (implicit, TODO: make explicit) assumption is
+			// the daemonset runs on CI on all the worker nodes.
+			topologyUpdaterNode := &workerNodes[0]
+			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
 
 			initialized = true
 		}
