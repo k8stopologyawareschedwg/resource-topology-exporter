@@ -60,7 +60,7 @@ func GetMemoryResourceCounters(hnd Handle) (map[string]PerNUMACounters, error) {
 			numaDevs = make(PerNUMACounters)
 		}
 
-		numaDevs[hpage.NodeID] = int64(hpage.Total)
+		numaDevs[hpage.NodeID] = int64(hpage.Total * hpage.SizeKB * 1024)
 		numaCounters[resourceName] = numaDevs
 	}
 
