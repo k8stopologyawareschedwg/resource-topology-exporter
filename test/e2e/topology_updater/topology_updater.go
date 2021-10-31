@@ -70,6 +70,13 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			topologyUpdaterNode = &workerNodes[0]
 			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
 
+			// during the e2e tests we expect changes on the node topology.
+			// but in an environment with multiple worker nodes, we might be looking at the wrong node.
+			// thus, we assign a unique label to the picked worker node
+			// and making sure to deploy the pod on it during the test using nodeSelector
+			err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2enodes.TestNodeLabel: ""})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 			tmPolicy = e2etestenv.GetTopologyManagerPolicy()
 
 			initialized = true
