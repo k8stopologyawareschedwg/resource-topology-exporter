@@ -39,6 +39,7 @@ func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
 			Name: "sleeper-gu-pod",
 		},
 		Spec: v1.PodSpec{
+			NodeSelector:  map[string]string{"rte-e2e-test-node": ""},
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				{
@@ -66,6 +67,7 @@ func MakeBestEffortSleeperPod() *v1.Pod {
 			Name: "sleeper-be-pod",
 		},
 		Spec: v1.PodSpec{
+			NodeSelector:  map[string]string{"rte-e2e-test-node": ""},
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				{

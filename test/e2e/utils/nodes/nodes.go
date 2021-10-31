@@ -19,6 +19,8 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -40,7 +42,15 @@ const (
 	LabelRole = "node-role.kubernetes.io"
 	// LabelHostname contains the key for the hostname label
 	LabelHostname = "kubernetes.io/hostname"
+
+	TestNodeLabel = "rte-e2e-test-node"
 )
+
+type patchMapStringStringValue struct {
+	Op    string            `json:"op"`
+	Path  string            `json:"path"`
+	Value map[string]string `json:"value"`
+}
 
 // GetWorkerNodes returns all nodes labeled as worker
 func GetWorkerNodes(f *framework.Framework) ([]v1.Node, error) {
@@ -87,4 +97,30 @@ func FilterNodesWithEnoughCores(nodes []v1.Node, cpuAmount string) ([]v1.Node, e
 	}
 
 	return resNodes, nil
+}
+
+// LabelNode will add new set of labels to a given node
+func LabelNode(f *framework.Framework, node *v1.Node, newLabels map[string]string) error {
+	labelsMap := make(map[string]string)
+	labelsMap = node.Labels
+
+	for k, v := range newLabels {
+		labelsMap[k] = v
+	}
+
+	patchPayload := []patchMapStringStringValue{{
+		Op:    "replace",
+		Path:  "/metadata/labels",
+		Value: labelsMap,
+	}}
+	payloadBytes, err := json.Marshal(patchPayload)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.ClientSet.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
