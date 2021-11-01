@@ -51,7 +51,7 @@ var _ = ginkgo.Describe("[RTE] metrics", func() {
 			sel := metav1.LabelSelector{
 				MatchLabels: map[string]string{"name": e2etestenv.RTELabelName},
 			}
-			pods, err = f.ClientSet.CoreV1().Pods(e2etestenv.DefaultNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
+			pods, err = f.ClientSet.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			gomega.Expect(len(pods.Items)).To(gomega.Equal(1))
