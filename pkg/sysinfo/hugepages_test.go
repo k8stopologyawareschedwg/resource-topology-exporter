@@ -82,10 +82,10 @@ func TestHugepagesForNode(t *testing.T) {
 	if len(hpCounters["hugepages-2Mi"]) != 2 {
 		t.Errorf("found unexpected 2Mi hugepages: %v", hpCounters["hugepages-2Mi"])
 	}
-	if hpCounters["hugepages-2Mi"][0] != 6 {
+	if hpCounters["hugepages-2Mi"][0] != 12582912 {
 		t.Errorf("found unexpected 2Mi hugepages for node 0: %v", hpCounters["hugepages-2Mi"][0])
 	}
-	if hpCounters["hugepages-2Mi"][1] != 8 {
+	if hpCounters["hugepages-2Mi"][1] != 16777216 {
 		t.Errorf("found unexpected 2Mi hugepages for node 1: %v", hpCounters["hugepages-2Mi"][1])
 	}
 
