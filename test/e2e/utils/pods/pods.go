@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 )
 
 const (
@@ -39,7 +41,7 @@ func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
 			Name: "sleeper-gu-pod",
 		},
 		Spec: v1.PodSpec{
-			NodeSelector:  map[string]string{"rte-e2e-test-node": ""},
+			NodeSelector:  map[string]string{testconsts.TestNodeLabel: ""},
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				{
@@ -67,7 +69,7 @@ func MakeBestEffortSleeperPod() *v1.Pod {
 			Name: "sleeper-be-pod",
 		},
 		Spec: v1.PodSpec{
-			NodeSelector:  map[string]string{"rte-e2e-test-node": ""},
+			NodeSelector:  map[string]string{testconsts.TestNodeLabel: ""},
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				{
