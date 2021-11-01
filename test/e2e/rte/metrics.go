@@ -23,6 +23,7 @@ package rte
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"strconv"
 
 	"github.com/onsi/ginkgo"
@@ -48,9 +49,9 @@ var _ = ginkgo.Describe("[RTE] metrics", func() {
 		if !initialized {
 			var err error
 			var pods *corev1.PodList
-			sel := metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": e2etestenv.RTELabelName},
-			}
+			sel, err := labels.Parse(fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 			pods, err = f.ClientSet.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
