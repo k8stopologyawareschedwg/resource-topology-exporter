@@ -70,7 +70,7 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming)\]'
+        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
 
   e2e-ip:
     runs-on: ubuntu-20.04
@@ -114,5 +114,5 @@ jobs:
 
     - name: run E2E tests
       run: |
-        export KUBECONFIG=${HOME}/.kube/config 
+        export KUBECONFIG=${HOME}/.kube/config
         _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[InfraProviding\]'
