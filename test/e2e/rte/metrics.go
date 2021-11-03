@@ -58,7 +58,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring]", func() {
 			gomega.Expect(len(pods.Items)).NotTo(gomega.BeZero())
 			rtePod = &pods.Items[0]
 			metricsPort, err = findMetricsPort(rtePod)
-			gomega.Expect(err).To(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			initialized = true
 		}
