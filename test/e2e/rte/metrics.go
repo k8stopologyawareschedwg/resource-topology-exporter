@@ -55,8 +55,8 @@ var _ = ginkgo.Describe("[RTE] metrics", func() {
 			pods, err = f.ClientSet.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			gomega.Expect(len(pods.Items)).To(gomega.Equal(1))
-			rtePod := &pods.Items[0]
+			gomega.Expect(len(pods.Items)).NotTo(gomega.BeZero())
+			rtePod = &pods.Items[0]
 			metricsPort, err = findMetricsPort(rtePod)
 			gomega.Expect(err).To(gomega.HaveOccurred())
 

@@ -66,7 +66,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			// pick any worker node. The (implicit, TODO: make explicit) assumption is
 			// the daemonset runs on CI on all the worker nodes.
-			topologyUpdaterNode := &workerNodes[0]
+			topologyUpdaterNode = &workerNodes[0]
 			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
 
 			initialized = true
