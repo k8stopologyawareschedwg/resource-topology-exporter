@@ -12,6 +12,12 @@ rules:
 - apiGroups: ["topology.node.k8s.io"]
   resources: ["noderesourcetopologies"]
   verbs: ["create", "update", "get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["pods/status"]
+  verbs: ["update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
