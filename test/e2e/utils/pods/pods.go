@@ -17,6 +17,8 @@ limitations under the License.
 package pods
 
 import (
+	"context"
+	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"sync"
 	"time"
@@ -32,7 +34,8 @@ import (
 )
 
 const (
-	CentosImage = "quay.io/centos/centos:8"
+	CentosImage  = "quay.io/centos/centos:8"
+	RTELabelName = "resource-topology"
 )
 
 func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
@@ -119,4 +122,17 @@ func Cooldown(f *framework.Framework) {
 
 	// wait a little more than a full poll interval to make sure the resourcemonitor catches up
 	time.Sleep(sleepTime + 500*time.Millisecond)
+}
+
+func GetPodsByLabel(f *framework.Framework, ns, label string) ([]v1.Pod, error) {
+	sel, err := labels.Parse(label)
+	if err != nil {
+		return nil, err
+	}
+
+	pods, err := f.ClientSet.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
+	if err != nil {
+		return nil, err
+	}
+	return pods.Items, nil
 }

@@ -25,6 +25,7 @@ const (
 	DefaultNodeName             = "kind-worker"
 	DefaultNamespace            = "default"
 	DefaultTopologyMangerPolicy = "none"
+	DefaultRTEPollInterval      = "10s"
 	RTELabelName                = "resource-topology"
 	RTEContainerName            = "resource-topology-exporter-container"
 )
@@ -60,6 +61,15 @@ func GetTopologyManagerPolicy() string {
 		return tmPolicy
 	}
 	return currentTopologyPolicy
+}
+
+func GetPollInterval() string {
+	pollInterval, ok := os.LookupEnv("RTE_POLL_INTERVAL")
+	if !ok {
+		// nothing to do!
+		return DefaultRTEPollInterval
+	}
+	return pollInterval
 }
 
 func SetNodeName(nodeName string) {
