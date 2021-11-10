@@ -74,6 +74,7 @@ spec:
         - --kubelet-state-dir=/host-var/lib/kubelet
         - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
         - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
+        - --notify-file=/host-run/rte/notify
         env:
         - name: NODE_NAME
           valueFrom:
@@ -99,6 +100,8 @@ spec:
             mountPath: "/host-var/lib/kubelet"
           - name: exclude-list-config-vol
             mountPath: "/etc/resource-topology-exporter"
+          - name: host-rte-notification
+            mountPath: "/host-run/rte"
         ports:
           - name: metrics-port
             containerPort: ${METRICS_PORT}
@@ -115,3 +118,6 @@ spec:
         configMap:
           name: resource-topology-exporter-config
           optional: true
+      - name: host-rte-notification
+        hostPath:
+          path: "/run/rte"
