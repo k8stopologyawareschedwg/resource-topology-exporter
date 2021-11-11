@@ -15,6 +15,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/topologypolicy"
 )
 
 const (
@@ -27,6 +28,7 @@ type Args struct {
 	Debug                  bool
 	ReferenceContainer     *podrescli.ContainerIdent
 	TopologyManagerPolicy  string
+	TopologyManagerScope   string
 	KubeletConfigFile      string
 	KubeletStateDirs       []string
 	PodResourcesSocketPath string
@@ -52,7 +54,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	eventsChan := make(chan PollTrigger)
 	infoChannel, _ := resMon.Run(eventsChan)
 
-	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy)
+	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
 	if err != nil {
 		return fmt.Errorf("failed to initialize NRT updater: %w", err)
 	}
@@ -104,18 +106,18 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	return nil // unreachable
 }
 
-func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (string, error) {
-	if rteArgs.TopologyManagerPolicy != "" {
-		klog.Infof("using given Topology Manager policy %q", rteArgs.TopologyManagerPolicy)
-		return rteArgs.TopologyManagerPolicy, nil
+func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (topologypolicy.TopologyManagerPolicy, error) {
+	if rteArgs.TopologyManagerPolicy != "" && rteArgs.TopologyManagerScope != "" {
+		klog.Infof("using given Topology Manager policy %q scope %q", rteArgs.TopologyManagerPolicy, rteArgs.TopologyManagerScope)
+		return topologypolicy.DetectTopologyPolicy(rteArgs.TopologyManagerPolicy, rteArgs.TopologyManagerScope), nil
 	}
 	if rteArgs.KubeletConfigFile != "" {
 		klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(rteArgs.KubeletConfigFile)
 		if err != nil {
 			return "", fmt.Errorf("error getting topology Manager Policy: %w", err)
 		}
-		klog.Infof("detected kubelet Topology Manager policy %q", klConfig.TopologyManagerPolicy)
-		return klConfig.TopologyManagerPolicy, nil
+		klog.Infof("detected kubelet Topology Manager policy %q scope %q", klConfig.TopologyManagerPolicy, klConfig.TopologyManagerScope)
+		return topologypolicy.DetectTopologyPolicy(klConfig.TopologyManagerPolicy, klConfig.TopologyManagerScope), nil
 	}
 	return "", fmt.Errorf("cannot find the kubelet Topology Manager policy")
 }
