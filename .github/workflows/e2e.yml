@@ -71,3 +71,8 @@ jobs:
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
         _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
+
+    - name: show RTE logs
+      if: ${{ failure() }}
+      run: |
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :

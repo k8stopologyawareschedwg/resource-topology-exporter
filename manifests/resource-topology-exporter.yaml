@@ -69,11 +69,12 @@ spec:
         image: ${RTE_CONTAINER_IMAGE}
         command:
         - /bin/resource-topology-exporter
+        - -v=5
         - --sleep-interval=${RTE_POLL_INTERVAL}
         - --sysfs=/host-sys
         - --kubelet-state-dir=/host-var/lib/kubelet
         - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
-        - --podresources-socket=/host-var/lib/kubelet/pod-resources/kubelet.sock
+        - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
         - --notify-file=/host-run/rte/notify
         env:
         - name: NODE_NAME
