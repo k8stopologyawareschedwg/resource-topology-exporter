@@ -19,14 +19,13 @@ package nodes
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
@@ -42,8 +41,6 @@ const (
 	LabelRole = "node-role.kubernetes.io"
 	// LabelHostname contains the key for the hostname label
 	LabelHostname = "kubernetes.io/hostname"
-
-	TestNodeLabel = "rte-e2e-test-node"
 )
 
 type patchMapStringStringValue struct {
@@ -119,8 +116,5 @@ func LabelNode(f *framework.Framework, node *v1.Node, newLabels map[string]strin
 	}
 
 	_, err = f.ClientSet.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
