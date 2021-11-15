@@ -323,7 +323,7 @@ func TestNormalizeContainerDevices(t *testing.T) {
 					sbi.WriteString(id)
 				}
 
-				for _, id := range res[i].DeviceIds {
+				for _, id := range res[j].DeviceIds {
 					sbj.WriteString(id)
 				}
 				return sbi.String() < sbj.String()
@@ -338,7 +338,7 @@ func TestNormalizeContainerDevices(t *testing.T) {
 					sbi.WriteString(id)
 				}
 
-				for _, id := range expected[i].DeviceIds {
+				for _, id := range expected[j].DeviceIds {
 					sbj.WriteString(id)
 				}
 				return sbi.String() < sbj.String()
