@@ -93,7 +93,6 @@ func parseArgs(args ...string) (ProgArgs, error) {
 
 	flags.BoolVar(&pArgs.NRTupdater.NoPublish, "no-publish", false, "Do not publish discovered features to the cluster-local Kubernetes API server.")
 	flags.BoolVar(&pArgs.NRTupdater.Oneshot, "oneshot", false, "Update once and exit.")
-	flags.StringVar(&pArgs.NRTupdater.Namespace, "export-namespace", "", "Namespace on which update CRDs. Use \"\" for all namespaces")
 	flags.StringVar(&pArgs.NRTupdater.Hostname, "hostname", defaultHostName(), "Override the node hostname.")
 
 	flags.StringVar(&pArgs.Resourcemonitor.Namespace, "watch-namespace", "", "Namespace to watch pods for. Use \"\" for all namespaces.")
