@@ -417,7 +417,7 @@ github.com/josharian/intern
 github.com/json-iterator/go
 # github.com/jtolds/gls v4.20.0+incompatible
 github.com/jtolds/gls
-# github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.10
+# github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.12
 ## explicit
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1
