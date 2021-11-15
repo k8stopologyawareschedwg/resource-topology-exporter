@@ -27,7 +27,7 @@ const (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:shortName=node-res-topo
+// +kubebuilder:resource:scope=cluster,shortName=node-res-topo
 
 // NodeResourceTopology describes node resources and their topology.
 type NodeResourceTopology struct {

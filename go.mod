@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/hashicorp/go-version v1.3.0
 	github.com/jaypipes/ghw v0.8.1-0.20210609141030-acb1a36eaf89
-	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.10
+	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.11
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.11.0
@@ -17,8 +17,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.38.0
 	k8s.io/api v0.22.0
-	k8s.io/apimachinery v0.22.0
-	k8s.io/client-go v0.22.0
+	k8s.io/apimachinery v0.22.3
+	k8s.io/client-go v0.22.3
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/kubelet v0.22.0
 	k8s.io/kubernetes v1.22.0
