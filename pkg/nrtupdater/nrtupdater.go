@@ -11,6 +11,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/utils"
@@ -64,7 +65,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 		return nil
 	}
 
-	cli, err := GetTopologyClient("")
+	cli, err := k8shelpers.GetTopologyClient("")
 	if err != nil {
 		return err
 	}

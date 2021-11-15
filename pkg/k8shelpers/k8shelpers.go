@@ -1,11 +1,11 @@
-package nrtupdater
+package k8shelpers
 
 import (
-	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
-
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 )
 
 func GetTopologyClient(kubeConfig string) (*topologyclientset.Clientset, error) {
@@ -43,9 +43,6 @@ func GetK8sClient(kubeConfig string) (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 
-	cs, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return cs, nil
+	return kubernetes.NewForConfig(config)
+
 }

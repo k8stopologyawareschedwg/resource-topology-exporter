@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 )
 
 type ConditionInjector struct {
@@ -30,7 +30,7 @@ func NewConditionInjector() (*ConditionInjector, error) {
 		return nil, fmt.Errorf("the env REFERENCE_POD_NAME doesn't exist")
 	}
 
-	cs, err := nrtupdater.GetK8sClient("")
+	cs, err := k8shelpers.GetK8sClient("")
 	if err != nil {
 		return nil, err
 	}
