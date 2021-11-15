@@ -28,7 +28,6 @@ type Args struct {
 	NoPublish bool
 	Oneshot   bool
 	Hostname  string
-	Namespace string
 }
 
 type NRTUpdater struct {
@@ -68,7 +67,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 		return err
 	}
 
-	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
+	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies("").Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
@@ -81,7 +80,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 			TopologyPolicies: []string{te.tmPolicy},
 		}
 
-		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies("").Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("update failed to create v1alpha1.NodeResourceTopology!:%v", err)
 		}
@@ -100,7 +99,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	nrtMutated.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
 	nrtMutated.Zones = info.Zones
 
-	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies(te.args.Namespace).Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
+	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies("").Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("update failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
