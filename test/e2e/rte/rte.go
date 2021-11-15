@@ -38,6 +38,7 @@ import (
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
+	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
@@ -68,6 +69,13 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			// the daemonset runs on CI on all the worker nodes.
 			topologyUpdaterNode = &workerNodes[0]
 			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
+
+			// during the e2e tests we expect changes on the node topology.
+			// but in an environment with multiple worker nodes, we might be looking at the wrong node.
+			// thus, we assign a unique label to the picked worker node
+			// and making sure to deploy the pod on it during the test using nodeSelector
+			err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2etestconsts.TestNodeLabel: ""})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			initialized = true
 		}
