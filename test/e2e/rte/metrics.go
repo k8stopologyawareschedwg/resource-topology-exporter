@@ -23,7 +23,6 @@ package rte
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"strconv"
 
 	"github.com/onsi/ginkgo"
@@ -31,12 +30,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/test/e2e/framework"
 
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
-var _ = ginkgo.Describe("[RTE][Monitoring]", func() {
+var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	var (
 		initialized bool
 		rtePod      *corev1.Pod

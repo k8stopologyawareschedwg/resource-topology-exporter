@@ -12,6 +12,9 @@ spec:
       labels:
         name: resource-topology
     spec:
+      readinessGates:
+        - conditionType: "PodresourcesFetched"
+        - conditionType: "NodeTopologyUpdated"
       serviceAccountName: rte
       containers:
       - name: resource-topology-exporter-container
