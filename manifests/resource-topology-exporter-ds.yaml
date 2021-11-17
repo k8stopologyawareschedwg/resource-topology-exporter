@@ -18,7 +18,6 @@ spec:
         image: ${RTE_CONTAINER_IMAGE}
         command:
         - /bin/resource-topology-exporter
-        - --export-namespace=default
         - --sleep-interval=${RTE_POLL_INTERVAL}
         - --sysfs=/host-sys
         - --kubelet-state-dir=/host-var/lib/kubelet

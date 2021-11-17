@@ -39,13 +39,11 @@ import (
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
-	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
 	var (
 		initialized         bool
-		namespace           string
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
 		workerNodes         []v1.Node
@@ -57,8 +55,6 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		var err error
 
 		if !initialized {
-			namespace = e2etestenv.GetNamespaceName()
-
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -89,7 +85,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
 
-			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name, namespace)
+			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 			ginkgo.By("creating a pod consuming the shared pool")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 			defer e2epods.Cooldown(f)
@@ -115,18 +111,18 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies(namespace).Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
 				}
 				if finalNodeTopo.ObjectMeta.ResourceVersion == initialNodeTopo.ObjectMeta.ResourceVersion {
-					framework.Logf("resource %s/%s not yet updated - resource version not bumped", namespace, topologyUpdaterNode.Name)
+					framework.Logf("resource %s not yet updated - resource version not bumped", topologyUpdaterNode.Name)
 					return false
 				}
 				reason, ok := finalNodeTopo.Annotations[nrtupdater.AnnotationRTEUpdate]
 				if !ok {
-					framework.Logf("resource %s/%s missing annotation!", namespace, topologyUpdaterNode.Name)
+					framework.Logf("resource %s missing annotation!", topologyUpdaterNode.Name)
 					return false
 				}
 				return reason == nrtupdater.RTEUpdateReactive
