@@ -10,7 +10,7 @@ IMAGETAG ?= latest
 RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
 LDFLAGS = -ldflags "-s -w"
-VERSION := $(shell git tag --sort=committerdate | head -n 1)
+VERSION := $(shell git describe --tags)
 ifneq ($(VERSION),)
 LDFLAGS = -ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(VERSION)"
 endif
