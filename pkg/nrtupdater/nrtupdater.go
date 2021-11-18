@@ -106,7 +106,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	if err != nil {
 		return fmt.Errorf("update failed to update v1alpha1.NodeResourceTopology!:%v", err)
 	}
-	klog.V(3).Infof("update changed CRD instance: %v", nrtUpdated)
+	klog.V(5).Infof("update changed CRD instance: %v", utils.Dump(nrtUpdated))
 	return nil
 }
 
