@@ -56,13 +56,13 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		condIn.Run(condChan)
 	}
 
-	resMon, err := NewResourceMonitor(cli, resourcemonitorArgs)
+	resObs, err := NewResourceObserver(cli, resourcemonitorArgs)
 	if err != nil {
 		return err
 	}
 
 	eventsChan := make(chan PollTrigger)
-	infoChannel, _ := resMon.Run(eventsChan, condChan)
+	infoChannel, _ := resObs.Run(eventsChan, condChan)
 
 	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
 	if err != nil {
@@ -131,25 +131,25 @@ func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs 
 	return "", fmt.Errorf("cannot find the kubelet Topology Manager policy")
 }
 
-type ResourceMonitor struct {
+type ResourceObserver struct {
 	resMon      resourcemonitor.ResourceMonitor
 	excludeList resourcemonitor.ResourceExcludeList
 	condInj     *podreadiness.ConditionInjector
 }
 
-func NewResourceMonitor(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceMonitor, error) {
+func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceObserver, error) {
 	resMon, err := resourcemonitor.NewResourceMonitor(cli, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ResourceMonitor: %w", err)
 	}
 
-	return &ResourceMonitor{
+	return &ResourceObserver{
 		resMon:      resMon,
 		excludeList: args.ExcludeList,
 	}, nil
 }
 
-func (rm *ResourceMonitor) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) (<-chan nrtupdater.MonitorInfo, chan<- struct{}) {
+func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) (<-chan nrtupdater.MonitorInfo, chan<- struct{}) {
 	infoChannel := make(chan nrtupdater.MonitorInfo)
 	done := make(chan struct{})
 	var condStatus v1.ConditionStatus
