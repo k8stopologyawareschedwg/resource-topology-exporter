@@ -3,8 +3,9 @@ package rte
 import (
 	"context"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -42,6 +43,10 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 
 			timeout, err = time.ParseDuration(e2etestenv.GetPollInterval())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
+			// add a little skew. We pick 1 second randomly, but the idea is that small (2, 3, 5) multipliers
+			// should again not cause a total multiple of the poll interval.
+			timeout += 1 * time.Second
 
 			extClient, err = e2eclient.NewK8sExtFromFramework(f)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())

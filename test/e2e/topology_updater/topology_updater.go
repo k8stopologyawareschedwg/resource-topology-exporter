@@ -45,6 +45,7 @@ import (
 var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater", func() {
 	var (
 		initialized         bool
+		timeout             time.Duration
 		tmPolicy            string
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
@@ -57,6 +58,13 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		var err error
 
 		if !initialized {
+			timeout, err = time.ParseDuration(e2etestenv.GetPollInterval())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
+			// add a little skew. We pick 1 second randomly, but the idea is that small (2, 3, 5) multipliers
+			// should again not cause a total multiple of the poll interval.
+			timeout += 1 * time.Second
+
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -93,9 +101,9 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			podMap[pod.Name] = pod
 			defer e2epods.DeletePodsAsync(f, podMap)
 
-			cooldown := 30 * time.Second
+			cooldown := 3 * timeout
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
-			// the object, hance the resource version must NOT change, so we can only sleep
+			// the object, hence the resource version must NOT change, so we can only sleep
 			time.Sleep(cooldown)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
 			finalNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
@@ -134,9 +142,9 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			podMap[pod.Name] = pod
 			defer e2epods.DeletePodsAsync(f, podMap)
 
-			cooldown := 30 * time.Second
+			cooldown := 3 * timeout
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
-			// the object, hance the resource version must NOT change, so we can only sleep
+			// the object, hence the resource version must NOT change, so we can only sleep
 			time.Sleep(cooldown)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
 			finalNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
@@ -192,7 +200,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 					return false
 				}
 				return finalNodeTopo.ObjectMeta.ResourceVersion != initialNodeTopo.ObjectMeta.ResourceVersion
-			}, time.Minute, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+			}, 5*timeout, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			framework.Logf("final topology information: %#v", initialNodeTopo)
 
 			ginkgo.By("checking the changes in the updated topology")
