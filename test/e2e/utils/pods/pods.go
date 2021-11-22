@@ -18,10 +18,12 @@ package pods
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/labels"
+	"fmt"
 	"os"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/onsi/ginkgo"
 
@@ -135,4 +137,22 @@ func GetPodsByLabel(f *framework.Framework, ns, label string) ([]v1.Pod, error) 
 		return nil, err
 	}
 	return pods.Items, nil
+}
+
+func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string) (*v1.Pod, error) {
+	framework.Logf("searching for RTE pod in namespace %q with label %q", namespace, labelName)
+	pods, err := GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", labelName))
+	if err != nil {
+		return nil, err
+	}
+	if len(pods) == 0 {
+		return nil, fmt.Errorf("found no node in %q matching label %q", namespace, labelName)
+	}
+	for idx := 0; idx < len(pods); idx++ {
+		framework.Logf("checking pod %s/%s - is it running on %q?", pods[idx].Namespace, pods[idx].Name, nodeName)
+		if pods[idx].Spec.NodeName == nodeName {
+			return &pods[idx], nil
+		}
+	}
+	return nil, fmt.Errorf("no pod found running on %q", nodeName)
 }
