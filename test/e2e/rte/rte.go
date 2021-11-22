@@ -22,7 +22,6 @@ package rte
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -30,7 +29,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/test/e2e/framework"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
@@ -41,6 +39,7 @@ import (
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
+	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
@@ -151,8 +150,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
-				// TOOD: pick values from the DS
-				rtePod, err := getRTEPod(f, "default", "resource-topology")
+				rtePod, err := e2epods.GetPodOnNode(f, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
 				framework.ExpectNoError(err)
 				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rtePod.Spec.Containers[0].Name, "/bin/touch", "/host-run/rte/notify")
 				doneChan <- struct{}{}
@@ -194,18 +192,6 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 	})
 })
-
-func getRTEPod(f *framework.Framework, namespace, labelName string) (*v1.Pod, error) {
-	labSel := labels.SelectorFromSet(labels.Set{"name": labelName}).String()
-	pods, err := f.ClientSet.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labSel})
-	if err != nil {
-		return nil, err
-	}
-	if len(pods.Items) != 1 {
-		return nil, fmt.Errorf("found %d pods, expected 1", len(pods.Items))
-	}
-	return &pods.Items[0], nil
-}
 
 func execCommandInContainer(f *framework.Framework, namespace, podName, containerName string, cmd ...string) string {
 	stdout, stderr, err := f.ExecWithOptions(framework.ExecOptions{
