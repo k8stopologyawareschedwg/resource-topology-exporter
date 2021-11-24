@@ -23,7 +23,6 @@ package rte
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/test/e2e/framework"
 
+	e2ertepod "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods/rtepod"
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
@@ -57,7 +57,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 
 			gomega.Expect(len(pods.Items)).NotTo(gomega.BeZero())
 			rtePod = &pods.Items[0]
-			metricsPort, err = findMetricsPort(rtePod)
+			metricsPort, err = e2ertepod.FindMetricsPort(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			initialized = true
@@ -66,11 +66,14 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 
 	ginkgo.Context("With prometheus endpoint configured", func() {
 		ginkgo.It("should have some metrics exported", func() {
+			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 			stdout, stderr, err := f.ExecWithOptions(framework.ExecOptions{
 				Command:            []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)},
 				Namespace:          rtePod.Namespace,
 				PodName:            rtePod.Name,
-				ContainerName:      e2etestenv.RTEContainerName,
+				ContainerName:      rteContainerName,
 				Stdin:              nil,
 				CaptureStdout:      true,
 				CaptureStderr:      true,
@@ -82,16 +85,3 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		})
 	})
 })
-
-func findMetricsPort(rtePod *corev1.Pod) (int, error) {
-	for _, envVar := range rtePod.Spec.Containers[0].Env {
-		if envVar.Name == "METRICS_PORT" {
-			val, err := strconv.Atoi(envVar.Value)
-			if err != nil {
-				return 0, err
-			}
-			return val, nil
-		}
-	}
-	return 0, fmt.Errorf("cannot find METRICS_PORT environment variable")
-}
