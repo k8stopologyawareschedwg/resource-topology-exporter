@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	goversion "github.com/hashicorp/go-version"
+	"github.com/aquasecurity/go-version/pkg/semver"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
@@ -51,8 +51,8 @@ var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			text := strings.TrimSpace(strings.Trim(string(out), version.ProgramName))
-			_, err = goversion.NewVersion(text)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = semver.Parse(text)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "error parsing %q: %v", text, err)
 		})
 	})
 })
