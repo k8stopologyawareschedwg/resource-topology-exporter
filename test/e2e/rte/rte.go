@@ -45,6 +45,7 @@ import (
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
 	var (
 		initialized         bool
+		timeout             time.Duration
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *v1.Node
 		workerNodes         []v1.Node
@@ -56,6 +57,13 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		var err error
 
 		if !initialized {
+			timeout, err = time.ParseDuration(e2etestenv.GetPollInterval())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
+			// add a little skew. We pick 1 second randomly, but the idea is that small (2, 3, 5) multipliers
+			// should again not cause a total multiple of the poll interval.
+			timeout += 1 * time.Second
+
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
