@@ -38,6 +38,7 @@ import (
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
+	e2ertepod "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods/rtepod"
 	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
@@ -160,7 +161,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				<-stopChan
 				rtePod, err := e2epods.GetPodOnNode(f, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
 				framework.ExpectNoError(err)
-				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rtePod.Spec.Containers[0].Name, "/bin/touch", "/host-run/rte/notify")
+
+				rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				rteNotifyFilePath, err := e2ertepod.FindNotificationFilePath(rtePod)
+
+				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rteContainerName, "/bin/touch", rteNotifyFilePath)
 				doneChan <- struct{}{}
 			}()
 
