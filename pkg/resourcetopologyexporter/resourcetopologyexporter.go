@@ -18,6 +18,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/ratelimit"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/topologypolicy"
 )
@@ -33,12 +34,13 @@ type Args struct {
 	SleepInterval          time.Duration
 	PodReadinessEnable     bool
 	NotifyFilePath         string
+	MaxEventsPerSecond     int64
 }
 
-type PollTrigger struct {
-	Timer     bool
-	Timestamp time.Time
-}
+const (
+	TimerUpdate = iota
+	AsyncUpdate
+)
 
 func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
 	tmPolicy, err := getTopologyManagerPolicy(resourcemonitorArgs, rteArgs)
@@ -61,8 +63,13 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		return err
 	}
 
-	eventsChan := make(chan PollTrigger)
-	infoChannel, _ := resObs.Run(eventsChan, condChan)
+	eventsChan := make(chan ratelimit.Event)
+	rl := ratelimit.NewUnlimited(eventsChan)
+	if rteArgs.MaxEventsPerSecond > 0 {
+		rl = ratelimit.NewWithEPS(rteArgs.MaxEventsPerSecond, eventsChan)
+	}
+	rl.Run()
+	infoChannel, _ := resObs.Run(rl.OuputChannel(), condChan)
 
 	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
 	if err != nil {
@@ -88,7 +95,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 
 	filterEvent := notification.MakeFilter(filterFile, filterDirs)
 
-	eventsChan <- PollTrigger{Timestamp: time.Now()}
+	eventsChan <- ratelimit.Event{Timestamp: time.Now(), Tag: TimerUpdate}
 	klog.V(2).Infof("initial update trigger")
 
 	ticker := time.NewTicker(rteArgs.SleepInterval)
@@ -96,13 +103,13 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		// TODO: what about closed channels?
 		select {
 		case tickTs := <-ticker.C:
-			eventsChan <- PollTrigger{Timer: true, Timestamp: tickTs}
+			eventsChan <- ratelimit.Event{Timestamp: tickTs, Tag: TimerUpdate}
 			klog.V(4).Infof("timer update trigger")
 
 		case event := <-watcher.Events:
 			klog.V(5).Infof("fsnotify event from %q: %v", event.Name, event.Op)
 			if filterEvent(event) {
-				eventsChan <- PollTrigger{Timestamp: time.Now()}
+				eventsChan <- ratelimit.Event{Timestamp: time.Now(), Tag: AsyncUpdate}
 				klog.V(4).Infof("fsnotify update trigger")
 			}
 
@@ -149,7 +156,7 @@ func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args reso
 	}, nil
 }
 
-func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) (<-chan nrtupdater.MonitorInfo, chan<- struct{}) {
+func (rm *ResourceObserver) Run(eventsChan <-chan ratelimit.Event, condChan chan<- v1.PodCondition) (<-chan nrtupdater.MonitorInfo, chan<- struct{}) {
 	infoChannel := make(chan nrtupdater.MonitorInfo)
 	done := make(chan struct{})
 	var condStatus v1.ConditionStatus
@@ -157,12 +164,12 @@ func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v
 		lastWakeup := time.Now()
 		for {
 			select {
-			case pt := <-eventsChan:
+			case ev := <-eventsChan:
 				var err error
-				monInfo := nrtupdater.MonitorInfo{Timer: pt.Timer}
+				monInfo := nrtupdater.MonitorInfo{Timer: (ev.Tag == TimerUpdate)}
 
-				tsWakeupDiff := pt.Timestamp.Sub(lastWakeup)
-				lastWakeup = pt.Timestamp
+				tsWakeupDiff := ev.Timestamp.Sub(lastWakeup)
+				lastWakeup = ev.Timestamp
 				prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
 				tsBegin := time.Now()

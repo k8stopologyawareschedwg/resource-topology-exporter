@@ -73,11 +73,8 @@ github.com/PuerkitoBio/purell
 github.com/PuerkitoBio/urlesc
 # github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d
 github.com/StackExchange/wmi
-# github.com/aquasecurity/go-version v0.0.0-20210121072130-637058cfe492
-## explicit
-github.com/aquasecurity/go-version/pkg/part
-github.com/aquasecurity/go-version/pkg/prerelease
-github.com/aquasecurity/go-version/pkg/version
+# github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
+github.com/andres-erbsen/clock
 # github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e
 github.com/armon/circbuf
 # github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
@@ -744,6 +741,9 @@ go.opentelemetry.io/proto/otlp/trace/v1
 go.uber.org/atomic
 # go.uber.org/multierr v1.6.0
 go.uber.org/multierr
+# go.uber.org/ratelimit v0.2.0
+## explicit
+go.uber.org/ratelimit
 # go.uber.org/zap v1.17.0
 go.uber.org/zap
 go.uber.org/zap/buffer
