@@ -16,7 +16,7 @@ limitations under the License.
 package ratelimit
 
 import (
-	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -25,25 +25,28 @@ import (
 
 func TestUnlimitedRateLimit(t *testing.T) {
 
-	Convey("Given a RateLimiter", t, func() {
+	Convey("Given a RateLimiter with no limitation", t, func() {
 
 		const numberOfIterations int = 10
-		histeresis_us := 70 * time.Microsecond
-
 		sourceCh := make(chan Event)
 		sut := NewUnlimited(sourceCh)
 		sut.Run()
-
 		done := make(chan struct{})
-		go sender(t, sourceCh, numberOfIterations, done)
-		results := receiver(t, sut.C, done)
 
-		So(results, ShouldNotBeNil)
-		So(len(results), ShouldBeGreaterThan, 0)
+		Convey("When send some  messages", func() {
+			go sender(t, sourceCh, numberOfIterations, done)
+			results := receiver(t, sut.C, done)
 
-		for _, r := range results {
-			So(r.TsRcv, ShouldHappenWithin, histeresis_us, r.TsLastRcv)
-		}
+			Convey("Then all messages should be received with no delay", func() {
+				So(results, ShouldNotBeNil)
+				So(len(results), ShouldBeGreaterThan, 0)
+
+				histeresis_us := 70 * time.Microsecond
+				for _, r := range results {
+					So(r.TsRcv, ShouldHappenWithin, histeresis_us, r.TsLastRcv)
+				}
+			})
+		})
 	})
 }
 
@@ -52,32 +55,41 @@ func TestLimitedRateLimit(t *testing.T) {
 	Convey("Given a RateLimiter", t, func() {
 
 		const numberOfIterations int = 10
-		const numberOfEventsPerSecond int64 = 2
+		const numberOfEvents int64 = 2
+		const timeUnit = 500 * time.Millisecond
+		const histeresisPercentage = 10.0
 
-		idealPeriod_us := time.Duration(time.Second.Microseconds()/numberOfEventsPerSecond) * time.Microsecond
-		histeresis_us := time.Duration(idealPeriod_us/10) * time.Microsecond
+		So(timeUnit, ShouldBeGreaterThanOrEqualTo, time.Microsecond)
 
 		sourceCh := make(chan Event)
-		sut := NewWithEPS(numberOfEventsPerSecond, sourceCh)
+		sut := NewWithEPS(numberOfEvents, timeUnit, sourceCh)
 		sut.Run()
 
 		done := make(chan struct{})
-		go sender(t, sourceCh, numberOfIterations, done)
-		results := receiver(t, sut.C, done)
 
-		So(results, ShouldNotBeNil)
-		So(len(results), ShouldBeGreaterThan, 0)
+		Convey("When some messages are send", func() {
+			go sender(t, sourceCh, numberOfIterations, done)
+			results := receiver(t, sut.C, done)
 
-		for _, r := range results {
-			So(r.TsRcv, ShouldHappenWithin, histeresis_us, r.TsLastRcv.Add(idealPeriod_us))
-		}
+			So(results, ShouldNotBeNil)
+			So(len(results), ShouldBeGreaterThan, 0)
+
+			Convey("Then no more messages per time unit than the configured should be received", func() {
+				idealPeriod_us := time.Duration(timeUnit.Microseconds()/numberOfEvents) * time.Microsecond
+				histeresis_us := time.Duration(idealPeriod_us * time.Duration(math.Round(1-histeresisPercentage/100)))
+
+				for _, r := range results {
+					t.Logf("Ti:%v / Tf:%v / diff:%v", r.TsLastRcv, r.TsRcv, r.TsRcv.Sub(r.TsLastRcv))
+					So(r.TsRcv, ShouldHappenWithin, histeresis_us, r.TsLastRcv.Add(idealPeriod_us))
+				}
+			})
+		})
 	})
 }
 
 func sender(t *testing.T, sourceCh chan<- Event, numberOfEvents int, syncCh chan<- struct{}) {
 
 	for idx := 0; idx < numberOfEvents; idx++ {
-		t.Log("Sending:", idx)
 		sourceCh <- Event{Timestamp: time.Now(), Tag: idx}
 	}
 	syncCh <- struct{}{}
@@ -95,10 +107,9 @@ func receiver(t *testing.T, readCh <-chan Event, sync <-chan struct{}) []result 
 	finish := false
 	for !finish {
 		select {
-		case ev := <-readCh:
+		case <-readCh:
 			r := result{TsLastRcv: tsLastRcv, TsRcv: time.Now()}
 			tsLastRcv = time.Now()
-			t.Log(fmt.Sprintf("Time Duration %v:%v\n", ev.Tag, time.Since(r.TsLastRcv)))
 			results = append(results, r)
 		case <-sync:
 			finish = true

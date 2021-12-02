@@ -66,7 +66,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	eventsChan := make(chan ratelimit.Event)
 	rl := ratelimit.NewUnlimited(eventsChan)
 	if rteArgs.MaxEventsPerSecond > 0 {
-		rl = ratelimit.NewWithEPS(rteArgs.MaxEventsPerSecond, eventsChan)
+		rl = ratelimit.NewWithEPS(rteArgs.MaxEventsPerSecond, time.Second, eventsChan)
 	}
 	rl.Run()
 	infoChannel, _ := resObs.Run(rl.C, condChan)

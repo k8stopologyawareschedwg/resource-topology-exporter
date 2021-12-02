@@ -34,9 +34,10 @@ type RateLimiter struct {
 	doneCh   chan struct{}
 }
 
-func NewWithEPS(eventsPerSecond int64, src <-chan Event) *RateLimiter {
+func NewWithEPS(numberOfEvents int64, timeUnit time.Duration, src <-chan Event) *RateLimiter {
 	rt := newCommon(src)
-	rt.rt = ratelimit.New(int(eventsPerSecond))
+	opt := ratelimit.Per(timeUnit)
+	rt.rt = ratelimit.New(int(numberOfEvents), opt)
 	return rt
 }
 
