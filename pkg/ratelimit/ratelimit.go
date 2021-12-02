@@ -27,12 +27,11 @@ type Event struct {
 }
 
 type RateLimiter struct {
-	outputCh     chan Event
-	src          <-chan Event
-	rt           ratelimit.Limiter
-	ch           chan Event
-	doneSender   chan struct{}
-	doneReceiver chan struct{}
+	outputCh chan Event
+	C        <-chan Event
+	src      <-chan Event
+	rt       ratelimit.Limiter
+	doneCh   chan struct{}
 }
 
 func NewWithEPS(eventsPerSecond int64, src <-chan Event) *RateLimiter {
@@ -48,50 +47,30 @@ func NewUnlimited(src <-chan Event) *RateLimiter {
 }
 
 func newCommon(src <-chan Event) *RateLimiter {
-	return &RateLimiter{
-		src:          src,
-		ch:           make(chan Event),
-		outputCh:     make(chan Event),
-		doneSender:   make(chan struct{}),
-		doneReceiver: make(chan struct{}),
+	rt := RateLimiter{
+		src:      src,
+		outputCh: make(chan Event),
+		doneCh:   make(chan struct{}),
 	}
+	rt.C = rt.outputCh
+	return &rt
 }
 
 func (rt *RateLimiter) Run() {
 
-	sender := func() {
+	go func() {
 		for {
 			select {
-			case ev := <-rt.ch:
+			case event := <-rt.src:
 				rt.rt.Take()
-				rt.outputCh <- ev
-			case <-rt.doneSender:
+				rt.outputCh <- event
+			case <-rt.doneCh:
 				return
 			}
 		}
-	}
-
-	receiver := func() {
-		for {
-			event := <-rt.src
-			select {
-			case rt.ch <- event:
-			case <-rt.doneReceiver:
-				return
-			default:
-			}
-		}
-	}
-
-	go sender()
-	go receiver()
+	}()
 }
 
 func (rt *RateLimiter) Stop() {
-	rt.doneReceiver <- struct{}{}
-	rt.doneSender <- struct{}{}
-}
-
-func (rt RateLimiter) OuputChannel() <-chan Event {
-	return rt.outputCh
+	rt.doneCh <- struct{}{}
 }
