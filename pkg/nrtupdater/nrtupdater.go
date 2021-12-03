@@ -120,7 +120,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 				tsBegin := time.Now()
 				condStatus = v1.ConditionTrue
 				if err := te.Update(info); err != nil {
-					klog.Warning("failed to update: %v", err)
+					klog.Warningf("failed to update: %v", err)
 					condStatus = v1.ConditionFalse
 				}
 				tsEnd := time.Now()
