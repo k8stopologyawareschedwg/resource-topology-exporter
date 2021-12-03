@@ -112,7 +112,8 @@ func parseArgs(args ...string) (ProgArgs, error) {
 	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
 	flags.StringVar(&pArgs.RTE.NotifyFilePath, "notify-file", "", "Notification file path.")
-	flags.Int64Var(&pArgs.RTE.MaxEventsPerSecond, "max-events-per-second", 1, "Max times per second resources will be scanned and updated")
+	flags.Int64Var(&pArgs.RTE.MaxEventsPerTimeUnit, "max-events-per-time-unit", 1, "Max times per time unit that resources will be scanned and updated.\n See 'time-unit-to-limit-events' to set the base time unit")
+	flags.DurationVar(&pArgs.RTE.TimeUnitToLimitEvents, "time-unit-to-limit-events", 100*time.Millisecond, "Base time unit to calculate the maximum rate of events. 'max-events-per-time-unit' / 'time-unit-to-limit-events")
 
 	flags.BoolVar(&pArgs.Version, "version", false, "Output version and exit")
 

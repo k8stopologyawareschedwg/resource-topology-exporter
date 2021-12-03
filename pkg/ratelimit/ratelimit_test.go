@@ -55,8 +55,8 @@ func TestLimitedRateLimit(t *testing.T) {
 	Convey("Given a RateLimiter", t, func() {
 
 		const numberOfIterations int = 10
-		const numberOfEvents int64 = 2
-		const timeUnit = 500 * time.Millisecond
+		const numberOfEvents int64 = 1
+		const timeUnit = 100 * time.Millisecond
 		const histeresisPercentage = 10.0
 
 		So(timeUnit, ShouldBeGreaterThanOrEqualTo, time.Microsecond)
@@ -79,7 +79,6 @@ func TestLimitedRateLimit(t *testing.T) {
 				histeresis_us := time.Duration(idealPeriod_us * time.Duration(math.Round(1-histeresisPercentage/100)))
 
 				for _, r := range results {
-					t.Logf("Ti:%v / Tf:%v / diff:%v", r.TsLastRcv, r.TsRcv, r.TsRcv.Sub(r.TsLastRcv))
 					So(r.TsRcv, ShouldHappenWithin, histeresis_us, r.TsLastRcv.Add(idealPeriod_us))
 				}
 			})

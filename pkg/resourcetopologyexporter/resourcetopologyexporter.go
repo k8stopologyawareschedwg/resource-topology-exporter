@@ -34,7 +34,8 @@ type Args struct {
 	SleepInterval          time.Duration
 	PodReadinessEnable     bool
 	NotifyFilePath         string
-	MaxEventsPerSecond     int64
+	MaxEventsPerTimeUnit   int64
+	TimeUnitToLimitEvents  time.Duration
 }
 
 const (
@@ -65,8 +66,8 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 
 	eventsChan := make(chan ratelimit.Event)
 	rl := ratelimit.NewUnlimited(eventsChan)
-	if rteArgs.MaxEventsPerSecond > 0 {
-		rl = ratelimit.NewWithEPS(rteArgs.MaxEventsPerSecond, time.Second, eventsChan)
+	if rteArgs.MaxEventsPerTimeUnit > 0 && rteArgs.TimeUnitToLimitEvents > 0 {
+		rl = ratelimit.NewWithEPS(rteArgs.MaxEventsPerTimeUnit, rteArgs.TimeUnitToLimitEvents, eventsChan)
 	}
 	rl.Run()
 	infoChannel, _ := resObs.Run(rl.C, condChan)
