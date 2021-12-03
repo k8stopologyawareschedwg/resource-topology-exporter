@@ -59,7 +59,7 @@ func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
-	klog.V(3).Infof("update: sending zone: '%s'", utils.Dump(info.Zones))
+	klog.V(3).Infof("update: sending zone: %v", utils.Dump(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
@@ -85,9 +85,9 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 
 		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("update failed to create v1alpha1.NodeResourceTopology!:%v", err)
+			return fmt.Errorf("update failed for NRT instance: %v", err)
 		}
-		klog.V(2).Infof("update created CRD instance: %v", utils.Dump(nrtCreated))
+		klog.V(2).Infof("update created NRT instance: %v", utils.Dump(nrtCreated))
 		return nil
 	}
 
@@ -104,7 +104,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("update failed to update v1alpha1.NodeResourceTopology!:%v", err)
+		return fmt.Errorf("update failed for NRT instance: %v", err)
 	}
 	klog.V(5).Infof("update changed CRD instance: %v", utils.Dump(nrtUpdated))
 	return nil
@@ -120,7 +120,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 				tsBegin := time.Now()
 				condStatus = v1.ConditionTrue
 				if err := te.Update(info); err != nil {
-					klog.Warning("failed to update: %v", err)
+					klog.Warningf("failed to update: %v", err)
 					condStatus = v1.ConditionFalse
 				}
 				tsEnd := time.Now()
