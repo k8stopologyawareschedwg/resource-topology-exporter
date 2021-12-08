@@ -199,7 +199,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
 				}
-				return finalNodeTopo.ObjectMeta.ResourceVersion != initialNodeTopo.ObjectMeta.ResourceVersion
+				return finalNodeTopo.ObjectMeta.Generation != initialNodeTopo.ObjectMeta.Generation
 			}, 5*timeout, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			framework.Logf("final topology information: %#v", initialNodeTopo)
 

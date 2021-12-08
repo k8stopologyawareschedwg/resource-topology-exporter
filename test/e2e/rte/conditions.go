@@ -69,40 +69,42 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 		}
 	})
 
+	waitForPodCondition := func(podName string, conditionType podreadiness.RTEConditionType, expectedConditionStatus v1.ConditionStatus) bool {
+		pods, err := e2epods.GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", podName))
+		if err != nil {
+			return false
+		}
+
+		if len(pods) == 0 {
+			return false
+		}
+
+		return cmpConditionsByTypeAndStatus(pods[0].Status.Conditions, conditionType, expectedConditionStatus)
+	}
+
 	ginkgo.Context("with NRT objects created", func() {
 		ginkgo.It("should have custom RTE conditions under the pod status", func() {
-
 			gomega.Eventually(func() bool {
-				pods, err := e2epods.GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(len(pods)).NotTo(gomega.BeZero())
-
-				return cmpConditionsByTypeAndStatus(pods[0].Status.Conditions, podreadiness.PodresourcesFetched, v1.ConditionTrue)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.PodresourcesFetched, v1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
 			gomega.Eventually(func() bool {
-				pods, err := e2epods.GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(len(pods)).NotTo(gomega.BeZero())
-
-				return cmpConditionsByTypeAndStatus(pods[0].Status.Conditions, podreadiness.NodeTopologyUpdated, v1.ConditionTrue)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, v1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
 
-		ginkgo.It("should change the RTE conditions under the pod status accordingly", func() {
+		// EventChain means that the test can be flaky in some specific cases, for example deleted CRD can be re-installed
+		// by third component
+		ginkgo.It("[EventChain] should change the RTE conditions under the pod status accordingly", func() {
 			ginkgo.By("deleting the crd")
 
 			err := extClient.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), crdName, metav1.DeleteOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
-				pods, err := e2epods.GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(len(pods)).NotTo(gomega.BeZero())
-
-				return cmpConditionsByTypeAndStatus(pods[0].Status.Conditions, podreadiness.NodeTopologyUpdated, v1.ConditionFalse)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, v1.ConditionFalse)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
@@ -112,11 +114,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
-				pods, err := e2epods.GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(len(pods)).NotTo(gomega.BeZero())
-
-				return cmpConditionsByTypeAndStatus(pods[0].Status.Conditions, podreadiness.NodeTopologyUpdated, v1.ConditionFalse)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, v1.ConditionFalse)
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
 	})
