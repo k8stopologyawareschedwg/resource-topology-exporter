@@ -1,3 +1,4 @@
+include .bingo/Variables.mk
 COMMONENVVAR=GOOS=linux GOARCH=amd64
 BUILDENVVAR=CGO_ENABLED=0
 TOPOLOGYAPI_MANIFESTS=https://raw.githubusercontent.com/k8stopologyawareschedwg/noderesourcetopology-api/master/manifests
@@ -9,17 +10,21 @@ IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
 RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
+define func_ldflags
+ifneq ($1,)
+LDFLAGS = -ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(strip $1)"
+else
 LDFLAGS = -ldflags "-s -w"
-VERSION := $(shell git describe --tags)
-ifneq ($(VERSION),)
-LDFLAGS = -ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(VERSION)"
 endif
+endef
 
 .PHONY: all
 all: build
 
 .PHONY: build
-build: outdir
+build: VERSION=$(shell $(GIT_SEMVER))
+build: outdir | $(GIT_SEMVER)
+	$(eval $(call func_ldflags, $(VERSION)))
 	$(COMMONENVVAR) $(BUILDENVVAR) go build $(LDFLAGS) -o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
 
 .PHONY: gofmt
