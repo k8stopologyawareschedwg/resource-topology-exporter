@@ -73,6 +73,11 @@ github.com/PuerkitoBio/purell
 github.com/PuerkitoBio/urlesc
 # github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d
 github.com/StackExchange/wmi
+# github.com/aquasecurity/go-version v0.0.0-20210121072130-637058cfe492
+## explicit
+github.com/aquasecurity/go-version/pkg/part
+github.com/aquasecurity/go-version/pkg/prerelease
+github.com/aquasecurity/go-version/pkg/version
 # github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e
 github.com/armon/circbuf
 # github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
@@ -373,9 +378,6 @@ github.com/grpc-ecosystem/go-grpc-prometheus
 github.com/grpc-ecosystem/grpc-gateway/internal
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
-# github.com/hashicorp/go-version v1.3.0
-## explicit
-github.com/hashicorp/go-version
 # github.com/heketi/heketi v10.3.0+incompatible
 github.com/heketi/heketi/client/api/go-client
 github.com/heketi/heketi/pkg/glusterfs/api

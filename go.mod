@@ -3,10 +3,10 @@ module github.com/k8stopologyawareschedwg/resource-topology-exporter
 go 1.16
 
 require (
+	github.com/aquasecurity/go-version v0.0.0-20210121072130-637058cfe492
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.5
-	github.com/hashicorp/go-version v1.3.0
 	github.com/jaypipes/ghw v0.8.1-0.20210609141030-acb1a36eaf89
 	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.12
 	github.com/onsi/ginkgo v1.14.0
