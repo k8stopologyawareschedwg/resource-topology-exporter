@@ -2,7 +2,7 @@ package version
 
 // Collection is a type that implements the sort.Interface interface
 // so that versions can be sorted.
-type Collection []*Version
+type Collection []Version
 
 func (v Collection) Len() int {
 	return len(v)

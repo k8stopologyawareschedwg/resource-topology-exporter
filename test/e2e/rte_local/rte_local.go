@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	goversion "github.com/hashicorp/go-version"
+	goversion "github.com/aquasecurity/go-version/pkg/version"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
@@ -51,7 +51,7 @@ var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			text := strings.TrimSpace(strings.Trim(string(out), version.ProgramName))
-			_, err = goversion.NewVersion(text)
+			_, err = goversion.Parse(text)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		})
 	})
