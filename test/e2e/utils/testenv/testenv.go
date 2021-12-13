@@ -23,7 +23,7 @@ import (
 const (
 	// we rely on kind for our CI
 	DefaultNodeName             = "kind-worker"
-	DefaultNamespace            = "default"
+	DefaultNamespace            = ""
 	DefaultTopologyMangerPolicy = "none"
 	DefaultRTEPollInterval      = "10s"
 	RTELabelName                = "resource-topology"
