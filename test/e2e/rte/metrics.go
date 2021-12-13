@@ -65,7 +65,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	})
 
 	ginkgo.Context("With prometheus endpoint configured", func() {
-		ginkgo.It("should have some metrics exported", func() {
+		ginkgo.It("[EventChain] should have some metrics exported", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
