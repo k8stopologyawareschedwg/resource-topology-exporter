@@ -97,7 +97,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 
 		// EventChain means that the test can be flaky in some specific cases, for example deleted CRD can be re-installed
 		// by third component
-		ginkgo.It("[EventChain] should change the RTE conditions under the pod status accordingly", func() {
+		ginkgo.It("[Disruptive][EventChain] should change the RTE conditions under the pod status accordingly", func() {
 			ginkgo.By("deleting the crd")
 
 			err := extClient.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), crdName, metav1.DeleteOptions{})
