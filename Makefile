@@ -9,18 +9,18 @@ IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
 RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
-LDFLAGS = -ldflags "-s -w"
-VERSION := $(shell git describe --tags)
-ifneq ($(VERSION),)
-LDFLAGS = -ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(VERSION)"
-endif
 
 .PHONY: all
 all: build
 
+.PHONY: build-tools
+build-tools: outdir _out/git-semver
+
 .PHONY: build
-build: outdir
-	$(COMMONENVVAR) $(BUILDENVVAR) go build $(LDFLAGS) -o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
+build: build-tools
+	$(COMMONENVVAR) $(BUILDENVVAR) go build \
+	-ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
+	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
 
 .PHONY: gofmt
 gofmt:
@@ -101,3 +101,7 @@ update-manifests:
 update-golden-files:
 	@go test ./cmd/... -update
 
+# build tools:
+#
+_out/git-semver: outdir
+	@go build -o _out/git-semver vendor/github.com/mdomke/git-semver/main.go
