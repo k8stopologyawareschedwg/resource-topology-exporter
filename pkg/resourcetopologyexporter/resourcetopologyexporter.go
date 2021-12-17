@@ -64,11 +64,8 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	eventsChan := make(chan PollTrigger)
 	infoChannel, _ := resObs.Run(eventsChan, condChan)
 
-	upd, err := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
-	if err != nil {
-		return fmt.Errorf("failed to initialize NRT updater: %w", err)
-	}
-	upd.Run(infoChannel, condChan)
+	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
+	go upd.Run(infoChannel, condChan)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
