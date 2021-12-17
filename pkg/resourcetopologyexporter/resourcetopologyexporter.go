@@ -62,10 +62,10 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	}
 
 	eventsChan := make(chan PollTrigger)
-	infoChannel, _ := resObs.Run(eventsChan, condChan)
+	go resObs.Run(eventsChan, condChan)
 
 	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
-	go upd.Run(infoChannel, condChan)
+	go upd.Run(resObs.Infos, condChan)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -129,9 +129,11 @@ func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs 
 }
 
 type ResourceObserver struct {
+	Infos       <-chan nrtupdater.MonitorInfo
 	resMon      resourcemonitor.ResourceMonitor
 	excludeList resourcemonitor.ResourceExcludeList
-	condInj     *podreadiness.ConditionInjector
+	infoChan    chan nrtupdater.MonitorInfo
+	stopChan    chan struct{}
 }
 
 func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceObserver, error) {
@@ -140,48 +142,50 @@ func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args reso
 		return nil, fmt.Errorf("failed to initialize ResourceMonitor: %w", err)
 	}
 
-	return &ResourceObserver{
+	resObs := ResourceObserver{
 		resMon:      resMon,
 		excludeList: args.ExcludeList,
-	}, nil
+		stopChan:    make(chan struct{}),
+		infoChan:    make(chan nrtupdater.MonitorInfo),
+	}
+	resObs.Infos = resObs.infoChan
+	return &resObs, nil
 }
 
-func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) (<-chan nrtupdater.MonitorInfo, chan<- struct{}) {
-	infoChannel := make(chan nrtupdater.MonitorInfo)
-	done := make(chan struct{})
-	var condStatus v1.ConditionStatus
-	go func() {
-		lastWakeup := time.Now()
-		for {
-			select {
-			case pt := <-eventsChan:
-				var err error
-				monInfo := nrtupdater.MonitorInfo{Timer: pt.Timer}
+func (rm *ResourceObserver) Stop() {
+	rm.stopChan <- struct{}{}
+}
 
-				tsWakeupDiff := pt.Timestamp.Sub(lastWakeup)
-				lastWakeup = pt.Timestamp
-				prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
+func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) {
+	lastWakeup := time.Now()
+	for {
+		select {
+		case pt := <-eventsChan:
+			var err error
+			monInfo := nrtupdater.MonitorInfo{Timer: pt.Timer}
 
-				tsBegin := time.Now()
-				monInfo.Zones, err = rm.resMon.Scan(rm.excludeList)
-				tsEnd := time.Now()
+			tsWakeupDiff := pt.Timestamp.Sub(lastWakeup)
+			lastWakeup = pt.Timestamp
+			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
-				if err != nil {
-					klog.Warningf("failed to scan pod resources: %w\n", err)
-					condStatus = v1.ConditionFalse
-					continue
-				}
-				condStatus = v1.ConditionTrue
-				infoChannel <- monInfo
+			tsBegin := time.Now()
+			monInfo.Zones, err = rm.resMon.Scan(rm.excludeList)
+			tsEnd := time.Now()
 
-				tsDiff := tsEnd.Sub(tsBegin)
-				prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
-				podreadiness.SetCondition(condChan, podreadiness.PodresourcesFetched, condStatus)
-			case <-done:
-				klog.Infof("read stop at %v", time.Now())
-				break
+			condStatus := v1.ConditionTrue
+			if err != nil {
+				klog.Warningf("failed to scan pod resources: %w\n", err)
+				condStatus = v1.ConditionFalse
+				continue
 			}
+			rm.infoChan <- monInfo
+
+			tsDiff := tsEnd.Sub(tsBegin)
+			prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
+			podreadiness.SetCondition(condChan, podreadiness.PodresourcesFetched, condStatus)
+		case <-rm.stopChan:
+			klog.Infof("read stop at %v", time.Now())
+			return
 		}
-	}()
-	return infoChannel, done
+	}
 }
