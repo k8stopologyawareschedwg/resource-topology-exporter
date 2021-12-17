@@ -35,7 +35,7 @@ func TestUnlimitedRateLimit(t *testing.T) {
 
 		Convey("When send some  messages", func() {
 			go sender(t, sourceCh, numberOfIterations, done)
-			results := receiver(t, sut.C, done)
+			results := receiver(t, sut.Events, done)
 
 			Convey("Then all messages should be received with no delay", func() {
 				So(results, ShouldNotBeNil)
@@ -67,9 +67,9 @@ func TestLimitedRateLimit(t *testing.T) {
 
 		done := make(chan struct{})
 
-		Convey("When some messages are send", func() {
+		Convey("When some messages are sent", func() {
 			go sender(t, sourceCh, numberOfIterations, done)
-			results := receiver(t, sut.C, done)
+			results := receiver(t, sut.Events, done)
 
 			So(results, ShouldNotBeNil)
 			So(len(results), ShouldBeGreaterThan, 0)
@@ -115,5 +115,8 @@ func receiver(t *testing.T, readCh <-chan Event, sync <-chan struct{}) []result 
 		}
 	}
 
+	//This test tries to ensure always there is the same amount of time between output events to fulfill the rate condition.
+	//The first event came out as soon as it is in the channel so the first period will be always "wrong" so to say.
+	//That's why I skip the first one.
 	return results[1:]
 }

@@ -28,7 +28,7 @@ type Event struct {
 
 type RateLimiter struct {
 	outputCh chan Event
-	C        <-chan Event
+	Events   <-chan Event
 	src      <-chan Event
 	rt       ratelimit.Limiter
 	doneCh   chan struct{}
@@ -53,7 +53,7 @@ func newCommon(src <-chan Event) *RateLimiter {
 		outputCh: make(chan Event),
 		doneCh:   make(chan struct{}),
 	}
-	rt.C = rt.outputCh
+	rt.Events = rt.outputCh
 	return &rt
 }
 
