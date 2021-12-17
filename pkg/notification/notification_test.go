@@ -8,7 +8,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-func TestMakeFilter(t *testing.T) {
+func TestAnyFilter(t *testing.T) {
 	type testCase struct {
 		name     string
 		filters  []FilterEvent
@@ -36,8 +36,7 @@ func TestMakeFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := MakeFilter(tc.filters...)
-			got := f(tc.event)
+			got := AnyFilter(tc.filters, tc.event)
 			if tc.expected != got {
 				t.Fatalf("%s event=%v expected=%t got=%t", tc.name, tc.event, tc.expected, got)
 			}

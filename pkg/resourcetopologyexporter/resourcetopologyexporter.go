@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
@@ -34,11 +32,6 @@ type Args struct {
 	NotifyFilePath         string
 }
 
-type PollTrigger struct {
-	Timer     bool
-	Timestamp time.Time
-}
-
 func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
 	tmPolicy, err := getTopologyManagerPolicy(resourcemonitorArgs, rteArgs)
 	if err != nil {
@@ -60,55 +53,31 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		return err
 	}
 
-	eventsChan := make(chan PollTrigger)
-	go resObs.Run(eventsChan, condChan)
+	eventSource, err := notification.NewUnlimitedEventSource(rteArgs.SleepInterval)
+	if err != nil {
+		return err
+	}
+
+	go resObs.Run(eventSource.Events, condChan)
 
 	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
 	go upd.Run(resObs.Infos, condChan)
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to create the watcher: %w", err)
-	}
-	defer watcher.Close()
-
-	filterFile, err := notification.AddFile(watcher, rteArgs.NotifyFilePath)
+	err = eventSource.AddFile(rteArgs.NotifyFilePath)
 	if err != nil {
 		return err
 	}
 
-	filterDirs, err := notification.AddDirs(watcher, rteArgs.KubeletStateDirs)
+	err = eventSource.AddDirs(rteArgs.KubeletStateDirs)
 	if err != nil {
 		return err
 	}
 
-	filterEvent := notification.MakeFilter(filterFile, filterDirs)
+	go eventSource.Run()
 
-	eventsChan <- PollTrigger{Timestamp: time.Now()}
-	klog.V(2).Infof("initial update trigger")
-
-	ticker := time.NewTicker(rteArgs.SleepInterval)
-	for {
-		// TODO: what about closed channels?
-		select {
-		case tickTs := <-ticker.C:
-			eventsChan <- PollTrigger{Timer: true, Timestamp: tickTs}
-			klog.V(4).Infof("timer update trigger")
-
-		case event := <-watcher.Events:
-			klog.V(5).Infof("fsnotify event from %q: %v", event.Name, event.Op)
-			if filterEvent(event) {
-				eventsChan <- PollTrigger{Timestamp: time.Now()}
-				klog.V(4).Infof("fsnotify update trigger")
-			}
-
-		case err := <-watcher.Errors:
-			// and yes, keep going
-			klog.Warningf("fsnotify error: %v", err)
-		}
-	}
-
-	return nil // unreachable
+	eventSource.Wait()  // will never return
+	eventSource.Close() // still we try to clean after ourselves :)
+	return nil          // unreachable
 }
 
 func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (v1alpha1.TopologyManagerPolicy, error) {

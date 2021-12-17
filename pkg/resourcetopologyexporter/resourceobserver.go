@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -42,16 +43,16 @@ func (rm *ResourceObserver) Stop() {
 	rm.stopChan <- struct{}{}
 }
 
-func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) {
+func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan chan<- v1.PodCondition) {
 	lastWakeup := time.Now()
 	for {
 		select {
-		case pt := <-eventsChan:
+		case ev := <-eventsChan:
 			var err error
-			monInfo := nrtupdater.MonitorInfo{Timer: pt.Timer}
+			monInfo := nrtupdater.MonitorInfo{Timer: ev.Timer}
 
-			tsWakeupDiff := pt.Timestamp.Sub(lastWakeup)
-			lastWakeup = pt.Timestamp
+			tsWakeupDiff := ev.Timestamp.Sub(lastWakeup)
+			lastWakeup = ev.Timestamp
 			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
 			tsBegin := time.Now()
