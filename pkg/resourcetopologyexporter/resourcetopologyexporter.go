@@ -17,7 +17,6 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/topologypolicy"
 )
@@ -126,66 +125,4 @@ func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs 
 		return topologypolicy.DetectTopologyPolicy(klConfig.TopologyManagerPolicy, klConfig.TopologyManagerScope), nil
 	}
 	return "", fmt.Errorf("cannot find the kubelet Topology Manager policy")
-}
-
-type ResourceObserver struct {
-	Infos       <-chan nrtupdater.MonitorInfo
-	resMon      resourcemonitor.ResourceMonitor
-	excludeList resourcemonitor.ResourceExcludeList
-	infoChan    chan nrtupdater.MonitorInfo
-	stopChan    chan struct{}
-}
-
-func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceObserver, error) {
-	resMon, err := resourcemonitor.NewResourceMonitor(cli, args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize ResourceMonitor: %w", err)
-	}
-
-	resObs := ResourceObserver{
-		resMon:      resMon,
-		excludeList: args.ExcludeList,
-		stopChan:    make(chan struct{}),
-		infoChan:    make(chan nrtupdater.MonitorInfo),
-	}
-	resObs.Infos = resObs.infoChan
-	return &resObs, nil
-}
-
-func (rm *ResourceObserver) Stop() {
-	rm.stopChan <- struct{}{}
-}
-
-func (rm *ResourceObserver) Run(eventsChan <-chan PollTrigger, condChan chan<- v1.PodCondition) {
-	lastWakeup := time.Now()
-	for {
-		select {
-		case pt := <-eventsChan:
-			var err error
-			monInfo := nrtupdater.MonitorInfo{Timer: pt.Timer}
-
-			tsWakeupDiff := pt.Timestamp.Sub(lastWakeup)
-			lastWakeup = pt.Timestamp
-			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
-
-			tsBegin := time.Now()
-			monInfo.Zones, err = rm.resMon.Scan(rm.excludeList)
-			tsEnd := time.Now()
-
-			condStatus := v1.ConditionTrue
-			if err != nil {
-				klog.Warningf("failed to scan pod resources: %w\n", err)
-				condStatus = v1.ConditionFalse
-				continue
-			}
-			rm.infoChan <- monInfo
-
-			tsDiff := tsEnd.Sub(tsBegin)
-			prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
-			podreadiness.SetCondition(condChan, podreadiness.PodresourcesFetched, condStatus)
-		case <-rm.stopChan:
-			klog.Infof("read stop at %v", time.Now())
-			return
-		}
-	}
 }
