@@ -15,6 +15,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/ratelimiter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/topologypolicy"
 )
@@ -30,6 +31,8 @@ type Args struct {
 	SleepInterval          time.Duration
 	PodReadinessEnable     bool
 	NotifyFilePath         string
+	MaxEventsPerTimeUnit   int64
+	TimeUnitToLimitEvents  time.Duration
 }
 
 func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
@@ -48,36 +51,56 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		condIn.Run(condChan)
 	}
 
+	eventSource, err := createEventSource(&rteArgs)
+	if err != nil {
+		return err
+	}
+
 	resObs, err := NewResourceObserver(cli, resourcemonitorArgs)
 	if err != nil {
 		return err
 	}
-
-	eventSource, err := notification.NewUnlimitedEventSource(rteArgs.SleepInterval)
-	if err != nil {
-		return err
-	}
-
-	go resObs.Run(eventSource.Events, condChan)
+	go resObs.Run(eventSource.Events(), condChan)
 
 	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
 	go upd.Run(resObs.Infos, condChan)
-
-	err = eventSource.AddFile(rteArgs.NotifyFilePath)
-	if err != nil {
-		return err
-	}
-
-	err = eventSource.AddDirs(rteArgs.KubeletStateDirs)
-	if err != nil {
-		return err
-	}
 
 	go eventSource.Run()
 
 	eventSource.Wait()  // will never return
 	eventSource.Close() // still we try to clean after ourselves :)
 	return nil          // unreachable
+}
+
+func createEventSource(rteArgs *Args) (notification.EventSource, error) {
+	var es notification.EventSource
+
+	eventSource, err := notification.NewUnlimitedEventSource(rteArgs.SleepInterval)
+	if err != nil {
+		return nil, err
+	}
+
+	err = eventSource.AddFile(rteArgs.NotifyFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = eventSource.AddDirs(rteArgs.KubeletStateDirs)
+	if err != nil {
+		return nil, err
+	}
+
+	es = eventSource
+
+	// If rate limit parameters are configured set it up
+	if rteArgs.MaxEventsPerTimeUnit > 0 && rteArgs.TimeUnitToLimitEvents > 0 {
+		es, err = ratelimiter.NewRateLimitedEventSource(eventSource, uint64(rteArgs.MaxEventsPerTimeUnit), rteArgs.TimeUnitToLimitEvents)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return es, nil
 }
 
 func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (v1alpha1.TopologyManagerPolicy, error) {
