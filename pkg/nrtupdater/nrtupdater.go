@@ -36,6 +36,7 @@ type Args struct {
 type NRTUpdater struct {
 	args     Args
 	tmPolicy string
+	stopChan chan struct{}
 }
 
 type MonitorInfo struct {
@@ -50,12 +51,12 @@ func (mi MonitorInfo) UpdateReason() string {
 	return RTEUpdateReactive
 }
 
-func NewNRTUpdater(args Args, policy string) (*NRTUpdater, error) {
-	te := &NRTUpdater{
+func NewNRTUpdater(args Args, policy string) *NRTUpdater {
+	return &NRTUpdater{
 		args:     args,
 		tmPolicy: policy,
+		stopChan: make(chan struct{}),
 	}
-	return te, nil
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
@@ -110,32 +111,31 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	return nil
 }
 
-func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCondition) chan<- struct{} {
-	done := make(chan struct{})
-	var condStatus v1.ConditionStatus
-	go func() {
-		for {
-			select {
-			case info := <-infoChannel:
-				tsBegin := time.Now()
-				condStatus = v1.ConditionTrue
-				if err := te.Update(info); err != nil {
-					klog.Warningf("failed to update: %v", err)
-					condStatus = v1.ConditionFalse
-				}
-				tsEnd := time.Now()
+func (te *NRTUpdater) Stop() {
+	te.stopChan <- struct{}{}
+}
 
-				tsDiff := tsEnd.Sub(tsBegin)
-				prometheus.UpdateOperationDelayMetric("node_resource_object_update", RTEUpdateReactive, float64(tsDiff.Milliseconds()))
-				if te.args.Oneshot {
-					break
-				}
-				podreadiness.SetCondition(condChan, podreadiness.NodeTopologyUpdated, condStatus)
-			case <-done:
-				klog.Infof("update stop at %v", time.Now())
+func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCondition) {
+	for {
+		select {
+		case info := <-infoChannel:
+			tsBegin := time.Now()
+			condStatus := v1.ConditionTrue
+			if err := te.Update(info); err != nil {
+				klog.Warningf("failed to update: %v", err)
+				condStatus = v1.ConditionFalse
+			}
+			tsEnd := time.Now()
+
+			tsDiff := tsEnd.Sub(tsBegin)
+			prometheus.UpdateOperationDelayMetric("node_resource_object_update", RTEUpdateReactive, float64(tsDiff.Milliseconds()))
+			if te.args.Oneshot {
 				break
 			}
+			podreadiness.SetCondition(condChan, podreadiness.NodeTopologyUpdated, condStatus)
+		case <-te.stopChan:
+			klog.Infof("update stop at %v", time.Now())
+			return
 		}
-	}()
-	return done
+	}
 }

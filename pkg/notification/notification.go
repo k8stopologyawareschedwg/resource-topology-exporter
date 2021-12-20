@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/klog/v2"
@@ -18,20 +19,96 @@ const (
 // FilterEvent returns true if the given event is relevant and should be handled
 type FilterEvent func(event fsnotify.Event) bool
 
-func AddFile(watcher *fsnotify.Watcher, notifyFilePath string) (FilterEvent, error) {
+type Event struct {
+	Timer     bool
+	Timestamp time.Time
+}
+
+type EventSource struct {
+	Events        <-chan Event
+	sleepInterval time.Duration
+	filters       []FilterEvent
+	watcher       *fsnotify.Watcher
+	eventChan     chan Event
+	stopChan      chan struct{}
+	doneChan      chan struct{}
+}
+
+func NewUnlimitedEventSource(sleepInterval time.Duration) (*EventSource, error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the watcher: %w", err)
+	}
+	es := EventSource{
+		sleepInterval: sleepInterval,
+		watcher:       watcher,
+		stopChan:      make(chan struct{}),
+		doneChan:      make(chan struct{}),
+		eventChan:     make(chan Event),
+	}
+	es.Events = es.eventChan
+	return &es, nil
+}
+
+func (es *EventSource) Close() {
+	// for completeness sake, but will never be called
+	es.watcher.Close()
+}
+
+// Wait stops the caller until the EventSource is exhausted
+func (es *EventSource) Wait() {
+	<-es.doneChan
+}
+
+func (es *EventSource) Stop() {
+	es.stopChan <- struct{}{}
+}
+
+func (es *EventSource) Run() {
+	es.eventChan <- Event{Timestamp: time.Now()}
+	klog.V(2).Infof("initial update trigger")
+
+	ticker := time.NewTicker(es.sleepInterval)
+	done := false
+	for !done {
+		// TODO: what about closed channels?
+		select {
+		case tickTs := <-ticker.C:
+			es.eventChan <- Event{Timer: true, Timestamp: tickTs}
+			klog.V(4).Infof("timer update trigger")
+
+		case event := <-es.watcher.Events:
+			klog.V(5).Infof("fsnotify event from %q: %v", event.Name, event.Op)
+			if AnyFilter(es.filters, event) {
+				es.eventChan <- Event{Timestamp: time.Now()}
+				klog.V(4).Infof("fsnotify update trigger")
+			}
+
+		case err := <-es.watcher.Errors:
+			// and yes, keep going
+			klog.Warningf("fsnotify error: %v", err)
+
+		case <-es.stopChan:
+			done = true
+		}
+	}
+	es.doneChan <- struct{}{}
+}
+
+func (es *EventSource) AddFile(notifyFilePath string) error {
 	if notifyFilePath == "" {
 		// nothing to do
-		return FilterEverything, nil
+		return nil
 	}
 
 	err := ensureNotifyFilePath(notifyFilePath)
 	if err != nil {
-		return FilterNothing, err
+		return err
 	}
 
-	tryToWatch(watcher, notifyFilePath)
+	tryToWatch(es.watcher, notifyFilePath)
 
-	FilterEvent := func(event fsnotify.Event) bool {
+	es.filters = append(es.filters, func(event fsnotify.Event) bool {
 		if event.Name == notifyFilePath {
 			if (event.Op & fsnotify.Chmod) == fsnotify.Chmod {
 				return true
@@ -41,14 +118,13 @@ func AddFile(watcher *fsnotify.Watcher, notifyFilePath string) (FilterEvent, err
 			}
 		}
 		return false
-	}
-	return FilterEvent, nil
+	})
+	return nil
 }
 
-func AddDirs(watcher *fsnotify.Watcher, kubeletStateDirs []string) (FilterEvent, error) {
+func (es *EventSource) AddDirs(kubeletStateDirs []string) error {
 	if len(kubeletStateDirs) == 0 {
-		// nothing to do
-		return FilterEverything, nil
+		return nil
 	}
 
 	dirCount := 0
@@ -58,17 +134,17 @@ func AddDirs(watcher *fsnotify.Watcher, kubeletStateDirs []string) (FilterEvent,
 			continue
 		}
 
-		tryToWatch(watcher, stateDir)
+		tryToWatch(es.watcher, stateDir)
 		dirCount++
 	}
 
 	if dirCount == 0 {
 		// well, still legal
 		klog.Infof("no valid directory to monitor given")
-		return FilterEverything, nil
+		return nil
 	}
 
-	FilterEvent := func(event fsnotify.Event) bool {
+	es.filters = append(es.filters, func(event fsnotify.Event) bool {
 		filename := filepath.Base(event.Name)
 		if filename != stateCPUManager &&
 			filename != stateMemoryManager &&
@@ -81,21 +157,19 @@ func AddDirs(watcher *fsnotify.Watcher, kubeletStateDirs []string) (FilterEvent,
 		// admittedly we can get some false positives, but that
 		// is expected to be not that big of a deal.
 		return (event.Op & fsnotify.Create) == fsnotify.Create
-	}
-	return FilterEvent, nil
+	})
+	return nil
 }
 
-// MakeFilter return a cumulative filter which passes only if
-// at least one of the provided filters pass.
-func MakeFilter(filters ...FilterEvent) FilterEvent {
-	return func(event fsnotify.Event) bool {
-		for _, filter := range filters {
-			if filter(event) {
-				return true
-			}
+// AnyFilter is a cumulative filter which returns true (hence passes)
+// only ifat least one of the provided filters pass.
+func AnyFilter(filters []FilterEvent, event fsnotify.Event) bool {
+	for _, filter := range filters {
+		if filter(event) {
+			return true
 		}
-		return false
 	}
+	return false
 }
 
 func FilterNothing(_ fsnotify.Event) bool {
