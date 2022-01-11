@@ -24,8 +24,14 @@ type Event struct {
 	Timestamp time.Time
 }
 
-type EventSource struct {
-	Events        <-chan Event
+type EventSource interface {
+	Events() <-chan Event
+	Close()
+	Wait()
+	Stop()
+	Run()
+}
+type UnlimitedEventSource struct {
 	sleepInterval time.Duration
 	filters       []FilterEvent
 	watcher       *fsnotify.Watcher
@@ -34,37 +40,40 @@ type EventSource struct {
 	doneChan      chan struct{}
 }
 
-func NewUnlimitedEventSource(sleepInterval time.Duration) (*EventSource, error) {
+func NewUnlimitedEventSource(sleepInterval time.Duration) (*UnlimitedEventSource, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher: %w", err)
 	}
-	es := EventSource{
+	es := UnlimitedEventSource{
 		sleepInterval: sleepInterval,
 		watcher:       watcher,
 		stopChan:      make(chan struct{}),
 		doneChan:      make(chan struct{}),
 		eventChan:     make(chan Event),
 	}
-	es.Events = es.eventChan
 	return &es, nil
 }
 
-func (es *EventSource) Close() {
+func (es *UnlimitedEventSource) Events() <-chan Event {
+	return es.eventChan
+}
+
+func (es *UnlimitedEventSource) Close() {
 	// for completeness sake, but will never be called
 	es.watcher.Close()
 }
 
 // Wait stops the caller until the EventSource is exhausted
-func (es *EventSource) Wait() {
+func (es *UnlimitedEventSource) Wait() {
 	<-es.doneChan
 }
 
-func (es *EventSource) Stop() {
+func (es *UnlimitedEventSource) Stop() {
 	es.stopChan <- struct{}{}
 }
 
-func (es *EventSource) Run() {
+func (es *UnlimitedEventSource) Run() {
 	es.eventChan <- Event{Timestamp: time.Now()}
 	klog.V(2).Infof("initial update trigger")
 
@@ -95,7 +104,7 @@ func (es *EventSource) Run() {
 	es.doneChan <- struct{}{}
 }
 
-func (es *EventSource) AddFile(notifyFilePath string) error {
+func (es *UnlimitedEventSource) AddFile(notifyFilePath string) error {
 	if notifyFilePath == "" {
 		// nothing to do
 		return nil
@@ -122,7 +131,7 @@ func (es *EventSource) AddFile(notifyFilePath string) error {
 	return nil
 }
 
-func (es *EventSource) AddDirs(kubeletStateDirs []string) error {
+func (es *UnlimitedEventSource) AddDirs(kubeletStateDirs []string) error {
 	if len(kubeletStateDirs) == 0 {
 		return nil
 	}

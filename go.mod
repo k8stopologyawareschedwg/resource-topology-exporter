@@ -16,6 +16,7 @@ require (
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/stretchr/testify v1.7.0
+	go.uber.org/ratelimit v0.2.0
 	google.golang.org/grpc v1.38.0
 	k8s.io/api v0.22.3
 	k8s.io/apiextensions-apiserver v0.0.0
