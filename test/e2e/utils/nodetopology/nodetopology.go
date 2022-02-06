@@ -180,3 +180,27 @@ func CmpResourceList(expected, got v1.ResourceList) (string, int, bool) {
 	}
 	return "", 0, true
 }
+
+func CmpAvailableCPUs(expected, got map[string]v1.ResourceList) (string, int, bool) {
+	if len(got) != len(expected) {
+		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
+		return "", 0, false
+	}
+
+	for expZoneName, expResList := range expected {
+		gotResList, ok := got[expZoneName]
+		if !ok {
+			return expZoneName, 0, false
+		}
+		if _, ok := expResList[v1.ResourceCPU]; !ok {
+			return expZoneName, 0, false
+		}
+
+		if _, ok := gotResList[v1.ResourceCPU]; !ok {
+			return expZoneName, 0, false
+		}
+		quan := gotResList[v1.ResourceCPU]
+		return "", quan.Cmp(expResList[v1.ResourceCPU]), true
+	}
+	return "", 0, true
+}
