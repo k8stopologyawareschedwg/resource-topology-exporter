@@ -154,8 +154,8 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			if len(initialAllocRes) == 0 || len(finalAllocRes) == 0 {
 				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
-			zoneName, resName, cmp, ok := e2enodetopology.CmpAvailableResources(initialAllocRes, finalAllocRes)
-			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
+			zoneName, cmp, ok := e2enodetopology.CmpAvailableCPUs(initialAllocRes, finalAllocRes)
+			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, v1.ResourceCPU, cmp, ok)
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
