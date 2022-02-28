@@ -11,6 +11,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
+
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -60,15 +62,22 @@ func NewNRTUpdater(args Args, policy string) *NRTUpdater {
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
+	// early check to avoid creating the client if we can help it
+	if te.args.NoPublish {
+		return nil
+	}
+	cli, err := k8shelpers.GetTopologyClient("")
+	if err != nil {
+		return err
+	}
+	return te.UpdateWithClient(cli, info)
+}
+
+func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
 	klog.V(3).Infof("update: sending zone: %v", utils.Dump(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
-	}
-
-	cli, err := k8shelpers.GetTopologyClient("")
-	if err != nil {
-		return err
 	}
 
 	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
