@@ -75,14 +75,11 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	if errors.IsNotFound(err) {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: te.args.Hostname,
-				Annotations: map[string]string{
-					AnnotationRTEUpdate: info.UpdateReason(),
-				},
+				Name:        te.args.Hostname,
+				Annotations: make(map[string]string),
 			},
-			Zones:            info.Zones,
-			TopologyPolicies: []string{te.tmPolicy},
 		}
+		te.updateNRTInfo(&nrtNew, info)
 
 		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
@@ -100,8 +97,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	if nrtMutated.Annotations == nil {
 		nrtMutated.Annotations = make(map[string]string)
 	}
-	nrtMutated.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
-	nrtMutated.Zones = info.Zones
+	te.updateNRTInfo(nrtMutated, info)
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
@@ -109,6 +105,12 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	}
 	klog.V(5).Infof("update changed CRD instance: %v", utils.Dump(nrtUpdated))
 	return nil
+}
+
+func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info MonitorInfo) {
+	nrt.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
+	nrt.TopologyPolicies = []string{te.tmPolicy}
+	nrt.Zones = info.Zones
 }
 
 func (te *NRTUpdater) Stop() {
