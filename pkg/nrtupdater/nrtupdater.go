@@ -11,6 +11,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
+
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -60,29 +62,33 @@ func NewNRTUpdater(args Args, policy string) *NRTUpdater {
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
+	// early check to avoid creating the client if we can help it
+	if te.args.NoPublish {
+		return nil
+	}
+	cli, err := k8shelpers.GetTopologyClient("")
+	if err != nil {
+		return err
+	}
+	return te.UpdateWithClient(cli, info)
+}
+
+func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
 	klog.V(3).Infof("update: sending zone: %v", utils.Dump(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
 	}
 
-	cli, err := k8shelpers.GetTopologyClient("")
-	if err != nil {
-		return err
-	}
-
 	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		nrtNew := v1alpha1.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: te.args.Hostname,
-				Annotations: map[string]string{
-					AnnotationRTEUpdate: info.UpdateReason(),
-				},
+				Name:        te.args.Hostname,
+				Annotations: make(map[string]string),
 			},
-			Zones:            info.Zones,
-			TopologyPolicies: []string{te.tmPolicy},
 		}
+		te.updateNRTInfo(&nrtNew, info)
 
 		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
@@ -100,8 +106,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	if nrtMutated.Annotations == nil {
 		nrtMutated.Annotations = make(map[string]string)
 	}
-	nrtMutated.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
-	nrtMutated.Zones = info.Zones
+	te.updateNRTInfo(nrtMutated, info)
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
@@ -109,6 +114,12 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 	}
 	klog.V(5).Infof("update changed CRD instance: %v", utils.Dump(nrtUpdated))
 	return nil
+}
+
+func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info MonitorInfo) {
+	nrt.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
+	nrt.TopologyPolicies = []string{te.tmPolicy}
+	nrt.Zones = info.Zones
 }
 
 func (te *NRTUpdater) Stop() {

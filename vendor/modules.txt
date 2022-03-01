@@ -426,8 +426,10 @@ github.com/jtolds/gls
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned
+github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/fake
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/scheme
 github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/typed/topology/v1alpha1
+github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/typed/topology/v1alpha1/fake
 # github.com/karrick/godirwalk v1.16.1
 github.com/karrick/godirwalk
 # github.com/libopenstorage/openstorage v1.0.0
