@@ -30,6 +30,11 @@ jobs:
       with:
         go-version: 1.17
 
+    - name: show tool versions
+      run: |
+        go version
+        kind version
+
     - name: build test binary
       run: |
         make build-e2e
