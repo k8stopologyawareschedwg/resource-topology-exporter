@@ -2,9 +2,9 @@ name: CI E2E
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 defaults:
   run:
@@ -28,7 +28,12 @@ jobs:
       uses: actions/setup-go@v2
       id: go
       with:
-        go-version: 1.16
+        go-version: 1.17
+
+    - name: show tool versions
+      run: |
+        go version
+        kind version
 
     - name: build test binary
       run: |
@@ -45,7 +50,8 @@ jobs:
     - name: create K8S kind cluster
       run: |
         # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
-        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.21.1@sha256:69860bda5563ac81e3c0057d654b5253219618a22ec3a346306239bba8cfa1a6
+        # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.11.1
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.23.0@sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
         kind load docker-image ${RTE_CONTAINER_IMAGE}
 
     - name: deploy RTE
