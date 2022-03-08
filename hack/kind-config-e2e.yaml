@@ -6,8 +6,6 @@ kubeadmConfigPatches:
   cpuManagerPolicy: "static"
   topologyManagerPolicy: "single-numa-node"
   reservedSystemCPUs: "0"
-  featureGates:
-    KubeletPodResourcesGetAllocatable: true
 nodes:
 - role: control-plane
 - role: worker
