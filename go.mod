@@ -60,3 +60,6 @@ replace (
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.22.3
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.22.3
 )
+
+// other pinned deps
+replace github.com/jaypipes/pcidb => github.com/jaypipes/pcidb v1.0.0
