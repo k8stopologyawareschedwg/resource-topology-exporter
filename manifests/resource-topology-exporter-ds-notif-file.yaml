@@ -18,13 +18,14 @@ spec:
         image: ${RTE_CONTAINER_IMAGE}
         command:
         - /bin/resource-topology-exporter
-        - -v=5
-        - --sleep-interval=${RTE_POLL_INTERVAL}
-        - --sysfs=/host-sys
-        - --notify-file=/host-run/rte/notify
-        - --topology-manager-policy=single-numa-node
-        - --topology-manager-scope=container
-        - --podresources-socket=unix:///host-podresources/kubelet.sock
+        args:
+          - -v=5
+          - --sleep-interval=${RTE_POLL_INTERVAL}
+          - --sysfs=/host-sys
+          - --notify-file=/host-run/rte/notify
+          - --topology-manager-policy=single-numa-node
+          - --topology-manager-scope=container
+          - --podresources-socket=unix:///host-podresources/kubelet.sock
         env:
         - name: NODE_NAME
           valueFrom:
