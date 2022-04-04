@@ -165,8 +165,8 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				rteNotifyFilePath, err := e2ertepod.FindNotificationFilePath(rtePod)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rteContainerName, "/bin/touch", rteNotifyFilePath)
 				doneChan <- struct{}{}
