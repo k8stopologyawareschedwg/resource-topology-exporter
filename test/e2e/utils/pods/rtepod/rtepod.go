@@ -65,13 +65,6 @@ func FindNotificationFilePath(rtePod *corev1.Pod) (string, error) {
 	for idx := 0; idx < len(rtePod.Spec.Containers); idx++ {
 		cnt := rtePod.Spec.Containers[idx] // shortcut
 		if len(cnt.Command) > 0 && strings.Contains(cnt.Command[0], rteExecutable) {
-			for _, arg := range cnt.Command {
-				if strings.Contains(arg, notificationFileOption) {
-					return extractOptionValue(arg)
-				}
-			}
-		}
-		if len(cnt.Args) > 0 && strings.Contains(cnt.Args[0], rteExecutable) {
 			for _, arg := range cnt.Args {
 				if strings.Contains(arg, notificationFileOption) {
 					return extractOptionValue(arg)
@@ -79,7 +72,7 @@ func FindNotificationFilePath(rtePod *corev1.Pod) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("no container uses %q as command or argument option", notificationFileOption)
+	return "", fmt.Errorf("no container uses %q as an argument option", notificationFileOption)
 }
 
 func isRTEContainer(cnt corev1.Container) bool {
