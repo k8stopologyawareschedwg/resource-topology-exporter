@@ -75,7 +75,7 @@ func InitPrometheus() error {
 
 	if envValue, ok := os.LookupEnv("METRICS_PORT"); ok {
 		if _, err = strconv.Atoi(envValue); err != nil {
-			return fmt.Errorf("the env variable PROMETHEUS_PORT has inccorrect value %q; err %v", envValue, err)
+			return fmt.Errorf("the env variable PROMETHEUS_PORT has inccorrect value %q: %w", envValue, err)
 		}
 		port = envValue
 	}

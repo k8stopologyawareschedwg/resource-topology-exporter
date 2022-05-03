@@ -131,7 +131,7 @@ func parseArgs(args ...string) (ProgArgs, error) {
 
 	conf, err := readConfig(configPath)
 	if err != nil {
-		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %v", err)
+		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %w", err)
 	}
 
 	if len(conf.ExcludeList) != 0 {

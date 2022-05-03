@@ -128,7 +128,7 @@ func NewK8SClient(socketPath string) (podresourcesapi.PodResourcesListerClient, 
 func NewFilteringClient(socketPath string, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
 	cli, err := NewK8SClient(socketPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create podresource client: %v", err)
+		return nil, fmt.Errorf("failed to create podresource client: %w", err)
 	}
 	klog.V(4).Infof("connected to %q", socketPath)
 	return NewFilteringClientFromLister(cli, debug, referenceContainer)

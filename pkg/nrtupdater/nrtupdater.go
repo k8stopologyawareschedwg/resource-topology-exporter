@@ -92,7 +92,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 
 		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("update failed for NRT instance: %v", err)
+			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
 		klog.V(2).Infof("update created NRT instance: %v", utils.Dump(nrtCreated))
 		return nil
@@ -110,7 +110,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("update failed for NRT instance: %v", err)
+		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
 	klog.V(5).Infof("update changed CRD instance: %v", utils.Dump(nrtUpdated))
 	return nil
