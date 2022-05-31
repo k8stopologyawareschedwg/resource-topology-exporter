@@ -17,11 +17,12 @@ import (
 )
 
 type ResourceObserver struct {
-	Infos       <-chan nrtupdater.MonitorInfo
-	resMon      resourcemonitor.ResourceMonitor
-	excludeList resourcemonitor.ResourceExcludeList
-	infoChan    chan nrtupdater.MonitorInfo
-	stopChan    chan struct{}
+	Infos        <-chan nrtupdater.MonitorInfo
+	resMon       resourcemonitor.ResourceMonitor
+	excludeList  resourcemonitor.ResourceExcludeList
+	infoChan     chan nrtupdater.MonitorInfo
+	stopChan     chan struct{}
+	exposeTiming bool
 }
 
 func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceObserver, error) {
@@ -31,10 +32,11 @@ func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args reso
 	}
 
 	resObs := ResourceObserver{
-		resMon:      resMon,
-		excludeList: args.ExcludeList,
-		stopChan:    make(chan struct{}),
-		infoChan:    make(chan nrtupdater.MonitorInfo),
+		resMon:       resMon,
+		excludeList:  args.ExcludeList,
+		stopChan:     make(chan struct{}),
+		infoChan:     make(chan nrtupdater.MonitorInfo),
+		exposeTiming: args.ExposeTiming,
 	}
 	resObs.Infos = resObs.infoChan
 	return &resObs, nil
@@ -50,7 +52,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 		select {
 		case ev := <-eventsChan:
 			var err error
-			monInfo := nrtupdater.MonitorInfo{Timer: ev.Timer}
+			monInfo := nrtupdater.MonitorInfo{Timer: ev.IsTimer()}
 
 			tsWakeupDiff := ev.Timestamp.Sub(lastWakeup)
 			lastWakeup = ev.Timestamp
@@ -60,7 +62,10 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			monInfo.Zones, monInfo.Annotations, err = rm.resMon.Scan(rm.excludeList)
 			tsEnd := time.Now()
 
-			monInfo.Annotations[k8sannotations.SleepDuration] = tsWakeupDiff.String()
+			if rm.exposeTiming {
+				monInfo.Annotations[k8sannotations.SleepDuration] = tsWakeupDiff.String()
+				monInfo.Annotations[k8sannotations.UpdateInterval] = ev.TimerInterval.String()
+			}
 
 			condStatus := v1.ConditionTrue
 			if err != nil {

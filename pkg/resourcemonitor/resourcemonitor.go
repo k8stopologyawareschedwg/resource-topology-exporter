@@ -53,6 +53,7 @@ type Args struct {
 	ExcludeList          ResourceExcludeList
 	RefreshNodeResources bool
 	PodSetFingerprint    bool
+	ExposeTiming         bool
 }
 
 type ResourceMonitor interface {

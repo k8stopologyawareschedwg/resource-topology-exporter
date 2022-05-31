@@ -78,6 +78,7 @@ spec:
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
           - --notify-file=/host-run/rte/notify
           - --pods-fingerprint
+          - --expose-timing
         env:
         - name: NODE_NAME
           valueFrom:
