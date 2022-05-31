@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
@@ -58,6 +59,8 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			tsBegin := time.Now()
 			monInfo.Zones, monInfo.Annotations, err = rm.resMon.Scan(rm.excludeList)
 			tsEnd := time.Now()
+
+			monInfo.Annotations[k8sannotations.SleepDuration] = tsWakeupDiff.String()
 
 			condStatus := v1.ConditionTrue
 			if err != nil {

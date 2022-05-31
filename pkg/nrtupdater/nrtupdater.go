@@ -13,14 +13,11 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/utils"
-)
-
-const (
-	AnnotationRTEUpdate = "k8stopoawareschedwg/rte-update"
 )
 
 const (
@@ -116,7 +113,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 
 func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info MonitorInfo) {
 	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
-	nrt.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
+	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.TopologyPolicies = []string{te.tmPolicy}
 	nrt.Zones = info.Zones
 }

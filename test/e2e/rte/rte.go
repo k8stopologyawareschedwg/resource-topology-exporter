@@ -33,6 +33,8 @@ import (
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
@@ -132,7 +134,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					framework.Logf("resource %s not yet updated - resource version not bumped", topologyUpdaterNode.Name)
 					return false
 				}
-				reason, ok := finalNodeTopo.Annotations[nrtupdater.AnnotationRTEUpdate]
+				reason, ok := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
 				if !ok {
 					framework.Logf("resource %s missing annotation!", topologyUpdaterNode.Name)
 					return false
@@ -144,7 +146,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			<-doneChan
 
 			gomega.Expect(finalNodeTopo.Annotations).ToNot(gomega.BeNil(), "missing annotations entirely")
-			reason := finalNodeTopo.Annotations[nrtupdater.AnnotationRTEUpdate]
+			reason := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
 			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
 		})
 
@@ -190,7 +192,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					framework.Logf("resource %s not yet updated - resource version not bumped", topologyUpdaterNode.Name)
 					return false
 				}
-				reason, ok := finalNodeTopo.Annotations[nrtupdater.AnnotationRTEUpdate]
+				reason, ok := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
 				if !ok {
 					framework.Logf("resource %s missing annotation!", topologyUpdaterNode.Name)
 					return false
