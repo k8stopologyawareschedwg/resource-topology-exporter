@@ -42,8 +42,9 @@ type NRTUpdater struct {
 }
 
 type MonitorInfo struct {
-	Timer bool
-	Zones v1alpha1.ZoneList
+	Timer       bool
+	Zones       v1alpha1.ZoneList
+	Annotations map[string]string
 }
 
 func (mi MonitorInfo) UpdateReason() string {
@@ -103,9 +104,6 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	}
 
 	nrtMutated := nrt.DeepCopy()
-	if nrtMutated.Annotations == nil {
-		nrtMutated.Annotations = make(map[string]string)
-	}
 	te.updateNRTInfo(nrtMutated, info)
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
@@ -117,6 +115,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 }
 
 func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info MonitorInfo) {
+	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
 	nrt.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
 	nrt.TopologyPolicies = []string{te.tmPolicy}
 	nrt.Zones = info.Zones
@@ -149,4 +148,14 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 			return
 		}
 	}
+}
+
+func mergeAnnotations(kvs ...map[string]string) map[string]string {
+	ret := make(map[string]string)
+	for _, kv := range kvs {
+		for key, value := range kv {
+			ret[key] = value
+		}
+	}
+	return ret
 }

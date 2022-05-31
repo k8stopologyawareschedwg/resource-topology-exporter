@@ -56,7 +56,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
 			tsBegin := time.Now()
-			monInfo.Zones, err = rm.resMon.Scan(rm.excludeList)
+			monInfo.Zones, monInfo.Annotations, err = rm.resMon.Scan(rm.excludeList)
 			tsEnd := time.Now()
 
 			condStatus := v1.ConditionTrue
