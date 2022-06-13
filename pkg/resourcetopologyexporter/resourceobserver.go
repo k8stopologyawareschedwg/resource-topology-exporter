@@ -63,8 +63,8 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			tsEnd := time.Now()
 
 			if rm.exposeTiming {
-				monInfo.Annotations[k8sannotations.SleepDuration] = tsWakeupDiff.String()
-				monInfo.Annotations[k8sannotations.UpdateInterval] = ev.TimerInterval.String()
+				monInfo.Annotations[k8sannotations.SleepDuration] = clampTime(tsWakeupDiff.Round(time.Second)).String()
+				monInfo.Annotations[k8sannotations.UpdateInterval] = clampTime(ev.TimerInterval).String()
 			}
 
 			condStatus := v1.ConditionTrue
@@ -84,4 +84,11 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			return
 		}
 	}
+}
+
+func clampTime(t time.Duration) time.Duration {
+	if t < 0 {
+		return 0
+	}
+	return t
 }
