@@ -13,11 +13,11 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dump"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/utils"
 )
 
 const (
@@ -72,7 +72,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 }
 
 func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
-	klog.V(3).Infof("update: sending zone: %v", utils.Dump(info.Zones))
+	klog.V(3).Infof("update: sending zone: %v", dump.Object(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
@@ -92,7 +92,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 		if err != nil {
 			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
-		klog.V(2).Infof("update created NRT instance: %v", utils.Dump(nrtCreated))
+		klog.V(2).Infof("update created NRT instance: %v", dump.Object(nrtCreated))
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	if err != nil {
 		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
-	klog.V(5).Infof("update changed CRD instance: %v", utils.Dump(nrtUpdated))
+	klog.V(5).Infof("update changed CRD instance: %v", dump.Object(nrtUpdated))
 	return nil
 }
 
