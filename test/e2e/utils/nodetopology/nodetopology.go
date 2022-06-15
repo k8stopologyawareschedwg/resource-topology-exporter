@@ -51,6 +51,7 @@ func IsValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, tmPolicy s
 	}
 
 	if nodeTopology.TopologyPolicies[0] != tmPolicy {
+		framework.Logf("topology mismatch got %q expected %q", nodeTopology.TopologyPolicies[0], tmPolicy)
 		return false
 	}
 
@@ -68,14 +69,20 @@ func IsValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, tmPolicy s
 		foundNodes++
 
 		if !IsValidCostList(zone.Name, zone.Costs) {
+			framework.Logf("invalid cost list for %q %q", nodeTopology.Name, zone.Name)
 			return false
 		}
 
 		if !IsValidResourceList(zone.Name, zone.Resources) {
+			framework.Logf("invalid resource list for %q %q", nodeTopology.Name, zone.Name)
 			return false
 		}
 	}
-	return foundNodes > 0
+	ret := foundNodes > 0
+	if !ret {
+		framework.Logf("found no Zone with 'node' kind for %q", nodeTopology.Name)
+	}
+	return ret
 }
 
 func IsValidCostList(zoneName string, costs v1alpha1.CostList) bool {

@@ -20,8 +20,12 @@ const (
 type FilterEvent func(event fsnotify.Event) bool
 
 type Event struct {
-	Timer     bool
-	Timestamp time.Time
+	Timestamp     time.Time
+	TimerInterval time.Duration
+}
+
+func (ev Event) IsTimer() bool {
+	return ev.TimerInterval > 0
 }
 
 type EventSource interface {
@@ -83,7 +87,10 @@ func (es *UnlimitedEventSource) Run() {
 		// TODO: what about closed channels?
 		select {
 		case tickTs := <-ticker.C:
-			es.eventChan <- Event{Timer: true, Timestamp: tickTs}
+			es.eventChan <- Event{
+				Timestamp:     tickTs,
+				TimerInterval: es.sleepInterval,
+			}
 			klog.V(4).Infof("timer update trigger")
 
 		case event := <-es.watcher.Events:

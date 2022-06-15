@@ -31,6 +31,7 @@ import (
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
+	"github.com/k8stopologyawareschedwg/podfingerprint"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -51,10 +52,12 @@ type Args struct {
 	SysfsRoot            string
 	ExcludeList          ResourceExcludeList
 	RefreshNodeResources bool
+	PodSetFingerprint    bool
+	ExposeTiming         bool
 }
 
 type ResourceMonitor interface {
-	Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, error)
+	Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error)
 }
 
 // ToMapSet keeps the original keys, but replaces values with set.String types
@@ -129,13 +132,13 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 	return rm, nil
 }
 
-func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, error) {
+func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
 	if rm.args.RefreshNodeResources {
 		if err := rm.updateNodeCapacity(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := rm.updateNodeAllocatable(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -144,11 +147,13 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
 	if err != nil {
 		prometheus.UpdatePodResourceApiCallsFailureMetric("list")
-		return nil, err
+		return nil, nil, err
 	}
 
-	allDevs := GetAllContainerDevices(resp.GetPodResources(), rm.args.Namespace, rm.coreIDToNodeIDMap)
+	respPodRes := resp.GetPodResources()
+	allDevs := GetAllContainerDevices(respPodRes, rm.args.Namespace, rm.coreIDToNodeIDMap)
 	allocated := ContainerDevicesToPerNUMAResourceCounters(allDevs)
+	annotations := rm.annotationForResponse(respPodRes)
 
 	excludeSet := excludeList.ToMapSet()
 	zones := make(topologyv1alpha1.ZoneList, 0)
@@ -217,7 +222,15 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 		zones = append(zones, zone)
 	}
-	return zones, nil
+	return zones, annotations, nil
+}
+
+func (rm *resourceMonitor) annotationForResponse(podRes []*podresourcesapi.PodResources) map[string]string {
+	annotations := make(map[string]string)
+	if rm.args.PodSetFingerprint {
+		annotations[podfingerprint.Annotation] = ComputePodFingerprint(podRes)
+	}
+	return annotations
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
@@ -271,6 +284,14 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 
 	}
 	return allCntRes
+}
+
+func ComputePodFingerprint(podRes []*podresourcesapi.PodResources) string {
+	fp := podfingerprint.NewFingerprint(len(podRes))
+	for _, pr := range podRes {
+		fp.AddPod(pr)
+	}
+	return fp.Sign()
 }
 
 func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {

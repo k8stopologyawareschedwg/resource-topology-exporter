@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 )
 
@@ -527,7 +528,7 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			res, _, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
 
 			sort.Slice(res, func(i, j int) bool {
@@ -636,7 +637,7 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			res, _, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
 
 			sort.Slice(res, func(i, j int) bool {
@@ -846,7 +847,7 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, err := resMon.Scan(excludeList)
+			res, _, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
 			// Check if resources were excluded correctly
 			for _, zone := range res {
@@ -1016,7 +1017,7 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, err := resMon.Scan(excludeList)
+			res, _, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
 			// Check if resources were excluded correctly
 			for _, zone := range res {
@@ -1240,7 +1241,7 @@ func TestResourcesScan(t *testing.T) {
 
 			mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, err := resMon.Scan(excludeList)
+			res, _, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
 			// Check if resources were excluded correctly
 			for _, zone := range res {
@@ -1276,6 +1277,107 @@ func TestResourcesScan(t *testing.T) {
 			log.Printf("expected=%v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
 			So(cmp.Equal(res, expected), ShouldBeTrue)
+		})
+	})
+
+	Convey("When I aggregate the node resources fake data and some pod allocation, with pod fingerprinting enabled", t, func() {
+		availRes := &v1.AllocatableResourcesResponse{
+			Devices: allContainerDevices,
+			// CPUId 0 and 1 are missing from the list below to simulate
+			// that they are not allocatable CPUs (kube-reserved or system-reserved)
+			CpuIds: []int64{
+				2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+			},
+		}
+
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
+		resMon, err := NewResourceMonitorWithTopology("TEST", &fakeTopo, mockPodResClient, Args{PodSetFingerprint: true})
+		So(err, ShouldBeNil)
+
+		Convey("When aggregating resources", func() {
+			allocRes := &v1.AllocatableResourcesResponse{
+				Devices: []*v1.ContainerDevices{
+					{
+						ResourceName: "fake.io/net",
+						DeviceIds:    []string{"netAAA"},
+						Topology: &v1.TopologyInfo{
+							Nodes: []*v1.NUMANode{
+								{
+									ID: 0,
+								},
+							},
+						},
+					},
+					{
+						ResourceName: "fake.io/net",
+						DeviceIds:    []string{"netBBB"},
+						Topology: &v1.TopologyInfo{
+							Nodes: []*v1.NUMANode{
+								{
+									ID: 1,
+								},
+							},
+						},
+					},
+					{
+						ResourceName: "fake.io/gpu",
+						DeviceIds:    []string{"gpuAAA"},
+						Topology: &v1.TopologyInfo{
+							Nodes: []*v1.NUMANode{
+								{
+									ID: 1,
+								},
+							},
+						},
+					},
+				},
+				CpuIds: []int64{
+					0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+					12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+				},
+			}
+
+			resp := &v1.ListPodResourcesResponse{
+				PodResources: []*v1.PodResources{
+					{
+						Name:      "test-pod-0",
+						Namespace: "default",
+						Containers: []*v1.ContainerResources{
+							{
+								Name:   "test-cnt-0",
+								CpuIds: []int64{5, 7},
+								Devices: []*v1.ContainerDevices{
+									{
+										ResourceName: "fake.io/net",
+										DeviceIds:    []string{"netBBB"},
+										Topology: &v1.TopologyInfo{
+											Nodes: []*v1.NUMANode{
+												{
+													ID: 1,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
+			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
+			_, ann, err := resMon.Scan(ResourceExcludeList{})
+
+			expectedFP := "pfp0v001fe53c4dbd2c5f4a0" // pre-computed and validated manually
+			fp, ok := ann[podfingerprint.Annotation]
+			So(ok, ShouldBeTrue)
+			log.Printf("FP %q expected %q", fp, expectedFP)
+			So(cmp.Equal(fp, expectedFP), ShouldBeTrue)
+
+			So(err, ShouldBeNil)
 		})
 	})
 

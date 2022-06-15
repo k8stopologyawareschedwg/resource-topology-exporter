@@ -13,14 +13,11 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/utils"
-)
-
-const (
-	AnnotationRTEUpdate = "k8stopoawareschedwg/rte-update"
 )
 
 const (
@@ -42,8 +39,9 @@ type NRTUpdater struct {
 }
 
 type MonitorInfo struct {
-	Timer bool
-	Zones v1alpha1.ZoneList
+	Timer       bool
+	Zones       v1alpha1.ZoneList
+	Annotations map[string]string
 }
 
 func (mi MonitorInfo) UpdateReason() string {
@@ -103,9 +101,6 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	}
 
 	nrtMutated := nrt.DeepCopy()
-	if nrtMutated.Annotations == nil {
-		nrtMutated.Annotations = make(map[string]string)
-	}
 	te.updateNRTInfo(nrtMutated, info)
 
 	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
@@ -117,7 +112,8 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 }
 
 func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info MonitorInfo) {
-	nrt.Annotations[AnnotationRTEUpdate] = info.UpdateReason()
+	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
+	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.TopologyPolicies = []string{te.tmPolicy}
 	nrt.Zones = info.Zones
 }
@@ -149,4 +145,14 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 			return
 		}
 	}
+}
+
+func mergeAnnotations(kvs ...map[string]string) map[string]string {
+	ret := make(map[string]string)
+	for _, kv := range kvs {
+		for key, value := range kv {
+			ret[key] = value
+		}
+	}
+	return ret
 }
