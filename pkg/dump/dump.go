@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package dump
 
 import (
 	"fmt"
@@ -22,8 +22,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// Dump dumps an object into YAML textual format
-func Dump(obj interface{}) string {
+// Object dumps an object into YAML textual format
+func Object(obj interface{}) string {
 	out, err := yaml.Marshal(obj)
 	if err != nil {
 		return fmt.Sprintf("<!!! FAILED TO MARSHAL %T (%v) !!!>\n", obj, err)

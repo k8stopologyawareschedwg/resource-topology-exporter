@@ -1,4 +1,4 @@
-package utils
+package dump
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 )
 
-func TestDump(t *testing.T) {
+func TestDumpObject(t *testing.T) {
 	type testCase struct {
 		name     string
 		obj      interface{}
@@ -28,9 +28,9 @@ func TestDump(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := Dump(tc.obj)
+			got := Object(tc.obj)
 			if tc.expected != got {
-				t.Fatalf("Dump(%s) error expected=%q got=%q", tc.name, tc.expected, got)
+				t.Fatalf("dump.Object(%s) error expected=%q got=%q", tc.name, tc.expected, got)
 			}
 		})
 	}
