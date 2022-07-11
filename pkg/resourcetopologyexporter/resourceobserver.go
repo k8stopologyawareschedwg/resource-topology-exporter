@@ -69,7 +69,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 
 			condStatus := v1.ConditionTrue
 			if err != nil {
-				klog.Warningf("failed to scan pod resources: %w\n", err)
+				klog.Warningf("failed to scan pod resources: %v\n", err)
 				condStatus = v1.ConditionFalse
 				podreadiness.SetCondition(condChan, podreadiness.PodresourcesFetched, condStatus)
 				continue
