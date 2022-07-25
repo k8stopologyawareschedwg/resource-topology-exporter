@@ -23,6 +23,11 @@ var (
 		Help: "The total number of podresource api calls that failed by the updater",
 	}, []string{"node", "function_name"})
 
+	NodeResourceTopologyWrites = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "rte_noderesourcetopology_writes_total",
+		Help: "The total number of NodeResourceTopology writes",
+	}, []string{"node", "operation", "trigger"})
+
 	OperationDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "rte_operation_delay_milliseconds",
 		Help: "The latency between exporting stages, milliseconds",
@@ -45,6 +50,14 @@ func getNodeName() (string, error) {
 		}
 	}
 	return val, nil
+}
+
+func UpdateNodeResourceTopologyWritesMetric(operation, trigger string) {
+	NodeResourceTopologyWrites.With(prometheus.Labels{
+		"node":      nodeName,
+		"operation": operation,
+		"trigger":   trigger,
+	}).Inc()
 }
 
 func UpdatePodResourceApiCallsFailureMetric(funcName string) {
