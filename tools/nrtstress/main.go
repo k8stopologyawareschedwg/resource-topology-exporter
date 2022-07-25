@@ -1,0 +1,52 @@
+package main
+
+import (
+	"flag"
+	"math/rand"
+	"time"
+
+	"k8s.io/klog/v2"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater/fake"
+)
+
+func main() {
+	var hostname string
+	var tmPolicy string
+	var interval time.Duration
+	var seed int
+	var dryRun bool
+	flag.StringVar(&hostname, "hosthame", "fake-host-0", "fake host name (not validated)")
+	flag.StringVar(&tmPolicy, "tm-policy", "single-numa-node", "topology manager policy (not validated)")
+	flag.DurationVar(&interval, "interval", 10*time.Second, "periodic update interval")
+	flag.IntVar(&seed, "random-seed", 0, "random seed (use time)")
+	flag.BoolVar(&dryRun, "dry-run", false, "don't send data")
+
+	klog.InitFlags(nil)
+	flag.Parse()
+
+	nrtupdaterArgs := nrtupdater.Args{
+		Hostname:  hostname,
+		NoPublish: dryRun,
+	}
+
+	var randSeed int64 = time.Now().UnixNano()
+	if seed != 0 {
+		randSeed = int64(seed)
+	}
+
+	klog.Infof("seed: %v", randSeed)
+
+	rand.Seed(randSeed)
+
+	klog.Infof("generating fake periodic updates every %v", interval)
+
+	gen := fake.NewGenerator(interval)
+	go gen.Run()
+
+	klog.Infof("using NRT Updater args: %+#v", nrtupdaterArgs)
+
+	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy)
+	upd.Run(gen.Infos, nil)
+}
