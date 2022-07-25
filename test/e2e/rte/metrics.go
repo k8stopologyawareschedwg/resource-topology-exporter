@@ -32,15 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/test/e2e/framework"
 
+	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
+	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2ertepod "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods/rtepod"
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
 
 var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	var (
-		initialized bool
-		rtePod      *corev1.Pod
-		metricsPort int
+		initialized         bool
+		rtePod              *corev1.Pod
+		metricsPort         int
+		workerNodes         []corev1.Node
+		topologyUpdaterNode *corev1.Node
 	)
 
 	f := framework.NewDefaultFramework("metrics")
@@ -59,6 +63,14 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rtePod = &pods.Items[0]
 			metricsPort, err = e2ertepod.FindMetricsPort(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			workerNodes, err = e2enodes.GetWorkerNodes(f)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			// pick any worker node. The (implicit, TODO: make explicit) assumption is
+			// the daemonset runs on CI on all the worker nodes.
+			topologyUpdaterNode = &workerNodes[0]
+			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
 
 			initialized = true
 		}
@@ -83,5 +95,38 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			gomega.Expect(stdout).To(gomega.ContainSubstring("operation_delay"))
 			gomega.Expect(stdout).To(gomega.ContainSubstring("wakeup_delay"))
 		})
+
+		ginkgo.It("it should report noderesourcetopology writes", func() {
+			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			if len(nodes) < 1 {
+				ginkgo.Skip("not enough allocatable cores for this test")
+			}
+
+			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
+
+			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
+			defer e2epods.Cooldown(f)
+			pod := f.PodClient().CreateSync(sleeperPod)
+			defer e2epods.DeletePodSyncByName(f, pod.Name)
+
+			// now we are sure we have at least a write to be reported
+			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			stdout, stderr, err := f.ExecWithOptions(framework.ExecOptions{
+				Command:            []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)},
+				Namespace:          rtePod.Namespace,
+				PodName:            rtePod.Name,
+				ContainerName:      rteContainerName,
+				Stdin:              nil,
+				CaptureStdout:      true,
+				CaptureStderr:      true,
+				PreserveWhitespace: false,
+			})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "ExecWithOptions failed with %s:\n%s", err, stderr)
+			gomega.Expect(stdout).To(gomega.ContainSubstring("noderesourcetopology_writes_total"))
+		})
+
 	})
 })

@@ -92,7 +92,8 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 		if err != nil {
 			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
-		klog.V(2).Infof("update created NRT instance: %v", dump.Object(nrtCreated))
+		prometheus.UpdateNodeResourceTopologyWritesMetric("create", info.UpdateReason())
+		klog.V(2).Infof("nrtupdater created NRT instance: %v", dump.Object(nrtCreated))
 		return nil
 	}
 
@@ -107,7 +108,8 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	if err != nil {
 		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
-	klog.V(5).Infof("update changed CRD instance: %v", dump.Object(nrtUpdated))
+	prometheus.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
+	klog.V(5).Infof("nrtupdater changed CRD instance: %v", dump.Object(nrtUpdated))
 	return nil
 }
 
