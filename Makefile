@@ -16,8 +16,11 @@ all: build
 .PHONY: build-tools
 build-tools: outdir _out/git-semver
 
+.PHONY: extra-tools
+extra-tools: outdir _out/nrtstress
+
 .PHONY: build
-build: build-tools
+build: build-tools extra-tools
 	$(COMMONENVVAR) $(BUILDENVVAR) go build \
 	-ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
 	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
@@ -100,6 +103,11 @@ update-manifests:
 .PHONY: update-golden-files
 update-golden-files:
 	@go test ./cmd/... -update
+
+# helper tools
+_out/nrtstress: outdir
+	$(COMMONENVVAR) $(BUILDENVVAR) go build \
+	-o _out/nrtstress tools/nrtstress/main.go
 
 # build tools:
 #
