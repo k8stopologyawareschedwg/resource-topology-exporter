@@ -120,6 +120,7 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 		if err := rm.updateNodeAllocatable(); err != nil {
 			return nil, err
 		}
+		rm.updateDevicesCapacity()
 	} else {
 		klog.Infof("getting allocatable resources before each poll")
 	}
@@ -140,6 +141,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 		if err := rm.updateNodeAllocatable(); err != nil {
 			return nil, nil, err
 		}
+		rm.updateDevicesCapacity()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
@@ -269,6 +271,20 @@ func (rm *resourceMonitor) updateNodeAllocatable() error {
 	allDevs := NormalizeContainerDevices(allocRes.GetDevices(), allocRes.GetMemory(), allocRes.GetCpuIds(), rm.coreIDToNodeIDMap)
 	rm.nodeAllocatable = ContainerDevicesToPerNUMAResourceCounters(allDevs)
 	return nil
+}
+
+func (rm *resourceMonitor) updateDevicesCapacity() {
+	for numaId, resourceCnt := range rm.nodeAllocatable {
+		for resName, quan := range resourceCnt {
+			if resName == v1.ResourceCPU || resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix) {
+				continue
+			}
+			capacityResCnt := rm.nodeCapacity[numaId]
+			// there is no trivial way to detect devices capacity from the node.
+			// initialize capacity as allocatable
+			capacityResCnt[resName] = quan
+		}
+	}
 }
 
 func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace string, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
