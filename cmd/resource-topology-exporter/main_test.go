@@ -66,6 +66,7 @@ func (s *ArgsParseTestSuite) TestArgsParse() {
 			So(err, ShouldBeNil)
 			So(pArgs.NRTupdater.Oneshot, ShouldBeTrue)
 			So(pArgs.NRTupdater.NoPublish, ShouldBeTrue)
+			So(pArgs.Resourcemonitor.RefreshNodeResources, ShouldBeFalse)
 		})
 
 		Convey("must parse custom flags properly", func() {
