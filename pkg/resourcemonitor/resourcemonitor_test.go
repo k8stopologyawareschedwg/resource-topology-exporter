@@ -840,10 +840,8 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			excludeList := ResourceExcludeList{
-				map[string][]string{
-					"*": {
-						"fake.io/resourceToBeExcluded",
-					},
+				"*": {
+					"fake.io/resourceToBeExcluded",
 				},
 			}
 
@@ -1010,10 +1008,8 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			excludeList := ResourceExcludeList{
-				map[string][]string{
-					"*": {
-						"fake.io/resourceToBeExcluded",
-					},
+				"*": {
+					"fake.io/resourceToBeExcluded",
 				},
 			}
 
@@ -1233,10 +1229,8 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			excludeList := ResourceExcludeList{
-				map[string][]string{
-					"*": {
-						"fake.io/resourceToBeExcluded",
-					},
+				"*": {
+					"fake.io/resourceToBeExcluded",
 				},
 			}
 
