@@ -19,9 +19,8 @@ package resourcemonitor
 import (
 	"context"
 	"fmt"
-	"reflect"
-
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -30,15 +29,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
+	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
-
-	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
@@ -92,30 +91,35 @@ type resourceMonitor struct {
 	nodeName          string
 	args              Args
 	podResCli         podresourcesapi.PodResourcesListerClient
+	k8sCli            kubernetes.Interface
 	topo              *ghw.TopologyInfo
 	coreIDToNodeIDMap map[int]int
 	nodeCapacity      perNUMAResourceCounter
 	nodeAllocatable   perNUMAResourceCounter
 }
 
-func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
-	topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
-		"/sys": args.SysfsRoot,
-	}))
-	if err != nil {
-		return nil, err
-	}
-	nodeName := os.Getenv("NODE_NAME")
-	return NewResourceMonitorWithTopology(nodeName, topo, podResCli, args)
-}
-
-func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
+func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args Args, options ...func(*resourceMonitor)) (*resourceMonitor, error) {
 	rm := &resourceMonitor{
-		nodeName:          nodeName,
-		podResCli:         podResCli,
-		args:              args,
-		topo:              topo,
-		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
+		podResCli: podResCli,
+		args:      args,
+	}
+	for _, opt := range options {
+		opt(rm)
+	}
+
+	if rm.topo == nil {
+		topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
+			"/sys": args.SysfsRoot,
+		}))
+		if err != nil {
+			return nil, err
+		}
+		rm.topo = topo
+	}
+	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
+
+	if rm.nodeName == "" {
+		rm.nodeName = os.Getenv("NODE_NAME")
 	}
 
 	if !rm.args.RefreshNodeResources {
@@ -125,10 +129,18 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 		}
 	} else {
 		klog.Infof("tracking node resources")
+		if rm.k8sCli == nil {
+			c, err := k8shelpers.GetK8sClient("")
+			if err != nil {
+				return nil, err
+			}
+			rm.k8sCli = c
+		}
+
 		if err := rm.updateNodeResources(); err != nil {
 			return nil, err
 		}
-		if err := addNodeInformerEvent(cache.ResourceEventHandlerFuncs{UpdateFunc: rm.resUpdated}); err != nil {
+		if err := addNodeInformerEvent(rm.k8sCli, cache.ResourceEventHandlerFuncs{UpdateFunc: rm.resUpdated}); err != nil {
 			return nil, err
 		}
 	}
@@ -139,6 +151,24 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 		klog.Infof("watching all namespaces")
 	}
 	return rm, nil
+}
+
+func WithTopology(topo *ghw.TopologyInfo) func(*resourceMonitor) {
+	return func(rm *resourceMonitor) {
+		rm.topo = topo
+	}
+}
+
+func WithK8sClient(c kubernetes.Interface) func(*resourceMonitor) {
+	return func(rm *resourceMonitor) {
+		rm.k8sCli = c
+	}
+}
+
+func WithNodeName(name string) func(*resourceMonitor) {
+	return func(rm *resourceMonitor) {
+		rm.nodeName = name
+	}
 }
 
 func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
@@ -268,14 +298,10 @@ func (rm *resourceMonitor) resUpdated(old, new interface{}) {
 	// the status frequency update are configurable via the node-status-update-frequency option in Kubelet
 	if !reflect.DeepEqual(nOld.Status.Capacity, nNew.Status.Capacity) ||
 		!reflect.DeepEqual(nOld.Status.Allocatable, nNew.Status.Allocatable) {
-		klog.V(4).Infof("update node resources")
-		if err := rm.updateNodeCapacity(); err != nil {
-			klog.ErrorS(err, "error while updating node capacity")
+		klog.V(2).Infof("update node resources")
+		if err := rm.updateNodeResources(); err != nil {
+			klog.ErrorS(err, "while updating node resources")
 		}
-		if err := rm.updateNodeAllocatable(); err != nil {
-			klog.ErrorS(err, "error while updating node allocatable")
-		}
-		rm.updateDevicesCapacity()
 	}
 }
 
@@ -300,8 +326,6 @@ func (rm *resourceMonitor) updateDevicesCapacity() {
 				continue
 			}
 			capacityResCnt := rm.nodeCapacity[numaId]
-			// there is no trivial way to detect devices capacity from the node.
-			// initialize capacity as allocatable
 			capacityResCnt[resName] = quan
 		}
 	}
@@ -309,11 +333,13 @@ func (rm *resourceMonitor) updateDevicesCapacity() {
 
 func (rm *resourceMonitor) updateNodeResources() error {
 	if err := rm.updateNodeCapacity(); err != nil {
-		return err
+		return fmt.Errorf("error while updating node capacity: %w", err)
 	}
 	if err := rm.updateNodeAllocatable(); err != nil {
-		return err
+		return fmt.Errorf("error while updating node allocatable: %w", err)
 	}
+	// there is no trivial way to detect devices capacity from the node.
+	// hence, initialize capacity as allocatable
 	rm.updateDevicesCapacity()
 	return nil
 }
@@ -476,12 +502,7 @@ func cpuCapacity(topo *ghw.TopologyInfo, nodeID int) int64 {
 	return int64(logicalCoresPerNUMA)
 }
 
-func addNodeInformerEvent(handler cache.ResourceEventHandlerFuncs) error {
-	c, err := k8shelpers.GetK8sClient("")
-	if err != nil {
-		return err
-	}
-	// node-status-update-frequency
+func addNodeInformerEvent(c kubernetes.Interface, handler cache.ResourceEventHandlerFuncs) error {
 	factory := informers.NewSharedInformerFactory(c, 0)
 	nodeInformer := factory.Core().V1().Nodes().Informer()
 	nodeInformer.AddEventHandler(handler)
