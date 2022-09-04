@@ -22,6 +22,7 @@ package rte
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -294,6 +295,37 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				dumpPods(f, topologyUpdaterNode.Name, errMessage)
 			}
 			gomega.Expect(pfpChanged).To(gomega.BeTrue(), errMessage)
+		})
+	})
+	ginkgo.Context("with refresh-node-resources enabled", func() {
+		ginkgo.It("[NodeRefresh] should be able to detect devices", func() {
+			gomega.Eventually(func() bool {
+				nrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+				devName := e2etestenv.GetDeviceName()
+				for _, zone := range nrt.Zones {
+					for _, res := range zone.Resources {
+						if res.Name == devName {
+							return true
+						}
+					}
+				}
+				return false
+			}, time.Second*30, time.Second*10).Should(gomega.BeTrue(), "device: %q was not found in NRT: %q", e2etestenv.GetDeviceName(), topologyUpdaterNode.Name)
+		})
+
+		ginkgo.It("[NodeRefresh] should log the refresh message", func() {
+			rtePod, err := e2epods.GetPodOnNode(f, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
+			framework.ExpectNoError(err)
+
+			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			gomega.Eventually(func() bool {
+				logs, err := e2epods.GetLogsForPod(f, rtePod.Namespace, rtePod.Name, rteContainerName)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+				return strings.Contains(logs, "update node resources")
+			}, time.Second*30, time.Second*10).Should(gomega.BeTrue(), "container: %q in pod: %q doesn't contains the refresh log message", rteContainerName, rtePod.Name)
 		})
 	})
 })

@@ -18,6 +18,9 @@ rules:
 - apiGroups: [""]
   resources: ["pods/status"]
   verbs: ["update"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -79,6 +82,7 @@ spec:
           - --notify-file=/host-run/rte/notify
           - --pods-fingerprint
           - --expose-timing
+          - --refresh-node-resources
         env:
         - name: NODE_NAME
           valueFrom:

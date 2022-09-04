@@ -28,6 +28,7 @@ const (
 	DefaultRTEPollInterval      = "10s"
 	RTELabelName                = "resource-topology"
 	RTEContainerName            = "resource-topology-exporter-container"
+	DefaultDeviceName           = "example.com/deviceA"
 )
 
 var (
@@ -70,6 +71,13 @@ func GetPollInterval() string {
 		return DefaultRTEPollInterval
 	}
 	return pollInterval
+}
+
+func GetDeviceName() string {
+	if devName, ok := os.LookupEnv("E2E_DEVICE_NAME"); ok {
+		return devName
+	}
+	return DefaultDeviceName
 }
 
 func SetNodeName(nodeName string) {
