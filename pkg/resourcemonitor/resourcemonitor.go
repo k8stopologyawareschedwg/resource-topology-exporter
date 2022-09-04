@@ -19,6 +19,8 @@ package resourcemonitor
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"os"
 	"strconv"
 	"strings"
@@ -27,11 +29,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -112,17 +117,20 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 		topo:              topo,
 		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
 	}
+
 	if !rm.args.RefreshNodeResources {
 		klog.Infof("getting node resources once")
-		if err := rm.updateNodeCapacity(); err != nil {
+		if err := rm.updateNodeResources(); err != nil {
 			return nil, err
 		}
-		if err := rm.updateNodeAllocatable(); err != nil {
-			return nil, err
-		}
-		rm.updateDevicesCapacity()
 	} else {
-		klog.Infof("getting allocatable resources before each poll")
+		klog.Infof("tracking node resources")
+		if err := rm.updateNodeResources(); err != nil {
+			return nil, err
+		}
+		if err := addNodeInformerEvent(cache.ResourceEventHandlerFuncs{UpdateFunc: rm.resUpdated}); err != nil {
+			return nil, err
+		}
 	}
 
 	if rm.args.Namespace != "" {
@@ -134,16 +142,6 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 }
 
 func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
-	if rm.args.RefreshNodeResources {
-		if err := rm.updateNodeCapacity(); err != nil {
-			return nil, nil, err
-		}
-		if err := rm.updateNodeAllocatable(); err != nil {
-			return nil, nil, err
-		}
-		rm.updateDevicesCapacity()
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
@@ -259,6 +257,28 @@ func (rm *resourceMonitor) updateNodeCapacity() error {
 	return nil
 }
 
+func (rm *resourceMonitor) resUpdated(old, new interface{}) {
+	nOld := old.(*v1.Node)
+	nNew := new.(*v1.Node)
+
+	if nNew.Name != rm.nodeName {
+		return
+	}
+
+	// the status frequency update are configurable via the node-status-update-frequency option in Kubelet
+	if !reflect.DeepEqual(nOld.Status.Capacity, nNew.Status.Capacity) ||
+		!reflect.DeepEqual(nOld.Status.Allocatable, nNew.Status.Allocatable) {
+		klog.V(4).Infof("update node resources")
+		if err := rm.updateNodeCapacity(); err != nil {
+			klog.ErrorS(err, "error while updating node capacity")
+		}
+		if err := rm.updateNodeAllocatable(); err != nil {
+			klog.ErrorS(err, "error while updating node allocatable")
+		}
+		rm.updateDevicesCapacity()
+	}
+}
+
 func (rm *resourceMonitor) updateNodeAllocatable() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
@@ -285,6 +305,17 @@ func (rm *resourceMonitor) updateDevicesCapacity() {
 			capacityResCnt[resName] = quan
 		}
 	}
+}
+
+func (rm *resourceMonitor) updateNodeResources() error {
+	if err := rm.updateNodeCapacity(); err != nil {
+		return err
+	}
+	if err := rm.updateNodeAllocatable(); err != nil {
+		return err
+	}
+	rm.updateDevicesCapacity()
+	return nil
 }
 
 func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace string, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
@@ -353,7 +384,6 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 			})
 		}
 	}
-
 	return contDevs
 }
 
@@ -444,4 +474,21 @@ func cpuCapacity(topo *ghw.TopologyInfo, nodeID int) int64 {
 		logicalCoresPerNUMA += len(core.LogicalProcessors)
 	}
 	return int64(logicalCoresPerNUMA)
+}
+
+func addNodeInformerEvent(handler cache.ResourceEventHandlerFuncs) error {
+	c, err := k8shelpers.GetK8sClient("")
+	if err != nil {
+		return err
+	}
+	// node-status-update-frequency
+	factory := informers.NewSharedInformerFactory(c, 0)
+	nodeInformer := factory.Core().V1().Nodes().Informer()
+	nodeInformer.AddEventHandler(handler)
+	ctx := context.Background()
+	factory.Start(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), nodeInformer.HasSynced) {
+		return fmt.Errorf("timed out waiting for caches to sync")
+	}
+	return nil
 }
