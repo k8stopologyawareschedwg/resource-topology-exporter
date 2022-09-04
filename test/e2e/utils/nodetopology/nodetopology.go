@@ -107,8 +107,7 @@ func IsValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) b
 	}
 	foundCpu := false
 	for _, resource := range resources {
-		// TODO constant not in the APIs
-		if strings.ToUpper(resource.Name) == "CPU" {
+		if resource.Name == string(v1.ResourceCPU) {
 			foundCpu = true
 		}
 		available := resource.Available.Value()
@@ -200,10 +199,12 @@ func CmpAvailableCPUs(expected, got map[string]v1.ResourceList) (string, int, bo
 			return expZoneName, 0, false
 		}
 		if _, ok := expResList[v1.ResourceCPU]; !ok {
+			framework.Logf("resource=%q does not exist in expected list; expected=%v", v1.ResourceCPU, expResList)
 			return expZoneName, 0, false
 		}
 
 		if _, ok := gotResList[v1.ResourceCPU]; !ok {
+			framework.Logf("resource=%q does not exist in got list; got=%v", v1.ResourceCPU, gotResList)
 			return expZoneName, 0, false
 		}
 		quan := gotResList[v1.ResourceCPU]
