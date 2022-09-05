@@ -72,6 +72,7 @@ jobs:
         hack/check-ds.sh
         kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
         kubectl get noderesourcetopologies.topology.node.k8s.io -A -o yaml
+        kubectl describe nodes -l node-role.kubernetes.io/worker= || :
 
     - name: run E2E tests
       run: |
