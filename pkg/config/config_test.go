@@ -128,6 +128,48 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
+func TestReadExcludeList(t *testing.T) {
+	closer := setupTest(t)
+	t.Cleanup(closer)
+
+	cfg, err := os.CreateTemp("", "exclude-list")
+	if err != nil {
+		t.Fatalf("unexpected error creating temp file: %v", err)
+	}
+	t.Cleanup(func() {
+		os.Remove(cfg.Name())
+	})
+
+	cfgContent := `excludelist:
+  masternode: [memory, device/exampleA]
+  workernode1: [memory, device/exampleB]
+  workernode2: [cpu]
+  "*": [device/exampleC]`
+
+	if _, err := cfg.Write([]byte(cfgContent)); err != nil {
+		t.Fatalf("unexpected error writing data: %v", err)
+	}
+	if err := cfg.Close(); err != nil {
+		t.Fatalf("unexpected error closing temp file: %v", err)
+	}
+
+	pArgs, err := LoadArgs("--config", cfg.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedExcludeList := map[string][]string{
+		"masternode":  {"memory", "device/exampleA"},
+		"workernode1": {"memory", "device/exampleB"},
+		"workernode2": {"cpu"},
+		"*":           {"device/exampleC"},
+	}
+
+	if !reflect.DeepEqual(pArgs.Resourcemonitor.ExcludeList.ExcludeList, expectedExcludeList) {
+		t.Errorf("ExcludeList is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ExcludeList.ExcludeList, expectedExcludeList)
+	}
+}
+
 func setupTest(t *testing.T) func() {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
