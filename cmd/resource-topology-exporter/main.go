@@ -19,6 +19,27 @@ func main() {
 		klog.Fatalf("failed to parse args: %v", err)
 	}
 
+	if parsedArgs.DumpConfig != "" {
+		data, err := parsedArgs.ToYaml()
+		if err != nil {
+			klog.Fatalf("failed to marshal the config: %v", err)
+		}
+
+		if parsedArgs.DumpConfig == "-" {
+			fmt.Println(string(data))
+		} else if parsedArgs.DumpConfig == ".andexit" {
+			fmt.Println(string(data))
+			os.Exit(0)
+		} else if parsedArgs.DumpConfig == ".log" {
+			klog.Infof("current configuration:\n%s", string(data))
+		} else {
+			err = os.WriteFile(parsedArgs.DumpConfig, data, 0644)
+			if err != nil {
+				klog.Fatalf("failed to write the config to %q: %v", parsedArgs.DumpConfig, err)
+			}
+		}
+	}
+
 	if parsedArgs.Version {
 		fmt.Println(version.ProgramName, version.Get())
 		os.Exit(0)

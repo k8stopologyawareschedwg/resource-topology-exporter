@@ -40,10 +40,15 @@ type ProgArgs struct {
 	Resourcemonitor resourcemonitor.Args
 	RTE             resourcetopologyexporter.Args
 	Version         bool
+	DumpConfig      string
 }
 
 func (pa *ProgArgs) ToJson() ([]byte, error) {
 	return json.Marshal(pa)
+}
+
+func (pa *ProgArgs) ToYaml() ([]byte, error) {
+	return yaml.Marshal(pa)
 }
 
 type config struct {
@@ -105,6 +110,13 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	pArgs.RTE.TimeUnitToLimitEvents = time.Second
 
 	flags.BoolVar(&pArgs.Version, "version", false, "Output version and exit")
+	flags.StringVar(&pArgs.DumpConfig, "dump-config", "",
+		`dump the current configuration to the given file path. Empty string (default) disable the dumping.
+Special targets:
+. "-" for stdout.
+. ".andexit" stdout and exit right after.
+. ".log" to dump in the log".`,
+	)
 
 	err := flags.Parse(args)
 	if err != nil {
