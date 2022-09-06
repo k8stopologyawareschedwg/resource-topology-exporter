@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -27,13 +28,16 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
-	"github.com/k8stopologyawareschedwg/podfingerprint"
-
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/podfingerprint"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
@@ -87,41 +91,58 @@ type resourceMonitor struct {
 	nodeName          string
 	args              Args
 	podResCli         podresourcesapi.PodResourcesListerClient
+	k8sCli            kubernetes.Interface
 	topo              *ghw.TopologyInfo
 	coreIDToNodeIDMap map[int]int
 	nodeCapacity      perNUMAResourceCounter
 	nodeAllocatable   perNUMAResourceCounter
 }
 
-func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
-	topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
-		"/sys": args.SysfsRoot,
-	}))
-	if err != nil {
-		return nil, err
-	}
-	nodeName := os.Getenv("NODE_NAME")
-	return NewResourceMonitorWithTopology(nodeName, topo, podResCli, args)
-}
-
-func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, podResCli podresourcesapi.PodResourcesListerClient, args Args) (*resourceMonitor, error) {
+func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args Args, options ...func(*resourceMonitor)) (*resourceMonitor, error) {
 	rm := &resourceMonitor{
-		nodeName:          nodeName,
-		podResCli:         podResCli,
-		args:              args,
-		topo:              topo,
-		coreIDToNodeIDMap: MakeCoreIDToNodeIDMap(topo),
+		podResCli: podResCli,
+		args:      args,
 	}
-	if !rm.args.RefreshNodeResources {
-		klog.Infof("getting node resources once")
-		if err := rm.updateNodeCapacity(); err != nil {
+	for _, opt := range options {
+		opt(rm)
+	}
+
+	if rm.topo == nil {
+		topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
+			"/sys": args.SysfsRoot,
+		}))
+		if err != nil {
 			return nil, err
 		}
-		if err := rm.updateNodeAllocatable(); err != nil {
+		rm.topo = topo
+	}
+	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
+
+	if rm.nodeName == "" {
+		rm.nodeName = os.Getenv("NODE_NAME")
+	}
+
+	if !rm.args.RefreshNodeResources {
+		klog.Infof("getting node resources once")
+		if err := rm.updateNodeResources(); err != nil {
 			return nil, err
 		}
 	} else {
-		klog.Infof("getting allocatable resources before each poll")
+		klog.Infof("tracking node resources")
+		if rm.k8sCli == nil {
+			c, err := k8shelpers.GetK8sClient("")
+			if err != nil {
+				return nil, err
+			}
+			rm.k8sCli = c
+		}
+
+		if err := rm.updateNodeResources(); err != nil {
+			return nil, err
+		}
+		if err := addNodeInformerEvent(rm.k8sCli, cache.ResourceEventHandlerFuncs{UpdateFunc: rm.resUpdated}); err != nil {
+			return nil, err
+		}
 	}
 
 	if rm.args.Namespace != "" {
@@ -132,16 +153,25 @@ func NewResourceMonitorWithTopology(nodeName string, topo *ghw.TopologyInfo, pod
 	return rm, nil
 }
 
-func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
-	if rm.args.RefreshNodeResources {
-		if err := rm.updateNodeCapacity(); err != nil {
-			return nil, nil, err
-		}
-		if err := rm.updateNodeAllocatable(); err != nil {
-			return nil, nil, err
-		}
+func WithTopology(topo *ghw.TopologyInfo) func(*resourceMonitor) {
+	return func(rm *resourceMonitor) {
+		rm.topo = topo
 	}
+}
 
+func WithK8sClient(c kubernetes.Interface) func(*resourceMonitor) {
+	return func(rm *resourceMonitor) {
+		rm.k8sCli = c
+	}
+}
+
+func WithNodeName(name string) func(*resourceMonitor) {
+	return func(rm *resourceMonitor) {
+		rm.nodeName = name
+	}
+}
+
+func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
@@ -257,6 +287,24 @@ func (rm *resourceMonitor) updateNodeCapacity() error {
 	return nil
 }
 
+func (rm *resourceMonitor) resUpdated(old, new interface{}) {
+	nOld := old.(*v1.Node)
+	nNew := new.(*v1.Node)
+
+	if nNew.Name != rm.nodeName {
+		return
+	}
+
+	// the status frequency update are configurable via the node-status-update-frequency option in Kubelet
+	if !reflect.DeepEqual(nOld.Status.Capacity, nNew.Status.Capacity) ||
+		!reflect.DeepEqual(nOld.Status.Allocatable, nNew.Status.Allocatable) {
+		klog.V(2).Infof("update node resources")
+		if err := rm.updateNodeResources(); err != nil {
+			klog.ErrorS(err, "while updating node resources")
+		}
+	}
+}
+
 func (rm *resourceMonitor) updateNodeAllocatable() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
@@ -268,6 +316,31 @@ func (rm *resourceMonitor) updateNodeAllocatable() error {
 
 	allDevs := NormalizeContainerDevices(allocRes.GetDevices(), allocRes.GetMemory(), allocRes.GetCpuIds(), rm.coreIDToNodeIDMap)
 	rm.nodeAllocatable = ContainerDevicesToPerNUMAResourceCounters(allDevs)
+	return nil
+}
+
+func (rm *resourceMonitor) updateDevicesCapacity() {
+	for numaId, resourceCnt := range rm.nodeAllocatable {
+		for resName, quan := range resourceCnt {
+			if resName == v1.ResourceCPU || resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix) {
+				continue
+			}
+			capacityResCnt := rm.nodeCapacity[numaId]
+			capacityResCnt[resName] = quan
+		}
+	}
+}
+
+func (rm *resourceMonitor) updateNodeResources() error {
+	if err := rm.updateNodeCapacity(); err != nil {
+		return fmt.Errorf("error while updating node capacity: %w", err)
+	}
+	if err := rm.updateNodeAllocatable(); err != nil {
+		return fmt.Errorf("error while updating node allocatable: %w", err)
+	}
+	// there is no trivial way to detect devices capacity from the node.
+	// hence, initialize capacity as allocatable
+	rm.updateDevicesCapacity()
 	return nil
 }
 
@@ -337,7 +410,6 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 			})
 		}
 	}
-
 	return contDevs
 }
 
@@ -428,4 +500,16 @@ func cpuCapacity(topo *ghw.TopologyInfo, nodeID int) int64 {
 		logicalCoresPerNUMA += len(core.LogicalProcessors)
 	}
 	return int64(logicalCoresPerNUMA)
+}
+
+func addNodeInformerEvent(c kubernetes.Interface, handler cache.ResourceEventHandlerFuncs) error {
+	factory := informers.NewSharedInformerFactory(c, 0)
+	nodeInformer := factory.Core().V1().Nodes().Informer()
+	nodeInformer.AddEventHandler(handler)
+	ctx := context.Background()
+	factory.Start(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), nodeInformer.HasSynced) {
+		return fmt.Errorf("timed out waiting for caches to sync")
+	}
+	return nil
 }

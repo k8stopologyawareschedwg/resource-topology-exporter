@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: device-a-configmap
+data:
+  example_com_deviceA.yaml: |
+    devicename: tty1
+    devices:
+      '*':
+        - id: DevA1
+          healthy: true
+          numanode: 0
+        - id: DevA2
+          healthy: false
+          numanode: 0

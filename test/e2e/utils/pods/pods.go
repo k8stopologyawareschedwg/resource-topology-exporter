@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,4 +157,17 @@ func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string)
 		}
 	}
 	return nil, fmt.Errorf("no pod found running on %q", nodeName)
+}
+
+func GetLogsForPod(f *framework.Framework, podNamespace, podName, containerName string) (string, error) {
+	previous := false
+	request := f.ClientSet.CoreV1().RESTClient().Get().Resource("pods").Namespace(podNamespace).Name(podName).SubResource("log").Param("container", containerName).Param("previous", strconv.FormatBool(previous))
+	logs, err := request.Do(context.TODO()).Raw()
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(string(logs), "Internal Error") {
+		return "", fmt.Errorf("Fetched log contains \"Internal Error\": %q", string(logs))
+	}
+	return string(logs), err
 }
