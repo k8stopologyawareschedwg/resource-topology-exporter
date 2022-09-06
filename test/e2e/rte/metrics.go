@@ -96,7 +96,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			gomega.Expect(stdout).To(gomega.ContainSubstring("wakeup_delay"))
 		})
 
-		ginkgo.It("it should report noderesourcetopology writes", func() {
+		ginkgo.It("[release] it should report noderesourcetopology writes", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {

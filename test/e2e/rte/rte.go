@@ -248,7 +248,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			gomega.Expect(pfpStable).To(gomega.BeTrue(), "PFP changed unexpectedly")
 		})
 
-		ginkgo.It("[PodFingerprint] it should report updated value if the set of running pods changes", func() {
+		ginkgo.It("[release][PodFingerprint] it should report updated value if the set of running pods changes", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {
