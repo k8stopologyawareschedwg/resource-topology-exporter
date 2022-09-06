@@ -50,12 +50,12 @@ const (
 type ResourceExcludeList map[string][]string
 
 type Args struct {
-	Namespace            string
-	SysfsRoot            string
-	ExcludeList          ResourceExcludeList
-	RefreshNodeResources bool
-	PodSetFingerprint    bool
-	ExposeTiming         bool
+	Namespace            string              `koanf:"watch-namespace" json:"watch-namespace,omitempty"`
+	SysfsRoot            string              `koanf:"sysfs" json:"sysfs"`
+	ExcludeList          ResourceExcludeList `koanf:"resource-exclude-list" json:"resource-exclude-list,omitempty"`
+	RefreshNodeResources bool                `koanf:"refresh-node-resources" json:"refresh-node-resources"`
+	PodSetFingerprint    bool                `koanf:"pods-fingerprint" json:"pods-fingerprint"`
+	ExposeTiming         bool                `koanf:"expose-timing" json:"expose-timing"`
 }
 
 type ResourceMonitor interface {

@@ -141,11 +141,13 @@ func TestReadExcludeList(t *testing.T) {
 		os.Remove(cfg.Name())
 	})
 
-	cfgContent := `excludelist:
+	cfgContent := `
+resource-exclude-list:
   masternode: [memory, device/exampleA]
   workernode1: [memory, device/exampleB]
   workernode2: [cpu]
-  "*": [device/exampleC]`
+  "*": [device/exampleC]
+`
 
 	if _, err := cfg.Write([]byte(cfgContent)); err != nil {
 		t.Fatalf("unexpected error writing data: %v", err)

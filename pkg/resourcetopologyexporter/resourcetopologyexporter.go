@@ -21,18 +21,17 @@ import (
 )
 
 type Args struct {
-	Debug                  bool
-	ReferenceContainer     *podrescli.ContainerIdent
-	TopologyManagerPolicy  string
-	TopologyManagerScope   string
-	KubeletConfigFile      string
-	KubeletStateDirs       []string
-	PodResourcesSocketPath string
-	SleepInterval          time.Duration
-	PodReadinessEnable     bool
-	NotifyFilePath         string
-	MaxEventsPerTimeUnit   int64
-	TimeUnitToLimitEvents  time.Duration
+	KubeletConfigFile      string                    `koanf:"kubelet-config-file" json:"kubelet-config-file"`
+	KubeletStateDirs       []string                  `koanf:"kubelet-state-dir" json:"kubelet-state-dir,omitempty"`
+	MaxEventsPerTimeUnit   int64                     `koanf:"max-events-per-second" json:"max-events-per-second"`
+	NotifyFilePath         string                    `koanf:"notify-file" json:"notify-file,omitempty"`
+	PodReadinessEnable     bool                      `koanf:"podreadiness" json:"podreadiness"`
+	PodResourcesSocketPath string                    `koanf:"podresources-socket" json:"podresources-socket"`
+	ReferenceContainer     *podrescli.ContainerIdent `koanf:"reference-container" json:"reference-container,omitempty"`
+	SleepInterval          time.Duration             `koanf:"sleep-interval" json:"sleep-interval"`
+	TopologyManagerPolicy  string                    `koanf:"topology-manager-policy" json:"topology-manager-policy,omitempty"`
+	TopologyManagerScope   string                    `koanf:"topology-manager-scope" json:"topology-manager-scope,omitempty"`
+	TimeUnitToLimitEvents  time.Duration             `koanf:"time-unit-to-limit-events" json:"-"`
 }
 
 func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {

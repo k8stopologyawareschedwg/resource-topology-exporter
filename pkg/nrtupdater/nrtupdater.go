@@ -27,9 +27,9 @@ const (
 
 // Command line arguments
 type Args struct {
-	NoPublish bool
-	Oneshot   bool
-	Hostname  string
+	NoPublish bool   `koanf:"no-publish" json:"no-publish"`
+	Oneshot   bool   `koanf:"one-shot" json:"oneshot"`
+	Hostname  string `koanf:"hostname" json:"hostname"`
 }
 
 type NRTUpdater struct {

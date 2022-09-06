@@ -14,38 +14,38 @@ import (
 )
 
 func main() {
-	parsedArgs, err := config.LoadArgs(os.Args[1:]...)
+	cfg, err := config.LoadArgs(os.Args[1:]...)
 	if err != nil {
 		klog.Fatalf("failed to parse args: %v", err)
 	}
 
-	if parsedArgs.DumpConfig != "" {
-		data, err := parsedArgs.ToYaml()
+	if cfg.Core.DumpConfig != "" {
+		data, err := cfg.ToYaml()
 		if err != nil {
 			klog.Fatalf("failed to marshal the config: %v", err)
 		}
 
-		if parsedArgs.DumpConfig == "-" {
+		if cfg.Core.DumpConfig == "-" {
 			fmt.Println(string(data))
-		} else if parsedArgs.DumpConfig == ".andexit" {
+		} else if cfg.Core.DumpConfig == ".andexit" {
 			fmt.Println(string(data))
 			os.Exit(0)
-		} else if parsedArgs.DumpConfig == ".log" {
+		} else if cfg.Core.DumpConfig == ".log" {
 			klog.Infof("current configuration:\n%s", string(data))
 		} else {
-			err = os.WriteFile(parsedArgs.DumpConfig, data, 0644)
+			err = os.WriteFile(cfg.Core.DumpConfig, data, 0644)
 			if err != nil {
-				klog.Fatalf("failed to write the config to %q: %v", parsedArgs.DumpConfig, err)
+				klog.Fatalf("failed to write the config to %q: %v", cfg.Core.DumpConfig, err)
 			}
 		}
 	}
 
-	if parsedArgs.Version {
+	if cfg.Core.Version {
 		fmt.Println(version.ProgramName, version.Get())
 		os.Exit(0)
 	}
 
-	cli, err := podrescli.NewFilteringClient(parsedArgs.RTE.PodResourcesSocketPath, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
+	cli, err := podrescli.NewFilteringClient(cfg.RTE.PodResourcesSocketPath, cfg.Core.Debug, cfg.RTE.ReferenceContainer)
 	if err != nil {
 		klog.Fatalf("failed to get podresources client: %v", err)
 	}
@@ -55,7 +55,7 @@ func main() {
 		klog.Fatalf("failed to start prometheus server: %v", err)
 	}
 
-	err = resourcetopologyexporter.Execute(cli, parsedArgs.NRTupdater, parsedArgs.Resourcemonitor, parsedArgs.RTE)
+	err = resourcetopologyexporter.Execute(cli, cfg.NRTupdater, cfg.Resourcemonitor, cfg.RTE)
 	if err != nil {
 		klog.Fatalf("failed to execute: %v", err)
 	}
