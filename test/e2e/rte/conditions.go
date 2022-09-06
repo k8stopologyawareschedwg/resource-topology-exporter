@@ -83,7 +83,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 	}
 
 	ginkgo.Context("with NRT objects created", func() {
-		ginkgo.It("should have custom RTE conditions under the pod status", func() {
+		ginkgo.It("[release] should have custom RTE conditions under the pod status", func() {
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.PodresourcesFetched, v1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
