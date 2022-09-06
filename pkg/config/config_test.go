@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
 const (
@@ -124,7 +125,7 @@ func TestDefaults(t *testing.T) {
 	got := strings.TrimSpace(string(pArgsAsJson))
 	expected := strings.TrimSpace(string(expectedAsJson))
 	if got != expected {
-		t.Errorf("invalid defaults.\n>>> got: {%s}\n>>> expected: {%s}", got, expected)
+		t.Errorf("invalid defaults.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
 	}
 }
 
@@ -158,15 +159,15 @@ func TestReadExcludeList(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedExcludeList := map[string][]string{
+	expectedExcludeList := resourcemonitor.ResourceExcludeList{
 		"masternode":  {"memory", "device/exampleA"},
 		"workernode1": {"memory", "device/exampleB"},
 		"workernode2": {"cpu"},
 		"*":           {"device/exampleC"},
 	}
 
-	if !reflect.DeepEqual(pArgs.Resourcemonitor.ExcludeList.ExcludeList, expectedExcludeList) {
-		t.Errorf("ExcludeList is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ExcludeList.ExcludeList, expectedExcludeList)
+	if !reflect.DeepEqual(pArgs.Resourcemonitor.ExcludeList, expectedExcludeList) {
+		t.Errorf("ExcludeList is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ExcludeList, expectedExcludeList)
 	}
 }
 

@@ -52,7 +52,7 @@ func (pa *ProgArgs) ToYaml() ([]byte, error) {
 }
 
 type config struct {
-	ExcludeList map[string][]string
+	ExcludeList resourcemonitor.ResourceExcludeList
 }
 
 func readConfig(configPath string) (config, error) {
@@ -133,7 +133,7 @@ Special targets:
 	}
 
 	if len(conf.ExcludeList) != 0 {
-		pArgs.Resourcemonitor.ExcludeList.ExcludeList = conf.ExcludeList
+		pArgs.Resourcemonitor.ExcludeList = conf.ExcludeList
 		klog.V(2).Infof("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
 	}
 

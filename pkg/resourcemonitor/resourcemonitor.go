@@ -47,9 +47,7 @@ const (
 	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
 )
 
-type ResourceExcludeList struct {
-	ExcludeList map[string][]string
-}
+type ResourceExcludeList map[string][]string
 
 type Args struct {
 	Namespace            string
@@ -65,17 +63,17 @@ type ResourceMonitor interface {
 }
 
 // ToMapSet keeps the original keys, but replaces values with set.String types
-func (r *ResourceExcludeList) ToMapSet() map[string]sets.String {
+func (rel ResourceExcludeList) ToMapSet() map[string]sets.String {
 	asSet := make(map[string]sets.String)
-	for k, v := range r.ExcludeList {
+	for k, v := range rel {
 		asSet[k] = sets.NewString(v...)
 	}
 	return asSet
 }
 
-func (r *ResourceExcludeList) String() string {
+func (rel ResourceExcludeList) String() string {
 	var b strings.Builder
-	for name, items := range r.ExcludeList {
+	for name, items := range rel {
 		fmt.Fprintf(&b, "- %s: [%s]\n", name, strings.Join(items, ", "))
 	}
 	return b.String()
