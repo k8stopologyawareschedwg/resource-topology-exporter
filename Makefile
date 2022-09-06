@@ -102,7 +102,7 @@ update-manifests:
 
 .PHONY: update-golden-files
 update-golden-files:
-	@go test ./cmd/... -update
+	@go test ./pkg/config/... -update
 
 # helper tools
 _out/nrtstress: outdir
