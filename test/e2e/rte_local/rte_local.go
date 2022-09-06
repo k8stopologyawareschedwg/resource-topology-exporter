@@ -38,7 +38,7 @@ import (
 
 var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 	ginkgo.Context("with the binary available", func() {
-		ginkgo.It("it should show the correct version", func() {
+		ginkgo.It("[release] it should show the correct version", func() {
 			cmdline := []string{
 				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
 				"--version",

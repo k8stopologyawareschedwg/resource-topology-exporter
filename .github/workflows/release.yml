@@ -80,7 +80,7 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
+        _out/rte-e2e.test -ginkgo.focus='\[release\]'
 
     - name: compute signature
       run: |
