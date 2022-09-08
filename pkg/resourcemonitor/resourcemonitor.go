@@ -223,8 +223,18 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 			resCapacity, ok := resCapCounters[resName]
 			if !ok || resCapacity == 0 {
-				klog.Warningf("zero capacity for resource %q on NUMA cell %d", resName, nodeID)
 				resCapacity = resAlloc
+
+				// some legitimate (e.g. not obsolete) device plugin may not report the topology, hence we will
+				// be in this block. Let's differentiate the severity: we should never get here for core resources,
+				// while we can for devices. There's not a simple/comfortable way to detect buggy plugins, so
+				// in case of non-native resources, let's tolerate and let's log only when very high levels are requested.
+				// In these cases the admin knows there could be A LOT of data in the logs.
+				if isNativeResource(resName) {
+					klog.Warningf("zero capacity for native resource %q on NUMA cell %d", resName, nodeID)
+				} else {
+					klog.V(5).Infof("zero capacity for extra resource %q on NUMA cell %d", resName, nodeID)
+				}
 			}
 			if resAlloc > resCapacity {
 				klog.Warningf("allocated more than capacity for %q on zone %q", resName.String(), zone.Name)
@@ -320,7 +330,7 @@ func (rm *resourceMonitor) updateNodeAllocatable() error {
 func (rm *resourceMonitor) updateDevicesCapacity() {
 	for numaId, resourceCnt := range rm.nodeAllocatable {
 		for resName, quan := range resourceCnt {
-			if resName == v1.ResourceCPU || resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix) {
+			if isNativeResource(resName) {
 				continue
 			}
 			capacityResCnt := rm.nodeCapacity[numaId]
@@ -510,4 +520,9 @@ func addNodeInformerEvent(c kubernetes.Interface, handler cache.ResourceEventHan
 		return fmt.Errorf("timed out waiting for caches to sync")
 	}
 	return nil
+}
+
+// isNativeResource return true if the given resource is a core kubernetes resource (e.g. not provided by external device plugins)
+func isNativeResource(resName v1.ResourceName) bool {
+	return resName == v1.ResourceCPU || resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix)
 }
