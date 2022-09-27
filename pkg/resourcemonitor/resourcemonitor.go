@@ -17,8 +17,10 @@ limitations under the License.
 package resourcemonitor
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"strconv"
@@ -368,11 +370,26 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 }
 
 func ComputePodFingerprint(podRes []*podresourcesapi.PodResources) string {
+	var buf bytes.Buffer
+	defer klog.V(6).Infof("pfp:\n%s", buf.String())
+
 	fp := podfingerprint.NewFingerprint(len(podRes))
 	for _, pr := range podRes {
 		fp.AddPod(pr)
+
+		bufLog(6, &buf, "+ "+pr.GetNamespace()+"/"+pr.GetName()+"\n")
 	}
-	return fp.Sign()
+
+	pfpSign := fp.Sign()
+	bufLog(6, &buf, "> "+pfpSign+"\n")
+	return pfpSign
+}
+
+func bufLog(lvl klog.Level, w io.StringWriter, s string) {
+	if !klog.V(lvl).Enabled() {
+		return
+	}
+	w.WriteString(s)
 }
 
 func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
