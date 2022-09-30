@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"strconv"
@@ -121,6 +120,8 @@ func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args
 	if rm.nodeName == "" {
 		rm.nodeName = os.Getenv("NODE_NAME")
 	}
+
+	klog.Infof("resource monitor for %q starting", rm.nodeName)
 
 	if !rm.args.RefreshNodeResources {
 		klog.Infof("getting node resources once")
@@ -371,25 +372,20 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 
 func ComputePodFingerprint(podRes []*podresourcesapi.PodResources) string {
 	var buf bytes.Buffer
-	defer klog.V(6).Infof("pfp:\n%s", buf.String())
+	buf.WriteString(fmt.Sprintf("> processing %d pods\n", len(podRes)))
 
 	fp := podfingerprint.NewFingerprint(len(podRes))
 	for _, pr := range podRes {
 		fp.AddPod(pr)
 
-		bufLog(6, &buf, "+ "+pr.GetNamespace()+"/"+pr.GetName()+"\n")
+		buf.WriteString("+ " + pr.GetNamespace() + "/" + pr.GetName() + "\n")
 	}
-
 	pfpSign := fp.Sign()
-	bufLog(6, &buf, "> "+pfpSign+"\n")
-	return pfpSign
-}
 
-func bufLog(lvl klog.Level, w io.StringWriter, s string) {
-	if !klog.V(lvl).Enabled() {
-		return
-	}
-	w.WriteString(s)
+	buf.WriteString("= " + pfpSign + "\n")
+	klog.V(6).Infof("pfp: " + buf.String())
+
+	return pfpSign
 }
 
 func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
