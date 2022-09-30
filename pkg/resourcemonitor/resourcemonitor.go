@@ -122,6 +122,8 @@ func NewResourceMonitor(podResCli podresourcesapi.PodResourcesListerClient, args
 		rm.nodeName = os.Getenv("NODE_NAME")
 	}
 
+	klog.Infof("resource monitor for %q starting", rm.nodeName)
+
 	if !rm.args.RefreshNodeResources {
 		klog.Infof("getting node resources once")
 		if err := rm.updateNodeResources(); err != nil {
