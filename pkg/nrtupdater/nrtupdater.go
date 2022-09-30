@@ -72,7 +72,7 @@ func (te *NRTUpdater) Update(info MonitorInfo) error {
 }
 
 func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
-	klog.V(3).Infof("update: sending zone: %v", dump.Object(info.Zones))
+	klog.V(7).Infof("update: sending zone: %v", dump.Object(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
@@ -109,7 +109,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
 	prometheus.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
-	klog.V(5).Infof("nrtupdater changed CRD instance: %v", dump.Object(nrtUpdated))
+	klog.V(7).Infof("nrtupdater changed CRD instance: %v", dump.Object(nrtUpdated))
 	return nil
 }
 
