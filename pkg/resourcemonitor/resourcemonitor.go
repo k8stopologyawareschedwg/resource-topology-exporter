@@ -17,10 +17,11 @@ limitations under the License.
 package resourcemonitor
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -51,12 +52,13 @@ const (
 type ResourceExcludeList map[string][]string
 
 type Args struct {
-	Namespace            string
-	SysfsRoot            string
-	ExcludeList          ResourceExcludeList
-	RefreshNodeResources bool
-	PodSetFingerprint    bool
-	ExposeTiming         bool
+	Namespace                   string
+	SysfsRoot                   string
+	ExcludeList                 ResourceExcludeList
+	RefreshNodeResources        bool
+	PodSetFingerprint           bool
+	ExposeTiming                bool
+	PodSetFingerprintStatusFile string
 }
 
 type ResourceMonitor interface {
@@ -181,10 +183,19 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 		return nil, nil, err
 	}
 
+	var st podfingerprint.Status
+	annotations := make(map[string]string)
+
 	respPodRes := resp.GetPodResources()
+
+	if rm.args.PodSetFingerprint {
+		pfpSign := ComputePodFingerprint(respPodRes, &st)
+		annotations[podfingerprint.Annotation] = pfpSign
+		klog.V(6).Infof("pfp: " + st.Repr())
+	}
+
 	allDevs := GetAllContainerDevices(respPodRes, rm.args.Namespace, rm.coreIDToNodeIDMap)
 	allocated := ContainerDevicesToPerNUMAResourceCounters(allDevs)
-	annotations := rm.annotationForResponse(respPodRes)
 
 	excludeSet := excludeList.ToMapSet()
 	zones := make(topologyv1alpha1.ZoneList, 0)
@@ -263,15 +274,14 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 		zones = append(zones, zone)
 	}
-	return zones, annotations, nil
-}
 
-func (rm *resourceMonitor) annotationForResponse(podRes []*podresourcesapi.PodResources) map[string]string {
-	annotations := make(map[string]string)
-	if rm.args.PodSetFingerprint {
-		annotations[podfingerprint.Annotation] = ComputePodFingerprint(podRes)
+	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
+		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
+		err := toFile(st, dir, file)
+		klog.V(6).InfoS("error dumping the pfp status to %q (%v): %v", rm.args.PodSetFingerprintStatusFile, file, err)
+		// intentionally ignore error, we must keep going.
 	}
-	return annotations
+	return zones, annotations, nil
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
@@ -370,22 +380,12 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 	return allCntRes
 }
 
-func ComputePodFingerprint(podRes []*podresourcesapi.PodResources) string {
-	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("> processing %d pods\n", len(podRes)))
-
-	fp := podfingerprint.NewFingerprint(len(podRes))
+func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status) string {
+	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
 	for _, pr := range podRes {
 		fp.AddPod(pr)
-
-		buf.WriteString("+ " + pr.GetNamespace() + "/" + pr.GetName() + "\n")
 	}
-	pfpSign := fp.Sign()
-
-	buf.WriteString("= " + pfpSign + "\n")
-	klog.V(6).Infof("pfp: " + buf.String())
-
-	return pfpSign
+	return fp.Sign()
 }
 
 func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
@@ -538,4 +538,29 @@ func addNodeInformerEvent(c kubernetes.Interface, handler cache.ResourceEventHan
 // isNativeResource return true if the given resource is a core kubernetes resource (e.g. not provided by external device plugins)
 func isNativeResource(resName v1.ResourceName) bool {
 	return resName == v1.ResourceCPU || resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix)
+}
+
+func toFile(st podfingerprint.Status, dir, file string) error {
+	data, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+
+	dst, err := os.CreateTemp(dir, "__"+file)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(dst.Name()) // either way, we need to get rid of this
+
+	_, err = dst.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = dst.Close()
+	if err != nil {
+		return err
+	}
+
+	return os.Rename(dst.Name(), filepath.Join(dir, file))
 }
