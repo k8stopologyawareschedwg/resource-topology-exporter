@@ -87,11 +87,23 @@ type Fingerprint struct {
 // The size parameter is a hint for the expected size of the pod set. Use 0 if you don't know.
 // Values of size < 0 are ignored.
 func NewFingerprint(size int) *Fingerprint {
+	fp := &Fingerprint{}
+	fp.Reset(size)
+	return fp
+}
+
+// Reset clears the internal state of the Fingerprint to empty (pristine) state.
+// The size parameter is a hint for the expected size of the pod set. Use 0 if you don't know.
+// Values of size < 0 are ignored.
+// Explicit usage of this function is not recommended. Client code should not recycle Fingerprint
+// objects, but rather discarded them after they are used - even though calling multiple times
+// Sign() or Check() once reached steady state is perfectly fine.
+func (fp *Fingerprint) Reset(size int) {
 	data := []uint64{}
 	if size > 0 {
 		data = make([]uint64, 0, size)
 	}
-	return &Fingerprint{hashes: data}
+	fp.hashes = data
 }
 
 // AddPod adds a pod to the pod set.
@@ -124,7 +136,8 @@ func (fp *Fingerprint) Sum() []byte {
 // The string should be considered a opaque identifier and checked only for
 // equality, or fed into Check
 func (fp *Fingerprint) Sign() string {
-	return Prefix + Version + hex.EncodeToString(fp.Sum())
+	sign := Prefix + Version + hex.EncodeToString(fp.Sum())
+	return sign
 }
 
 // Check verifies if the provided fingerprint matches the current pod set.
@@ -154,7 +167,25 @@ func (fp *Fingerprint) Check(sign string) error {
 	return nil
 }
 
-// this is for speed not for code reuse. This helper can be inlined easily
+// this helper is for speed not for code reuse. This helper can be inlined easily by the compiler.
+// implementation notes:
+// 1. can we use a [fingerprinting](https://en.wikipedia.org/wiki/Rabin_fingerprint) and/or a checksum algorithm?
+//    > we can use any hash or fingerprinting algorithm which produces an output of >= 8 bytes, to minimize the collisions.
+//      We don't need to be cryptographically secure, and `xxhash` is just the fastest among all the algorithms which were
+//      tried initially. In the future we can surely consider faster alternatives which met the requirements.
+// 2. why xxhash and not $ANY_OTHER_HASH_FUNCTION?
+//    > it was the fastest choice we manage to find to date. Any other non-cryptographically strong hash can
+//      be proposed provided it met the requirements, passes the existing tests and it is faster.
+// 3. why are we using the checksum of the namespace as seed to checksum the name, and not just checksum(namespace+name)?
+//    > the answer is intertwined with the next point. Doing like this yields overall lower total execution time when
+//      signing a big set of pods. Reasons identified so far:
+//      - sorting integers (even sort.Sort and not sort.Ints) is faster than sort.String, which is needed in Sum(), to ensure
+//        repeatable and consistent results.
+//      - to simplify (and make as fast as possible) sorting strings we will need to store a new string namespace+name,
+//        which will cause extra allocations and more GC pressure
+// 4. why are we storing the hash of the namespace+name pair and not directly the namespace+name pairs?
+//    > the answer is intertwined with the previous point. Doing like this yield overall lower total execution time, because
+//      this speeds up the sorting stage in Sum(), which we need to ensure repeatable and consistent results.
 func (fp *Fingerprint) addHash(namespace, name string) {
 	fp.hashes = append(fp.hashes,
 		xxhash.ChecksumString64S(
@@ -170,6 +201,8 @@ func (a uvec64) Len() int           { return len(a) }
 func (a uvec64) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a uvec64) Less(i, j int) bool { return a[i] < a[j] }
 
+// this is inlined because the compiler can inline it in the calling site, to squeeze up a bit more speed.
+// this code is actually the same thing binary.LittleEndian.PutUint64() does.
 func putUint64(b []byte, v uint64) []byte {
 	_ = b[7] // early bounds check to guarantee safety of writes below
 	b[0] = byte(v)
