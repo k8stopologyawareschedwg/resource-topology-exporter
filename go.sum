@@ -452,8 +452,8 @@ github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.12 h1:NhXbOjO1st8hIcVpegr3zw/AGG12vs3z//tCDDcfPpE=
 github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.12/go.mod h1:AkACMQGiTgCt0lQw3m7TTU8PLH9lYKNK5e9DqFf5VuM=
-github.com/k8stopologyawareschedwg/podfingerprint v0.0.2 h1:VkwY0dWu9dID7aKVbYF/vzCA4Hj8c8oXEWN0ZG/0boE=
-github.com/k8stopologyawareschedwg/podfingerprint v0.0.2/go.mod h1:C23pM15t06dXg/OihGlqBvnYzLr+MXDXJ7zMfbNAyXI=
+github.com/k8stopologyawareschedwg/podfingerprint v0.1.1 h1:uNEj+avp3yJkJMvkmk6iosibVauSo+owEKV2JyuKNsQ=
+github.com/k8stopologyawareschedwg/podfingerprint v0.1.1/go.mod h1:C23pM15t06dXg/OihGlqBvnYzLr+MXDXJ7zMfbNAyXI=
 github.com/karrick/godirwalk v1.16.1 h1:DynhcF+bztK8gooS0+NDJFrdNZjJ3gzVzC545UNA9iw=
 github.com/karrick/godirwalk v1.16.1/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1qeJ3RV7ULlk=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
