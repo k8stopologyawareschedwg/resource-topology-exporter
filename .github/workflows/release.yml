@@ -55,7 +55,7 @@ jobs:
       run: |
         # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
         # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.11.1
-        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.23.0@sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.24.7@sha256:577c630ce8e509131eab1aea12c022190978dd2f745aac5eb1fe65c0807eb315
         kind load docker-image ${{ env.RTE_CONTAINER_IMAGE }}:${{ env.RELEASE_VERSION }}
 
     - name: deploy RTE
