@@ -2,7 +2,8 @@ name: CI E2E
 
 on:
   pull_request:
-    branches: [ main ]
+    branches:
+      - 'main'
 
 defaults:
   run:
