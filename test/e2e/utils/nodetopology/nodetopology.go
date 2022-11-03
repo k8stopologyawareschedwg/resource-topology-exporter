@@ -31,17 +31,7 @@ import (
 )
 
 func GetNodeTopology(topologyClient *topologyclientset.Clientset, nodeName string) *v1alpha1.NodeResourceTopology {
-	var nodeTopology *v1alpha1.NodeResourceTopology
-	var err error
-	gomega.EventuallyWithOffset(1, func() bool {
-		nodeTopology, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			framework.Logf("failed to get the node topology resource: %v", err)
-			return false
-		}
-		return true
-	}, time.Minute, 5*time.Second).Should(gomega.BeTrue())
-	return nodeTopology
+	return GetNodeTopologyWithResource(topologyClient, nodeName, "")
 }
 
 func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, nodeName, resName string) *v1alpha1.NodeResourceTopology {
@@ -52,6 +42,9 @@ func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, no
 		if err != nil {
 			framework.Logf("failed to get the node topology resource: %v", err)
 			return false
+		}
+		if resName == "" {
+			return true
 		}
 		return containsResource(nodeTopology, resName)
 	}, time.Minute, 5*time.Second).Should(gomega.BeTrue())
