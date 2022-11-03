@@ -79,7 +79,8 @@ jobs:
 
     - name: run E2E tests
       run: |
-        export KUBECONFIG=${HOME}/.kube/config 
+        export KUBECONFIG=${HOME}/.kube/config
+        export E2E_DEVICE_NAME=
         _out/rte-e2e.test -ginkgo.focus='\[release\]'
 
     - name: compute signature
