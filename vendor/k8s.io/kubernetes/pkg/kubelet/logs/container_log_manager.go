@@ -189,11 +189,14 @@ func (c *containerLogManager) Start() {
 func (c *containerLogManager) Clean(containerID string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	status, err := c.runtimeService.ContainerStatus(containerID)
+	resp, err := c.runtimeService.ContainerStatus(containerID, false)
 	if err != nil {
 		return fmt.Errorf("failed to get container status %q: %v", containerID, err)
 	}
-	pattern := fmt.Sprintf("%s*", status.GetLogPath())
+	if resp.GetStatus() == nil {
+		return fmt.Errorf("container status is nil for %q", containerID)
+	}
+	pattern := fmt.Sprintf("%s*", resp.GetStatus().GetLogPath())
 	logs, err := c.osInterface.Glob(pattern)
 	if err != nil {
 		return fmt.Errorf("failed to list all log files with pattern %q: %v", pattern, err)
@@ -225,12 +228,16 @@ func (c *containerLogManager) rotateLogs() error {
 		}
 		id := container.GetId()
 		// Note that we should not block log rotate for an error of a single container.
-		status, err := c.runtimeService.ContainerStatus(id)
+		resp, err := c.runtimeService.ContainerStatus(id, false)
 		if err != nil {
 			klog.ErrorS(err, "Failed to get container status", "containerID", id)
 			continue
 		}
-		path := status.GetLogPath()
+		if resp.GetStatus() == nil {
+			klog.ErrorS(err, "Container status is nil", "containerID", id)
+			continue
+		}
+		path := resp.GetStatus().GetLogPath()
 		info, err := c.osInterface.Stat(path)
 		if err != nil {
 			if !os.IsNotExist(err) {
@@ -386,11 +393,15 @@ func (c *containerLogManager) compressLog(log string) error {
 	if _, err := io.Copy(w, r); err != nil {
 		return fmt.Errorf("failed to compress %q to %q: %v", log, tmpLog, err)
 	}
+	// The archive needs to be closed before renaming, otherwise an error will occur on Windows.
+	w.Close()
+	f.Close()
 	compressedLog := log + compressSuffix
 	if err := c.osInterface.Rename(tmpLog, compressedLog); err != nil {
 		return fmt.Errorf("failed to rename %q to %q: %v", tmpLog, compressedLog, err)
 	}
 	// Remove old log file.
+	r.Close()
 	if err := c.osInterface.Remove(log); err != nil {
 		return fmt.Errorf("failed to remove log %q after compress: %v", log, err)
 	}
