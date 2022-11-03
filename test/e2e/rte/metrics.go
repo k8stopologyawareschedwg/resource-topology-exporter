@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/kubernetes/test/e2e/framework"
+	admissionapi "k8s.io/pod-security-admission/api"
 
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
@@ -48,6 +49,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	)
 
 	f := framework.NewDefaultFramework("metrics")
+	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 
 	ginkgo.BeforeEach(func() {
 		if !initialized {

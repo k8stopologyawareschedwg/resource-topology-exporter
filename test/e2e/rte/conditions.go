@@ -15,6 +15,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
+	admissionapi "k8s.io/pod-security-admission/api"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	e2eclient "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/client"
@@ -34,6 +35,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 	)
 
 	f := framework.NewDefaultFramework("conditions")
+	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 
 	ginkgo.BeforeEach(func() {
 		if !initialized {

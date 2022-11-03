@@ -32,6 +32,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
+	admissionapi "k8s.io/pod-security-admission/api"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
@@ -53,6 +54,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 	)
 
 	f := framework.NewDefaultFramework("topology-updater")
+	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
 
 	ginkgo.BeforeEach(func() {
 		var err error
@@ -91,8 +93,10 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 	ginkgo.Context("[release] with cluster configured", func() {
 		ginkgo.It("it should not account for any cpus if a container doesn't request exclusive cpus (best effort QOS)", func() {
+			devName := e2etestenv.GetDeviceName()
+
 			ginkgo.By("getting the initial topology information")
-			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			initialNodeTopo := e2enodetopology.GetNodeTopologyWithResource(topologyClient, topologyUpdaterNode.Name, devName)
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
 			sleeperPod := e2epods.MakeBestEffortSleeperPod()
 
@@ -106,7 +110,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			// the object, hence the resource version must NOT change, so we can only sleep
 			time.Sleep(cooldown)
 			ginkgo.By("checking the changes in the updated topology - expecting none")
-			finalNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			finalNodeTopo := e2enodetopology.GetNodeTopologyWithResource(topologyClient, topologyUpdaterNode.Name, devName)
 
 			initialAvailRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(initialNodeTopo)
 			finalAvailRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(finalNodeTopo)
