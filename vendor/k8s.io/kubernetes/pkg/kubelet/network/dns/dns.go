@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -267,7 +267,9 @@ func parseResolvConf(reader io.Reader) (nameservers []string, searches []string,
 			// Normalise search fields so the same domain with and without trailing dot will only count once, to avoid hitting search validation limits.
 			searches = []string{}
 			for _, s := range fields[1:] {
-				searches = append(searches, strings.TrimSuffix(s, "."))
+				if s != "." {
+					searches = append(searches, strings.TrimSuffix(s, "."))
+				}
 			}
 		}
 		if fields[0] == "options" {
