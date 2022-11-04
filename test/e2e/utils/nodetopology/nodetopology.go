@@ -25,7 +25,7 @@ import (
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/onsi/gomega"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
@@ -114,7 +114,7 @@ func IsValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) b
 	}
 	foundCpu := false
 	for _, resource := range resources {
-		if resource.Name == string(v1.ResourceCPU) {
+		if resource.Name == string(corev1.ResourceCPU) {
 			foundCpu = true
 		}
 		available := resource.Available.Value()
@@ -128,15 +128,15 @@ func IsValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) b
 	return foundCpu
 }
 
-func AvailableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResourceTopology) map[string]v1.ResourceList {
-	availRes := make(map[string]v1.ResourceList)
+func AvailableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResourceTopology) map[string]corev1.ResourceList {
+	availRes := make(map[string]corev1.ResourceList)
 	for _, zone := range nodeTopo.Zones {
 		if zone.Type != "Node" {
 			continue
 		}
-		resList := make(v1.ResourceList)
+		resList := make(corev1.ResourceList)
 		for _, res := range zone.Resources {
-			resList[v1.ResourceName(res.Name)] = res.Available
+			resList[corev1.ResourceName(res.Name)] = res.Available
 		}
 		if len(resList) == 0 {
 			continue
@@ -146,7 +146,7 @@ func AvailableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResour
 	return availRes
 }
 
-func LessAvailableResources(expected, got map[string]v1.ResourceList) (string, string, bool) {
+func LessAvailableResources(expected, got map[string]corev1.ResourceList) (string, string, bool) {
 	zoneName, resName, cmp, ok := CmpAvailableResources(expected, got)
 	if !ok {
 		framework.Logf("-> cmp failed (not ok)")
@@ -159,7 +159,7 @@ func LessAvailableResources(expected, got map[string]v1.ResourceList) (string, s
 	return "", "", false
 }
 
-func CmpAvailableResources(expected, got map[string]v1.ResourceList) (string, string, int, bool) {
+func CmpAvailableResources(expected, got map[string]corev1.ResourceList) (string, string, int, bool) {
 	if len(got) != len(expected) {
 		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", "", 0, false
@@ -176,7 +176,7 @@ func CmpAvailableResources(expected, got map[string]v1.ResourceList) (string, st
 	return "", "", 0, true
 }
 
-func CmpResourceList(expected, got v1.ResourceList) (string, int, bool) {
+func CmpResourceList(expected, got corev1.ResourceList) (string, int, bool) {
 	if len(got) != len(expected) {
 		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", 0, false
@@ -194,7 +194,7 @@ func CmpResourceList(expected, got v1.ResourceList) (string, int, bool) {
 	return "", 0, true
 }
 
-func CmpAvailableCPUs(expected, got map[string]v1.ResourceList) (string, int, bool) {
+func CmpAvailableCPUs(expected, got map[string]corev1.ResourceList) (string, int, bool) {
 	if len(got) != len(expected) {
 		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", 0, false
@@ -205,17 +205,17 @@ func CmpAvailableCPUs(expected, got map[string]v1.ResourceList) (string, int, bo
 		if !ok {
 			return expZoneName, 0, false
 		}
-		if _, ok := expResList[v1.ResourceCPU]; !ok {
-			framework.Logf("resource=%q does not exist in expected list; expected=%v", v1.ResourceCPU, expResList)
+		if _, ok := expResList[corev1.ResourceCPU]; !ok {
+			framework.Logf("resource=%q does not exist in expected list; expected=%v", corev1.ResourceCPU, expResList)
 			return expZoneName, 0, false
 		}
 
-		if _, ok := gotResList[v1.ResourceCPU]; !ok {
-			framework.Logf("resource=%q does not exist in got list; got=%v", v1.ResourceCPU, gotResList)
+		if _, ok := gotResList[corev1.ResourceCPU]; !ok {
+			framework.Logf("resource=%q does not exist in got list; got=%v", corev1.ResourceCPU, gotResList)
 			return expZoneName, 0, false
 		}
-		quan := gotResList[v1.ResourceCPU]
-		return "", quan.Cmp(expResList[v1.ResourceCPU]), true
+		quan := gotResList[corev1.ResourceCPU]
+		return "", quan.Cmp(expResList[corev1.ResourceCPU]), true
 	}
 	return "", 0, true
 }
