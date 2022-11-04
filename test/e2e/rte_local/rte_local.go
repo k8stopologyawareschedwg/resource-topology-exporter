@@ -28,7 +28,7 @@ import (
 	"strings"
 
 	goversion "github.com/aquasecurity/go-version/pkg/version"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
