@@ -27,9 +27,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -42,26 +42,26 @@ const (
 	RTELabelName = "resource-topology"
 )
 
-func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
-	return &v1.Pod{
+func MakeGuaranteedSleeperPod(cpuLimit string) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sleeper-gu-pod",
 		},
-		Spec: v1.PodSpec{
+		Spec: corev1.PodSpec{
 			NodeSelector:  map[string]string{e2etestconsts.TestNodeLabel: ""},
-			RestartPolicy: v1.RestartPolicyNever,
-			Containers: []v1.Container{
+			RestartPolicy: corev1.RestartPolicyNever,
+			Containers: []corev1.Container{
 				{
 					Name:  "sleeper-gu-cnt",
 					Image: CentosImage,
 					// 1 hour (or >= 1h in general) is "forever" for our purposes
 					Command: []string{"/bin/sleep", "1h"},
-					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
 							// we use 1 core because that's the minimal meaningful quantity
-							v1.ResourceName(v1.ResourceCPU): resource.MustParse(cpuLimit),
+							corev1.ResourceName(corev1.ResourceCPU): resource.MustParse(cpuLimit),
 							// any random reasonable amount is fine
-							v1.ResourceName(v1.ResourceMemory): resource.MustParse("100Mi"),
+							corev1.ResourceName(corev1.ResourceMemory): resource.MustParse("100Mi"),
 						},
 					},
 				},
@@ -70,15 +70,15 @@ func MakeGuaranteedSleeperPod(cpuLimit string) *v1.Pod {
 	}
 }
 
-func MakeBestEffortSleeperPod() *v1.Pod {
-	return &v1.Pod{
+func MakeBestEffortSleeperPod() *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sleeper-be-pod",
 		},
-		Spec: v1.PodSpec{
+		Spec: corev1.PodSpec{
 			NodeSelector:  map[string]string{e2etestconsts.TestNodeLabel: ""},
-			RestartPolicy: v1.RestartPolicyNever,
-			Containers: []v1.Container{
+			RestartPolicy: corev1.RestartPolicyNever,
+			Containers: []corev1.Container{
 				{
 					Name:  "sleeper-be-cnt",
 					Image: CentosImage,
@@ -90,7 +90,7 @@ func MakeBestEffortSleeperPod() *v1.Pod {
 	}
 }
 
-func DeletePodsAsync(f *framework.Framework, podMap map[string]*v1.Pod) {
+func DeletePodsAsync(f *framework.Framework, podMap map[string]*corev1.Pod) {
 	var wg sync.WaitGroup
 	for _, pod := range podMap {
 		wg.Add(1)
@@ -128,7 +128,7 @@ func Cooldown(f *framework.Framework) {
 	time.Sleep(sleepTime + 500*time.Millisecond)
 }
 
-func GetPodsByLabel(f *framework.Framework, ns, label string) ([]v1.Pod, error) {
+func GetPodsByLabel(f *framework.Framework, ns, label string) ([]corev1.Pod, error) {
 	sel, err := labels.Parse(label)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func GetPodsByLabel(f *framework.Framework, ns, label string) ([]v1.Pod, error) 
 	return pods.Items, nil
 }
 
-func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string) (*v1.Pod, error) {
+func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string) (*corev1.Pod, error) {
 	framework.Logf("searching for RTE pod in namespace %q with label %q", namespace, labelName)
 	pods, err := GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", labelName))
 	if err != nil {

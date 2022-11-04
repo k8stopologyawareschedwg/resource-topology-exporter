@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -58,8 +58,8 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		initialized         bool
 		timeout             time.Duration
 		topologyClient      *topologyclientset.Clientset
-		topologyUpdaterNode *v1.Node
-		workerNodes         []v1.Node
+		topologyUpdaterNode *corev1.Node
+		workerNodes         []corev1.Node
 	)
 
 	f := framework.NewDefaultFramework("rte")
@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
-				podMap := make(map[string]*v1.Pod)
+				podMap := make(map[string]*corev1.Pod)
 				pod := f.PodClient().CreateSync(sleeperPod)
 				podMap[pod.Name] = pod
 				e2epods.DeletePodsAsync(f, podMap)

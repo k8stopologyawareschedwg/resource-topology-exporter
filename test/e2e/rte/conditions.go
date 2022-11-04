@@ -7,11 +7,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	v1 "k8s.io/api/core/v1"
-	v1apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -31,7 +31,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 		namespace   string
 		extClient   *clientset.Clientset
 		timeout     time.Duration
-		crd         *v1apiextensions.CustomResourceDefinition
+		crd         *apiextv1.CustomResourceDefinition
 	)
 
 	f := framework.NewDefaultFramework("conditions")
@@ -71,7 +71,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 		}
 	})
 
-	waitForPodCondition := func(podName string, conditionType podreadiness.RTEConditionType, expectedConditionStatus v1.ConditionStatus) bool {
+	waitForPodCondition := func(podName string, conditionType podreadiness.RTEConditionType, expectedConditionStatus corev1.ConditionStatus) bool {
 		pods, err := e2epods.GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", podName))
 		if err != nil {
 			return false
@@ -87,12 +87,12 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 	ginkgo.Context("with NRT objects created", func() {
 		ginkgo.It("[release] should have custom RTE conditions under the pod status", func() {
 			gomega.Eventually(func() bool {
-				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.PodresourcesFetched, v1.ConditionTrue)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.PodresourcesFetched, corev1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
 			gomega.Eventually(func() bool {
-				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, v1.ConditionTrue)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
@@ -106,7 +106,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
-				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, v1.ConditionFalse)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
@@ -116,15 +116,15 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
-				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, v1.ConditionFalse)
+				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
 			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
 	})
 })
 
-func cmpConditionsByTypeAndStatus(podConds []v1.PodCondition, conditionType podreadiness.RTEConditionType, status v1.ConditionStatus) bool {
+func cmpConditionsByTypeAndStatus(podConds []corev1.PodCondition, conditionType podreadiness.RTEConditionType, status corev1.ConditionStatus) bool {
 	for _, cond := range podConds {
-		if cond.Type == v1.PodConditionType(conditionType) && cond.Status == status {
+		if cond.Type == corev1.PodConditionType(conditionType) && cond.Status == status {
 			return true
 		}
 	}

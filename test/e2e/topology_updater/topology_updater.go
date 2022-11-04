@@ -26,10 +26,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
@@ -49,8 +49,8 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		timeout             time.Duration
 		tmPolicy            string
 		topologyClient      *topologyclientset.Clientset
-		topologyUpdaterNode *v1.Node
-		workerNodes         []v1.Node
+		topologyUpdaterNode *corev1.Node
+		workerNodes         []corev1.Node
 	)
 
 	f := framework.NewDefaultFramework("topology-updater")
@@ -100,7 +100,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
 			sleeperPod := e2epods.MakeBestEffortSleeperPod()
 
-			podMap := make(map[string]*v1.Pod)
+			podMap := make(map[string]*corev1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
 			podMap[pod.Name] = pod
 			defer e2epods.DeletePodsAsync(f, podMap)
@@ -141,7 +141,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("500m")
 			defer e2epods.Cooldown(f)
 
-			podMap := make(map[string]*v1.Pod)
+			podMap := make(map[string]*corev1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
 			podMap[pod.Name] = pod
 			defer e2epods.DeletePodsAsync(f, podMap)
@@ -159,7 +159,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
 			zoneName, cmp, ok := e2enodetopology.CmpAvailableCPUs(initialAllocRes, finalAllocRes)
-			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, v1.ResourceCPU, cmp, ok)
+			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, corev1.ResourceCPU, cmp, ok)
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
@@ -190,7 +190,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 			defer e2epods.Cooldown(f)
 
-			podMap := make(map[string]*v1.Pod)
+			podMap := make(map[string]*corev1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
 			podMap[pod.Name] = pod
 			defer e2epods.DeletePodsAsync(f, podMap)
