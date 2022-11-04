@@ -11,7 +11,7 @@ RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
 
 .PHONY: all
-all: build
+all: build extra-tools
 
 .PHONY: build-tools
 build-tools: outdir _out/git-semver
@@ -20,7 +20,7 @@ build-tools: outdir _out/git-semver
 extra-tools: outdir _out/nrtstress
 
 .PHONY: build
-build: build-tools extra-tools
+build: build-tools
 	$(COMMONENVVAR) $(BUILDENVVAR) go build \
 	-ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
 	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
@@ -46,6 +46,10 @@ deps-update:
 deps-clean:
 	rm -rf vendor
 
+.PHONY: binaries-all
+binaries-all: outdir deps-update extra-tools build
+
+
 .PHONY: binaries
 binaries: outdir deps-update build
 
@@ -54,7 +58,7 @@ clean:
 	rm -rf _out
 
 .PHONY: image
-image: binaries
+image: outdir build
 	@echo "building image"
 	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) .
 
