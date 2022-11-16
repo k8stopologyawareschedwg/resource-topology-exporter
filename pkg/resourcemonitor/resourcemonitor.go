@@ -85,7 +85,7 @@ func (rel ResourceExcludeList) String() string {
 // mapping resource -> count
 type resourceCounter map[v1.ResourceName]int64
 
-//mapping numa cell -> resource counter
+// mapping numa cell -> resource counter
 type perNUMAResourceCounter map[int]resourceCounter
 
 type resourceMonitor struct {
