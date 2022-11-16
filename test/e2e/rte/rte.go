@@ -220,6 +220,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	ginkgo.Context("with pod fingerprinting enabled", func() {
 		ginkgo.It("[PodFingerprint] it should report stable value if the pods do not change", func() {
 			prevNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			framework.Logf("Initial NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
 
 			if _, ok := prevNrt.Annotations[podfingerprint.Annotation]; !ok {
 				ginkgo.Skip("pod fingerprinting not found - assuming disabled")
@@ -240,12 +241,16 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			}
 
 			currNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			framework.Logf("Control NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
 
 			// note we don't test no pods have been added/deleted. This is because the suite is supposed to own the cluster while it runs
 			// IOW, if we don't create/delete pods explicitely, noone else is supposed to do
 			pfpStable := expectPodFingerprintAnnotations(*prevNrt, "==", *currNrt)
 			if !pfpStable {
 				dumpPods(f, topologyUpdaterNode.Name, "after PFP mismatch")
+				// ignore errors and carry on. We don't want to fail the test because of missing debug info.
+				dumpRTELogs(f, topologyUpdaterNode.Name)
+
 			}
 			gomega.Expect(pfpStable).To(gomega.BeTrue(), "PFP changed unexpectedly")
 		})
@@ -437,4 +442,24 @@ func execCommandInContainer(f *framework.Framework, namespace, podName, containe
 	framework.Logf("Exec stderr: %q", stderr)
 	framework.ExpectNoError(err, "failed to execute command in namespace %v pod %v, container %v: %v", namespace, podName, containerName, err)
 	return stdout
+}
+
+func dumpRTELogs(f *framework.Framework, nodeName string) error {
+	rtePod, err := e2epods.GetPodOnNode(f, nodeName, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
+	if err != nil {
+		return err
+	}
+
+	rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
+	if err != nil {
+		return err
+	}
+
+	logs, err := e2epods.GetLogsForPod(f, rtePod.Namespace, rtePod.Name, rteContainerName)
+	if err != nil {
+		return err
+	}
+
+	framework.Logf("RTE logs:\n%s", logs)
+	return nil
 }
