@@ -44,17 +44,16 @@ type UnlimitedEventSource struct {
 	doneChan      chan struct{}
 }
 
-func NewUnlimitedEventSource(sleepInterval time.Duration) (*UnlimitedEventSource, error) {
+func NewUnlimitedEventSource() (*UnlimitedEventSource, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the watcher: %w", err)
 	}
 	es := UnlimitedEventSource{
-		sleepInterval: sleepInterval,
-		watcher:       watcher,
-		stopChan:      make(chan struct{}),
-		doneChan:      make(chan struct{}),
-		eventChan:     make(chan Event),
+		watcher:   watcher,
+		stopChan:  make(chan struct{}),
+		doneChan:  make(chan struct{}),
+		eventChan: make(chan Event),
 	}
 	return &es, nil
 }
@@ -81,12 +80,18 @@ func (es *UnlimitedEventSource) Run() {
 	es.eventChan <- Event{Timestamp: time.Now()}
 	klog.V(2).Infof("initial update trigger")
 
-	ticker := time.NewTicker(es.sleepInterval)
+	timeEvents := make(<-chan time.Time)
+	if es.sleepInterval > 0 {
+		ticker := time.NewTicker(es.sleepInterval)
+		defer ticker.Stop()
+		timeEvents = ticker.C
+	}
+
 	done := false
 	for !done {
 		// TODO: what about closed channels?
 		select {
-		case tickTs := <-ticker.C:
+		case tickTs := <-timeEvents:
 			es.eventChan <- Event{
 				Timestamp:     tickTs,
 				TimerInterval: es.sleepInterval,
@@ -96,7 +101,9 @@ func (es *UnlimitedEventSource) Run() {
 		case event := <-es.watcher.Events:
 			klog.V(5).Infof("fsnotify event from %q: %v", event.Name, event.Op)
 			if AnyFilter(es.filters, event) {
-				es.eventChan <- Event{Timestamp: time.Now()}
+				es.eventChan <- Event{
+					Timestamp: time.Now(),
+				}
 				klog.V(4).Infof("fsnotify update trigger")
 			}
 
@@ -109,6 +116,18 @@ func (es *UnlimitedEventSource) Run() {
 		}
 	}
 	es.doneChan <- struct{}{}
+}
+
+func (es *UnlimitedEventSource) SetInterval(interval time.Duration) error {
+	if interval < 0 {
+		return fmt.Errorf("interval cannot be negative: %v", interval)
+	}
+	if es.sleepInterval > 0 {
+		return fmt.Errorf("interval already set, and only one time-based source supported")
+	}
+	es.sleepInterval = interval
+	klog.Infof("added interval every %v", interval)
+	return nil
 }
 
 func (es *UnlimitedEventSource) AddFile(notifyFilePath string) error {

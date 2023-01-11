@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -118,5 +119,63 @@ func TestEnsureNotifyFilePathExistingSymlink(t *testing.T) {
 	err = ensureNotifyFilePath(testPath)
 	if err == nil {
 		t.Fatalf("unexpected SUCCESS: %v", err)
+	}
+}
+
+func TestSetInterval(t *testing.T) {
+	type testCase struct {
+		name          string
+		interval      time.Duration
+		expectedError bool
+	}
+
+	testCases := []testCase{
+		{
+			name:          "negative value",
+			interval:      -10 * time.Second,
+			expectedError: true,
+		},
+		{
+			name:          "zero value",
+			interval:      0 * time.Second,
+			expectedError: false,
+		},
+		{
+			name:          "positive value",
+			interval:      30 * time.Second,
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			es, err := NewUnlimitedEventSource()
+			if err != nil {
+				t.Fatalf("error creating event source: %v", err)
+			}
+			err = es.SetInterval(tc.interval)
+			gotError := false
+			if err != nil {
+				gotError = true
+			}
+			if tc.expectedError != gotError {
+				t.Errorf("%s expected error=%t got=%t", tc.name, tc.expectedError, gotError)
+			}
+		})
+	}
+}
+
+func TestSetIntervalMultipleTimes(t *testing.T) {
+	es, err := NewUnlimitedEventSource()
+	if err != nil {
+		t.Fatalf("error creating event source: %v", err)
+	}
+	err = es.SetInterval(10 * time.Second)
+	if err != nil {
+		t.Fatalf("error setting the interval the first time: %v", err)
+	}
+	err = es.SetInterval(42 * time.Second)
+	if err == nil {
+		t.Errorf("NOT got error setting the interval more than once")
 	}
 }

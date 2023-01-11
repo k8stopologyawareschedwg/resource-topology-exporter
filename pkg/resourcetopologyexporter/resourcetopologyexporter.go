@@ -75,7 +75,12 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 func createEventSource(rteArgs *Args) (notification.EventSource, error) {
 	var es notification.EventSource
 
-	eventSource, err := notification.NewUnlimitedEventSource(rteArgs.SleepInterval)
+	eventSource, err := notification.NewUnlimitedEventSource()
+	if err != nil {
+		return nil, err
+	}
+
+	err = eventSource.SetInterval(rteArgs.SleepInterval)
 	if err != nil {
 		return nil, err
 	}

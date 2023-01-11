@@ -95,7 +95,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	flags.BoolVar(&pArgs.RTE.Debug, "debug", false, " Enable debug output.")
 	flags.StringVar(&pArgs.RTE.TopologyManagerPolicy, "topology-manager-policy", DefaultTopologyManagerPolicy(), "Explicitly set the topology manager policy instead of reading from the kubelet.")
 	flags.StringVar(&pArgs.RTE.TopologyManagerScope, "topology-manager-scope", DefaultTopologyManagerScope(), "Explicitly set the topology manager scope instead of reading from the kubelet.")
-	flags.DurationVar(&pArgs.RTE.SleepInterval, "sleep-interval", 60*time.Second, "Time to sleep between podresources API polls.")
+	flags.DurationVar(&pArgs.RTE.SleepInterval, "sleep-interval", 60*time.Second, "Time to sleep between podresources API polls. Set to zero to completely disable the polling.")
 	flags.StringVar(&pArgs.RTE.KubeletConfigFile, "kubelet-config-file", "/podresources/config.yaml", "Kubelet config file path.")
 	flags.StringVar(&pArgs.RTE.PodResourcesSocketPath, "podresources-socket", "unix:///podresources/kubelet.sock", "Pod Resource Socket path to use.")
 	flags.BoolVar(&pArgs.RTE.PodReadinessEnable, "podreadiness", true, "Custom condition injection using Podreadiness.")
