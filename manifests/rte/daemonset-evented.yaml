@@ -1,55 +1,4 @@
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: rte
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: rte
-rules:
-- apiGroups: ["topology.node.k8s.io"]
-  resources: ["noderesourcetopologies"]
-  verbs: ["create", "update", "get", "list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get"]
-- apiGroups: [""]
-  resources: ["pods/status"]
-  verbs: ["update"]
-- apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["watch", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: rte
-subjects:
-- kind: ServiceAccount
-  name: rte
-  namespace: default
-roleRef:
-  kind: ClusterRole
-  name: rte
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rte-config
-  namespace: default
-data:
-  config.yaml: |
-    # key = node name, value = list of resources to be excluded.
-    # use * to exclude from all nodes.
-    # an example for how the exclude list should looks like
-    # excludelist:
-    #   node1: [cpu]
-    #   node2: [memory, example/deviceA]
-    #   *: [cpu]
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -73,15 +22,14 @@ spec:
         command:
         - /bin/resource-topology-exporter
         args:
-          - -v=${RTE_VERBOSE}
-          - --sleep-interval=${RTE_POLL_INTERVAL}
+          - --v=${RTE_VERBOSE}
+          - --sleep-interval=0s
           - --sysfs=/host-sys
           - --kubelet-state-dir=/host-var/lib/kubelet
           - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
           - --notify-file=/host-run/rte/notify
           - --pods-fingerprint
-          - --expose-timing
           - --refresh-node-resources
         env:
         - name: NODE_NAME
