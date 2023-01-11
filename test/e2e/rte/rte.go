@@ -110,52 +110,36 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			ginkgo.By("creating a pod consuming the shared pool")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 
-			stopChan := make(chan struct{})
-			doneChan := make(chan struct{})
-			started := false
-
-			go func() {
-				defer ginkgo.GinkgoRecover()
-
-				<-stopChan
-				pod := f.PodClient().CreateSync(sleeperPod)
-				podNamespace, podName := pod.Namespace, pod.Name
-				cs := f.ClientSet
-				e2epods.DeletePodSyncByName(cs, podNamespace, podName)
-				doneChan <- struct{}{}
-			}()
+			pod := f.PodClient().CreateSync(sleeperPod)
+			podNamespace, podName := pod.Namespace, pod.Name
+			cs := f.ClientSet
+			ginkgo.By("waiting for at least poll interval seconds with the test pod running...")
+			time.Sleep(timeout)
+			e2epods.DeletePodSyncByName(cs, podNamespace, podName)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha1.NodeResourceTopology
 			gomega.Eventually(func() bool {
-				if !started {
-					stopChan <- struct{}{}
-					started = true
-				}
-
 				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
 				}
 				if finalNodeTopo.ObjectMeta.ResourceVersion == initialNodeTopo.ObjectMeta.ResourceVersion {
-					framework.Logf("resource %s not yet updated - resource version not bumped", topologyUpdaterNode.Name)
+					framework.Logf("resource %s not yet updated - resource version not bumped (old %v new %v)", topologyUpdaterNode.Name, initialNodeTopo.ObjectMeta.ResourceVersion, finalNodeTopo.ObjectMeta.ResourceVersion)
 					return false
 				}
+				framework.Logf("resource %s updated! - resource version bumped (old %v new %v)", topologyUpdaterNode.Name, initialNodeTopo.ObjectMeta.ResourceVersion, finalNodeTopo.ObjectMeta.ResourceVersion)
+
 				reason, ok := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
 				if !ok {
 					framework.Logf("resource %s missing annotation!", topologyUpdaterNode.Name)
 					return false
 				}
+				framework.Logf("resource %s reason %v expected %v", topologyUpdaterNode.Name, reason, nrtupdater.RTEUpdateReactive)
 				return reason == nrtupdater.RTEUpdateReactive
-			}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+			}, 5*timeout, timeout).Should(gomega.BeTrue(), "didn't get updated node topology info") // 5x timeout is a random "long enough" period
 			ginkgo.By("checking the topology was updated for the right reason")
-
-			<-doneChan
-
-			gomega.Expect(finalNodeTopo.Annotations).ToNot(gomega.BeNil(), "missing annotations entirely")
-			reason := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
-			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
 		})
 
 		ginkgo.It("[NotificationFile] it should react to pod changes using the smart poller with notification file", func() {
