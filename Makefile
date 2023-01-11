@@ -49,7 +49,6 @@ deps-clean:
 .PHONY: binaries-all
 binaries-all: outdir deps-update extra-tools build
 
-
 .PHONY: binaries
 binaries: outdir deps-update build
 
@@ -61,6 +60,11 @@ clean:
 image: outdir build
 	@echo "building image"
 	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) --build-arg VERSION=$(shell _out/git-semver) --build-arg GIT_COMMIT=$(shell git log -1 --format=%H) .
+
+.PHONY: image-assemble
+image-assemble:
+	@echo "building image"
+	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) .
 
 .PHONY: push
 push: image
@@ -99,6 +103,16 @@ undeploy:
 gen-manifests:
 	@cat manifests/noderesourcetopologies_crd.yaml
 	@hack/get-manifests.sh
+
+.PHONY: gen-manifests-polling
+gen-manifests-polling:
+	@cat manifests/noderesourcetopologies_crd.yaml
+	@hack/get-manifests.sh polling
+
+.PHONY: gen-manifests-evented
+gen-manifests-evented:
+	@cat manifests/noderesourcetopologies_crd.yaml
+	@hack/get-manifests.sh evented
 
 .PHONY: update-manifests
 update-manifests:

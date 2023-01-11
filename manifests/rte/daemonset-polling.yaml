@@ -51,6 +51,8 @@ spec:
           - name: host-sys
             mountPath: "/host-sys"
             readOnly: true
+          - name: host-kubelet-state
+            mountPath: "/host-var/lib/kubelet"
           - name: exclude-list-config-vol
             mountPath: "/etc/resource-topology-exporter"
         ports:
@@ -62,6 +64,9 @@ spec:
       - name: host-sys
         hostPath:
           path: "/sys"
+      - name: host-kubelet-state
+        hostPath:
+          path: "/var/lib/kubelet"
       - name: exclude-list-config-vol
         configMap:
           name: resource-topology-exporter-config

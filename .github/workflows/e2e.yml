@@ -10,14 +10,8 @@ defaults:
     shell: bash
 
 jobs:
-  e2e-ic:
+  e2e-build:
     runs-on: ubuntu-20.04
-    env:
-      # TODO
-      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
-      E2E_TOPOLOGY_MANAGER_POLICY: SingleNUMANodeContainerLevel
-      RTE_POLL_INTERVAL: 10s
-      RTE_VERBOSE: 6
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
@@ -39,13 +33,49 @@ jobs:
       run: |
         make build-e2e
 
+    - name: build RTE binary
+      run: |
+        make build
+
+    - name: upload build artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts
+        path: _out/*
+
+  e2e-polling:
+    needs: [e2e-build]
+    runs-on: ubuntu-20.04
+    env:
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+      E2E_TOPOLOGY_MANAGER_POLICY: SingleNUMANodeContainerLevel
+      RTE_POLL_INTERVAL: 10s
+      RTE_VERBOSE: 6
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: download again the build artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts
+
+    - name: build image preparation
+      run: |
+        make outdir
+        chmod 0755 resource-topology-exporter rte-e2e.test || :
+        ls -lh resource-topology-exporter rte-e2e.test || :
+        mv resource-topology-exporter _out/
+
     - name: build image
       run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image-assemble
 
     - name: generate manifests
       run: |
-        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} RTE_VERBOSE=${RTE_VERBOSE} make gen-manifests | tee rte-e2e.yaml
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} RTE_VERBOSE=${RTE_VERBOSE} make gen-manifests-polling | tee rte-e2e.yaml
 
     - name: create K8S kind cluster
       run: |
@@ -53,22 +83,13 @@ jobs:
         # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.11.1
         kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
         kind load docker-image ${RTE_CONTAINER_IMAGE}
+        hack/wait-nodes-ready.sh
 
     - name: deploy RTE
       run: |
         # TODO: what about the other workers (if any)?
         kubectl label node kind-worker node-role.kubernetes.io/worker=''
         kubectl create -f rte-e2e.yaml
-
-    - name: cluster info
-      run: |
-        kubectl get nodes
-        kubectl get pods -A
-        kubectl describe pod -l name=resource-topology || :
-        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
-
-    - name: cluster ready
-      run: |
         hack/check-ds.sh
         kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
         kubectl get noderesourcetopologies.topology.node.k8s.io -A -o yaml
@@ -82,9 +103,83 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
+        ./rte-e2e.test --ginkgo.label-filter='!evented' -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
 
     - name: show RTE logs
       if: ${{ failure() }}
       run: |
         kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+
+    - name: delete K8S kind cluster
+      run: |
+        kind delete cluster
+
+  e2e-evented:
+    needs: [e2e-build]
+    runs-on: ubuntu-20.04
+    env:
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+      E2E_TOPOLOGY_MANAGER_POLICY: SingleNUMANodeContainerLevel
+      RTE_VERBOSE: 6
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: download again the build artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts
+
+    - name: build image preparation
+      run: |
+        make outdir
+        chmod 0755 resource-topology-exporter rte-e2e.test || :
+        ls -lh resource-topology-exporter rte-e2e.test || :
+        mv resource-topology-exporter _out/
+
+    - name: build image
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image-assemble
+
+    - name: generate manifests
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} RTE_VERBOSE=${RTE_VERBOSE} make gen-manifests-evented | tee rte-e2e.yaml
+
+    - name: create K8S kind cluster
+      run: |
+        # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
+        # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.11.1
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
+        kind load docker-image ${RTE_CONTAINER_IMAGE}
+        hack/wait-nodes-ready.sh
+
+    - name: deploy RTE
+      run: |
+        # TODO: what about the other workers (if any)?
+        kubectl label node kind-worker node-role.kubernetes.io/worker=''
+        kubectl create -f rte-e2e.yaml
+        hack/check-ds.sh
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+        kubectl get noderesourcetopologies.topology.node.k8s.io -A -o yaml
+
+    - name: deploy sample-devices
+      run: |
+        hack/deploy-devices.sh
+        hack/check-ds.sh default device-plugin-a-ds
+        kubectl describe nodes -l node-role.kubernetes.io/worker= || :
+
+    - name: run E2E tests
+      run: |
+        export KUBECONFIG=${HOME}/.kube/config
+        ./rte-e2e.test --ginkgo.label-filter='!polling' --ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
+
+    - name: show RTE logs
+      if: ${{ failure() }}
+      run: |
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+
+    - name: delete K8S kind cluster
+      run: |
+        kind delete cluster

@@ -265,12 +265,11 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				dumpPods(f, topologyUpdaterNode.Name, "after PFP mismatch")
 				// ignore errors and carry on. We don't want to fail the test because of missing debug info.
 				dumpRTELogs(f, topologyUpdaterNode.Name)
-
+				ginkgo.Fail("PFP changed unexpectedly")
 			}
-			gomega.Expect(pfpStable).To(gomega.BeTrue(), "PFP changed unexpectedly")
 		})
 
-		ginkgo.It("[release][PodFingerprint] it should report updated value if the set of running pods changes", func() {
+		ginkgo.It("[release][PodFingerprint] it should report updated value if the set of running pods changes", ginkgo.Label("evented"), func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {

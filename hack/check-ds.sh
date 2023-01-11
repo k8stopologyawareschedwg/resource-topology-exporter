@@ -18,7 +18,7 @@ function wait-for-daemonset(){
         fi
         ((retries--))
         # debug
-        echo "${NAMESPACE}/${DAEMONSET} not ready: $ready/$required"
+	kubectl get ds -n $NAMESPACE $DAEMONSET -o wide
     done
 }
 
@@ -26,4 +26,5 @@ echo "waiting for ${NAMESPACE}/${DAEMONSET}"
 wait-for-daemonset ${NAMESPACE} ${DAEMONSET}
 echo "${NAMESPACE}/${DAEMONSET} wait finished"
 kubectl -n $NAMESPACE describe daemonset $DAEMONSET
+kubectl -n $NAMESPACE describe pods
 exit ${FAILED}
