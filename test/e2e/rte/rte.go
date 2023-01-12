@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 
 	ginkgo.Context("with cluster configured", func() {
-		ginkgo.It("[DEPRECATED][StateDirectories] it should react to pod changes using the smart poller", func() {
+		ginkgo.It("[DEPRECATED][StateDirectories] it should react to pod changes using the smart poller", ginkgo.Label("DEPRECATED"), ginkgo.Label("evented"), func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {
@@ -166,7 +166,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
 		})
 
-		ginkgo.It("[NotificationFile] it should react to pod changes using the smart poller with notification file", func() {
+		ginkgo.It("[NotificationFile] it should react to pod changes using the smart poller with notification file", ginkgo.Label("evented"), func() {
 			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 
 			stopChan := make(chan struct{})

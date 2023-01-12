@@ -217,7 +217,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final available resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
-		ginkgo.It("should fill the node resource topologies CR with the data", func() {
+		ginkgo.It("should fill the node resource topologies CR with the data", ginkgo.Label("polling"), func() {
 			nodeTopology := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 			isValid := e2enodetopology.IsValidNodeTopology(nodeTopology, tmPolicy)
 			gomega.Expect(isValid).To(gomega.BeTrue(), "received invalid topology: %v", nodeTopology)

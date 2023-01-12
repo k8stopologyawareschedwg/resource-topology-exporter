@@ -36,7 +36,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
 )
 
-var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
+var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", ginkgo.Label("local"), func() {
 	ginkgo.Context("with the binary available", func() {
 		ginkgo.It("[release] it should show the correct version", func() {
 			cmdline := []string{
