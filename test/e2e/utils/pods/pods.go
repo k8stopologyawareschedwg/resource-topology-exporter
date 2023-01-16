@@ -19,7 +19,6 @@ package pods
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -118,22 +117,6 @@ func DeletePodSyncByName(cs clientset.Interface, podNamespace, podName string) e
 		framework.Failf("Failed to delete pod %q: %v", podName, err)
 	}
 	return e2epod.WaitForPodToDisappear(cs, podNamespace, podName, labels.Everything(), 2*time.Second, framework.DefaultPodDeletionTimeout)
-}
-
-func Cooldown(f *framework.Framework) {
-	pollInterval, ok := os.LookupEnv("RTE_POLL_INTERVAL")
-	if !ok {
-		// nothing to do!
-		return
-	}
-	sleepTime, err := time.ParseDuration(pollInterval)
-	if err != nil {
-		framework.Logf("WaitPodToBeGone: cannot parse %q: %v", pollInterval, err)
-		return
-	}
-
-	// wait a little more than a full poll interval to make sure the resourcemonitor catches up
-	time.Sleep(sleepTime + 500*time.Millisecond)
 }
 
 func GetPodsByLabel(f *framework.Framework, ns, label string) ([]corev1.Pod, error) {

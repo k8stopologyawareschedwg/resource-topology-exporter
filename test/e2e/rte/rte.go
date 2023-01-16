@@ -109,7 +109,6 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 			ginkgo.By("creating a pod consuming the shared pool")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-			defer e2epods.Cooldown(f)
 
 			stopChan := make(chan struct{})
 			doneChan := make(chan struct{})

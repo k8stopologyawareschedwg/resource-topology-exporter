@@ -140,7 +140,6 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (guaranteed QoS, nonintegral request)")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("500m")
-			defer e2epods.Cooldown(f)
 
 			pod := f.PodClient().CreateSync(sleeperPod)
 			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
@@ -189,7 +188,6 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			ginkgo.By("creating a pod consuming exclusive CPUs")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-			defer e2epods.Cooldown(f)
 
 			pod := f.PodClient().CreateSync(sleeperPod)
 			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
