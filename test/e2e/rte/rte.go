@@ -119,10 +119,10 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
-				podMap := make(map[string]*corev1.Pod)
 				pod := f.PodClient().CreateSync(sleeperPod)
-				podMap[pod.Name] = pod
-				e2epods.DeletePodsAsync(f, podMap)
+				podNamespace, podName := pod.Namespace, pod.Name
+				cs := f.ClientSet
+				e2epods.DeletePodSyncByName(cs, podNamespace, podName)
 				doneChan <- struct{}{}
 			}()
 
@@ -276,10 +276,11 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			framework.Logf("%s update interval: %s", method, updateInterval)
 
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-			defer e2epods.Cooldown(f)
 			pod := f.PodClient().CreateSync(sleeperPod)
-			// removing it twice is no bother
-			defer e2epods.DeletePodSyncByName(f, pod.Name)
+			// (try to) delete the pod twice is no bother
+			cs := f.ClientSet
+			podNamespace, podName := pod.Namespace, pod.Name
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, cs, podNamespace, podName)
 
 			currNrt = getUpdatedNRT(topologyClient, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
@@ -292,7 +293,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			// since we need to delete the pod anyway, let's use this to run another check
 			prevNrt = currNrt
-			e2epods.DeletePodSyncByName(f, pod.Name)
+			e2epods.DeletePodSyncByName(cs, podNamespace, podName)
 
 			currNrt = getUpdatedNRT(topologyClient, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 

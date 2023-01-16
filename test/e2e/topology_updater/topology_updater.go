@@ -31,6 +31,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 
@@ -100,10 +101,10 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
 			sleeperPod := e2epods.MakeBestEffortSleeperPod()
 
-			podMap := make(map[string]*corev1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
-			podMap[pod.Name] = pod
-			defer e2epods.DeletePodsAsync(f, podMap)
+			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
+				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
+			}, f.ClientSet, pod.Namespace, pod.Name)
 
 			cooldown := 3 * timeout
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
@@ -141,10 +142,10 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("500m")
 			defer e2epods.Cooldown(f)
 
-			podMap := make(map[string]*corev1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
-			podMap[pod.Name] = pod
-			defer e2epods.DeletePodsAsync(f, podMap)
+			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
+				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
+			}, f.ClientSet, pod.Namespace, pod.Name)
 
 			cooldown := 3 * timeout
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
@@ -190,10 +191,10 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 			defer e2epods.Cooldown(f)
 
-			podMap := make(map[string]*corev1.Pod)
 			pod := f.PodClient().CreateSync(sleeperPod)
-			podMap[pod.Name] = pod
-			defer e2epods.DeletePodsAsync(f, podMap)
+			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
+				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
+			}, f.ClientSet, pod.Namespace, pod.Name)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha1.NodeResourceTopology
