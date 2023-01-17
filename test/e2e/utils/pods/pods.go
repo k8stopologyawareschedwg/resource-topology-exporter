@@ -19,20 +19,22 @@ package pods
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/labels"
-
 	"github.com/onsi/ginkgo/v2"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
+	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 
 	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 )
@@ -90,42 +92,31 @@ func MakeBestEffortSleeperPod() *corev1.Pod {
 	}
 }
 
-func DeletePodsAsync(f *framework.Framework, podMap map[string]*corev1.Pod) {
+func DeletePodsAsync(f *framework.Framework, podList ...types.NamespacedName) {
 	var wg sync.WaitGroup
-	for _, pod := range podMap {
+	for _, pod := range podList {
 		wg.Add(1)
 		go func(podNS, podName string) {
 			defer ginkgo.GinkgoRecover()
 			defer wg.Done()
 
-			DeletePodSyncByName(f, podName)
+			DeletePodSyncByName(f.ClientSet, podNS, podName)
 		}(pod.Namespace, pod.Name)
 	}
 	wg.Wait()
 }
 
-func DeletePodSyncByName(f *framework.Framework, podName string) {
+func DeletePodSyncByName(cs clientset.Interface, podNamespace, podName string) error {
 	gp := int64(0)
 	delOpts := metav1.DeleteOptions{
 		GracePeriodSeconds: &gp,
 	}
-	f.PodClient().DeleteSync(podName, delOpts, framework.DefaultPodDeletionTimeout)
-}
-
-func Cooldown(f *framework.Framework) {
-	pollInterval, ok := os.LookupEnv("RTE_POLL_INTERVAL")
-	if !ok {
-		// nothing to do!
-		return
+	framework.Logf("Deleting pod %s/%s cs=%v", podNamespace, podName, cs)
+	err := cs.CoreV1().Pods(podNamespace).Delete(context.TODO(), podName, delOpts)
+	if err != nil && !apierrors.IsNotFound(err) {
+		framework.Failf("Failed to delete pod %q: %v", podName, err)
 	}
-	sleepTime, err := time.ParseDuration(pollInterval)
-	if err != nil {
-		framework.Logf("WaitPodToBeGone: cannot parse %q: %v", pollInterval, err)
-		return
-	}
-
-	// wait a little more than a full poll interval to make sure the resourcemonitor catches up
-	time.Sleep(sleepTime + 500*time.Millisecond)
+	return e2epod.WaitForPodToDisappear(cs, podNamespace, podName, labels.Everything(), 2*time.Second, framework.DefaultPodDeletionTimeout)
 }
 
 func GetPodsByLabel(f *framework.Framework, ns, label string) ([]corev1.Pod, error) {

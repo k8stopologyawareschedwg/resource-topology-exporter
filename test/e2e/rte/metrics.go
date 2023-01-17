@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 
@@ -108,9 +109,10 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
 
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-			defer e2epods.Cooldown(f)
 			pod := f.PodClient().CreateSync(sleeperPod)
-			defer e2epods.DeletePodSyncByName(f, pod.Name)
+			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
+				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
+			}, f.ClientSet, pod.Namespace, pod.Name)
 
 			// now we are sure we have at least a write to be reported
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
