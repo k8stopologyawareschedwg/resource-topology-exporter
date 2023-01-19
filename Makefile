@@ -60,7 +60,7 @@ clean:
 .PHONY: image
 image: outdir build
 	@echo "building image"
-	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) .
+	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) --build-arg VERSION=$(shell _out/git-semver) --build-arg GIT_COMMIT=$(shell git log -1 --format=%H) .
 
 .PHONY: push
 push: image
