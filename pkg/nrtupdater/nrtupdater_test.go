@@ -17,6 +17,7 @@ limitations under the License.
 package nrtupdater
 
 import (
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,8 +41,17 @@ func TestUpdateTMPolicy(t *testing.T) {
 	policyInitial := "policy-initial"
 	policyUpdated := "policy-updated"
 
+	tmConfInitial := TMConfig{
+		Scope:  "scope-initial",
+		Policy: "policy-initial",
+	}
+	tmConfUpdated := TMConfig{
+		Scope:  "scope-updated",
+		Policy: "polcy-updated",
+	}
+
 	var err error
-	nrtUpd = NewNRTUpdater(args, policyInitial)
+	nrtUpd = NewNRTUpdater(args, policyInitial, tmConfInitial)
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
@@ -76,9 +86,9 @@ func TestUpdateTMPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkTMPolicy(t, obj, policyInitial)
+	checkTMPolicy(t, obj, policyInitial, tmConfInitial)
 
-	nrtUpd = NewNRTUpdater(args, policyUpdated)
+	nrtUpd = NewNRTUpdater(args, policyUpdated, tmConfUpdated)
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
@@ -112,10 +122,10 @@ func TestUpdateTMPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkTMPolicy(t, obj, policyUpdated)
+	checkTMPolicy(t, obj, policyUpdated, tmConfUpdated)
 }
 
-func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string) {
+func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string, expectedConf TMConfig) {
 	t.Helper()
 
 	nrtObj, ok := obj.(*v1alpha1.NodeResourceTopology)
@@ -128,4 +138,38 @@ func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string) {
 	if nrtObj.TopologyPolicies[0] != expectedPolicy {
 		t.Fatalf("topology policy mismatch: expected %q got %q", expectedPolicy, nrtObj.TopologyPolicies[0])
 	}
+	zone := findTMConfigZone(nrtObj)
+	if zone == nil {
+		t.Fatalf("topology manager configuration zone not found")
+	}
+	gotConf := tmConfigFromAttributes(zone.Attributes)
+	if !reflect.DeepEqual(gotConf, expectedConf) {
+		t.Fatalf("config got=%+#v expected=%+#v", gotConf, expectedConf)
+	}
+}
+
+func findTMConfigZone(nodeTopology *v1alpha1.NodeResourceTopology) *v1alpha1.Zone {
+	for idx := range nodeTopology.Zones {
+		zone := &nodeTopology.Zones[idx]
+		if zone.Type != ZoneConfigType {
+			continue
+		}
+		return zone
+	}
+	return nil
+}
+
+func tmConfigFromAttributes(attrs v1alpha1.AttributeList) TMConfig {
+	conf := TMConfig{}
+	for _, attr := range attrs {
+		if attr.Name == "scope" {
+			conf.Scope = attr.Value
+			continue
+		}
+		if attr.Name == "policy" {
+			conf.Policy = attr.Value
+			continue
+		}
+	}
+	return conf
 }

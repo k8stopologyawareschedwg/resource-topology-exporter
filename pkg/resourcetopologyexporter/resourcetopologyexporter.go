@@ -36,9 +36,13 @@ type Args struct {
 }
 
 func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
-	tmPolicy, err := getTopologyManagerPolicy(resourcemonitorArgs, rteArgs)
+	tmPolicy, err := getTopologyManagerPolicy(rteArgs)
 	if err != nil {
 		return err
+	}
+	tmConf := nrtupdater.TMConfig{
+		Policy: rteArgs.TopologyManagerPolicy,
+		Scope:  rteArgs.TopologyManagerScope,
 	}
 
 	var condChan chan v1.PodCondition
@@ -62,7 +66,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	}
 	go resObs.Run(eventSource.Events(), condChan)
 
-	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy))
+	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmPolicy), tmConf)
 	go upd.Run(resObs.Infos, condChan)
 
 	go eventSource.Run()
@@ -108,7 +112,7 @@ func createEventSource(rteArgs *Args) (notification.EventSource, error) {
 	return es, nil
 }
 
-func getTopologyManagerPolicy(resourcemonitorArgs resourcemonitor.Args, rteArgs Args) (v1alpha1.TopologyManagerPolicy, error) {
+func getTopologyManagerPolicy(rteArgs Args) (v1alpha1.TopologyManagerPolicy, error) {
 	if rteArgs.TopologyManagerPolicy != "" && rteArgs.TopologyManagerScope != "" {
 		klog.Infof("using given Topology Manager policy %q scope %q", rteArgs.TopologyManagerPolicy, rteArgs.TopologyManagerScope)
 		return topologypolicy.DetectTopologyPolicy(rteArgs.TopologyManagerPolicy, rteArgs.TopologyManagerScope), nil

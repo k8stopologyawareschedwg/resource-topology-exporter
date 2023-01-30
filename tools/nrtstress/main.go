@@ -14,11 +14,13 @@ import (
 func main() {
 	var hostname string
 	var tmPolicy string
+	var tmScope string
 	var interval time.Duration
 	var seed int
 	var dryRun bool
 	flag.StringVar(&hostname, "hosthame", "fake-host-0", "fake host name (not validated)")
 	flag.StringVar(&tmPolicy, "tm-policy", "single-numa-node", "topology manager policy (not validated)")
+	flag.StringVar(&tmScope, "tm-scope", "pod", "topology manager scope (not validated)")
 	flag.DurationVar(&interval, "interval", 10*time.Second, "periodic update interval")
 	flag.IntVar(&seed, "random-seed", 0, "random seed (use time)")
 	flag.BoolVar(&dryRun, "dry-run", false, "don't send data")
@@ -47,6 +49,10 @@ func main() {
 
 	klog.Infof("using NRT Updater args: %+#v", nrtupdaterArgs)
 
-	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy)
+	tmConf := nrtupdater.TMConfig{
+		Policy: tmPolicy,
+		Scope:  tmScope,
+	}
+	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy, tmConf)
 	upd.Run(gen.Infos, nil)
 }

@@ -24,6 +24,9 @@ const (
 	RTEUpdatePeriodic = "periodic"
 	RTEUpdateReactive = "reactive"
 )
+const (
+	ZoneConfigType = "TopologyManager"
+)
 
 // Command line arguments
 type Args struct {
@@ -32,9 +35,19 @@ type Args struct {
 	Hostname  string
 }
 
+type TMConfig struct {
+	Policy string
+	Scope  string
+}
+
+func (conf TMConfig) IsValid() bool {
+	return conf.Policy != "" && conf.Scope != ""
+}
+
 type NRTUpdater struct {
 	args     Args
 	tmPolicy string
+	tmConfig TMConfig
 	stopChan chan struct{}
 }
 
@@ -51,10 +64,11 @@ func (mi MonitorInfo) UpdateReason() string {
 	return RTEUpdateReactive
 }
 
-func NewNRTUpdater(args Args, policy string) *NRTUpdater {
+func NewNRTUpdater(args Args, policy string, tmconf TMConfig) *NRTUpdater {
 	return &NRTUpdater{
 		args:     args,
 		tmPolicy: policy,
+		tmConfig: tmconf,
 		stopChan: make(chan struct{}),
 	}
 }
@@ -117,7 +131,28 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info Mon
 	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
 	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.TopologyPolicies = []string{te.tmPolicy}
-	nrt.Zones = info.Zones
+	nrt.Zones = v1alpha1.ZoneList{}
+	if te.tmConfig.IsValid() {
+		nrt.Zones = append(nrt.Zones, te.makeTMConfigZone())
+	}
+	nrt.Zones = append(nrt.Zones, info.Zones...)
+}
+
+func (te *NRTUpdater) makeTMConfigZone() v1alpha1.Zone {
+	return v1alpha1.Zone{
+		Name: ZoneConfigType,
+		Type: ZoneConfigType,
+		Attributes: v1alpha1.AttributeList{
+			{
+				Name:  "scope",
+				Value: te.tmConfig.Scope,
+			},
+			{
+				Name:  "policy",
+				Value: te.tmConfig.Policy,
+			},
+		},
+	}
 }
 
 func (te *NRTUpdater) Stop() {
