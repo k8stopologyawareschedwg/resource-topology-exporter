@@ -529,22 +529,10 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			scanRes, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
 
-			sort.Slice(res, func(i, j int) bool {
-				return res[i].Name < res[j].Name
-			})
-			for _, resource := range res {
-				sort.Slice(resource.Costs, func(x, y int) bool {
-					return resource.Costs[x].Name < resource.Costs[y].Name
-				})
-			}
-			for _, resource := range res {
-				sort.Slice(resource.Resources, func(x, y int) bool {
-					return resource.Resources[x].Name < resource.Resources[y].Name
-				})
-			}
+			res := scanRes.SortedZones()
 			log.Printf("result=%v", res)
 			log.Printf("expected=%v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
@@ -638,22 +626,10 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			scanRes, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
 
-			sort.Slice(res, func(i, j int) bool {
-				return res[i].Name < res[j].Name
-			})
-			for _, resource := range res {
-				sort.Slice(resource.Costs, func(x, y int) bool {
-					return resource.Costs[x].Name < resource.Costs[y].Name
-				})
-			}
-			for _, resource := range res {
-				sort.Slice(resource.Resources, func(x, y int) bool {
-					return resource.Resources[x].Name < resource.Resources[y].Name
-				})
-			}
+			res := scanRes.SortedZones()
 			log.Printf("result=%v", res)
 			log.Printf("expected=%v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
@@ -846,8 +822,11 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(excludeList)
+			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+
+			res := scanRes.Zones.DeepCopy()
+
 			// Check if resources were excluded correctly
 			for _, zone := range res {
 				for _, resource := range zone.Resources {
@@ -1014,8 +993,10 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(excludeList)
+			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+
+			res := scanRes.Zones.DeepCopy()
 			// Check if resources were excluded correctly
 			for _, zone := range res {
 				for _, resource := range zone.Resources {
@@ -1235,8 +1216,10 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(excludeList)
+			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+
+			res := scanRes.Zones.DeepCopy()
 			// Check if resources were excluded correctly
 			for _, zone := range res {
 				for _, resource := range zone.Resources {
@@ -1363,10 +1346,10 @@ func TestResourcesScan(t *testing.T) {
 
 			mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			_, ann, err := resMon.Scan(ResourceExcludeList{})
+			scanRes, err := resMon.Scan(ResourceExcludeList{})
 
 			expectedFP := "pfp0v001fe53c4dbd2c5f4a0" // pre-computed and validated manually
-			fp, ok := ann[podfingerprint.Annotation]
+			fp, ok := scanRes.Annotations[podfingerprint.Annotation]
 			So(ok, ShouldBeTrue)
 			log.Printf("FP %q expected %q", fp, expectedFP)
 			So(cmp.Equal(fp, expectedFP), ShouldBeTrue)

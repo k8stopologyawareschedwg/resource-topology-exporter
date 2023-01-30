@@ -32,15 +32,26 @@ type Args struct {
 	Hostname  string
 }
 
+type TMConfig struct {
+	Policy string
+	Scope  string
+}
+
+func (conf TMConfig) IsValid() bool {
+	return conf.Policy != "" && conf.Scope != ""
+}
+
 type NRTUpdater struct {
 	args     Args
 	tmPolicy string
+	tmConfig TMConfig
 	stopChan chan struct{}
 }
 
 type MonitorInfo struct {
 	Timer       bool
 	Zones       v1alpha2.ZoneList
+	Attributes  v1alpha2.AttributeList
 	Annotations map[string]string
 }
 
@@ -51,10 +62,11 @@ func (mi MonitorInfo) UpdateReason() string {
 	return RTEUpdateReactive
 }
 
-func NewNRTUpdater(args Args, policy string) *NRTUpdater {
+func NewNRTUpdater(args Args, policy string, tmconf TMConfig) *NRTUpdater {
 	return &NRTUpdater{
 		args:     args,
 		tmPolicy: policy,
+		tmConfig: tmconf,
 		stopChan: make(chan struct{}),
 	}
 }
@@ -117,7 +129,23 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
 	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.TopologyPolicies = []string{te.tmPolicy}
-	nrt.Zones = info.Zones
+	nrt.Zones = info.Zones.DeepCopy()
+	nrt.Attributes = info.Attributes.DeepCopy()
+	nrt.Attributes = append(nrt.Attributes, te.makeAttributes()...)
+	// TODO: check for duplicate attributes?
+}
+
+func (te *NRTUpdater) makeAttributes() v1alpha2.AttributeList {
+	return v1alpha2.AttributeList{
+		{
+			Name:  "topologyManagerScope",
+			Value: te.tmConfig.Scope,
+		},
+		{
+			Name:  "topologyManagerPolicy",
+			Value: te.tmConfig.Policy,
+		},
+	}
 }
 
 func (te *NRTUpdater) Stop() {
