@@ -49,7 +49,7 @@ type ResourceInfo struct {
 ## Design based on Pod Resource API
 Kubelet exposes endpoint at `/var/lib/kubelet/pod-resources/kubelet.sock` for exposing information about assignment of devices to containers. It obtains this information from the internal state of the kubelet's Device Manager and returns a single PodResourcesResponse enabling monitor applications to poll for resources allocated to pods and containers on the node. This makes PodResource API a reasonable way of obtaining allocated resource information.
 
-However, [PodResource API](https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1) currently only exposes devices as the container resources (without topology info). We are proposing [KEP](https://github.com/kubernetes/enhancements/pull/1884) to enhance it to expose CPU information along with device topology info.
+However, [PodResource API](https://godoc.org/k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1) currently only exposes devices as the container resources (without topology info). We are proposing [KEP](https://github.com/kubernetes/enhancements/pull/1884) to enhance it to expose CPU information along with device topology info.
 In order to use pod-resource-api source in Resource Topology Exporter, you will need to use patched version of kubelet implementing the changes proposed in the aforementioned KEPs:
 1. https://github.com/kubernetes/kubernetes/pull/93243/files
 1. https://github.com/fromanirh/kubernetes/tree/podresources-get-available-devices
