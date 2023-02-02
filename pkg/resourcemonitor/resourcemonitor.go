@@ -37,7 +37,7 @@ import (
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
-	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -62,7 +62,7 @@ type Args struct {
 }
 
 type ResourceMonitor interface {
-	Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error)
+	Scan(excludeList ResourceExcludeList) (topologyv1alpha2.ZoneList, map[string]string, error)
 }
 
 // ToMapSet keeps the original keys, but replaces values with set.String types
@@ -174,7 +174,7 @@ func WithNodeName(name string) func(*resourceMonitor) {
 	}
 }
 
-func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
+func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha2.ZoneList, map[string]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
@@ -198,14 +198,14 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 	allocated := ContainerDevicesToPerNUMAResourceCounters(allDevs)
 
 	excludeSet := excludeList.ToMapSet()
-	zones := make(topologyv1alpha1.ZoneList, 0)
+	zones := make(topologyv1alpha2.ZoneList, 0)
 	// if there are no allocatable resources under a NUMA we might ended up with holes in the NRT objects.
 	// this is why we're using the topology info and not the nodeAllocatable
 	for nodeID := range rm.topo.Nodes {
-		zone := topologyv1alpha1.Zone{
+		zone := topologyv1alpha2.Zone{
 			Name:      makeZoneName(nodeID),
 			Type:      "Node",
-			Resources: make(topologyv1alpha1.ResourceInfoList, 0),
+			Resources: make(topologyv1alpha2.ResourceInfoList, 0),
 		}
 
 		costs, err := makeCostsPerNumaNode(rm.topo.Nodes, nodeID)
@@ -264,7 +264,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 				resAvail = 0
 			}
 
-			zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
+			zone.Resources = append(zone.Resources, topologyv1alpha2.ResourceInfo{
 				Name:        resName.String(),
 				Available:   *resource.NewQuantity(resAvail, resource.DecimalSI),
 				Allocatable: *resource.NewQuantity(resAlloc, resource.DecimalSI),
@@ -474,15 +474,15 @@ func MakeCoreIDToNodeIDMap(topo *ghw.TopologyInfo) map[int]int {
 }
 
 // makeCostsPerNumaNode builds the cost map to reach all the known NUMA zones (mapping (numa zone) -> cost) starting from the given NUMA zone.
-func makeCostsPerNumaNode(nodes []*ghw.TopologyNode, nodeIDSrc int) ([]topologyv1alpha1.CostInfo, error) {
+func makeCostsPerNumaNode(nodes []*ghw.TopologyNode, nodeIDSrc int) ([]topologyv1alpha2.CostInfo, error) {
 	nodeSrc := findNodeByID(nodes, nodeIDSrc)
 	if nodeSrc == nil {
 		return nil, fmt.Errorf("unknown node: %d", nodeIDSrc)
 	}
-	nodeCosts := make([]topologyv1alpha1.CostInfo, 0, len(nodeSrc.Distances))
+	nodeCosts := make([]topologyv1alpha2.CostInfo, 0, len(nodeSrc.Distances))
 	for nodeIDDst, dist := range nodeSrc.Distances {
 		// TODO: this assumes there are no holes (= no offline node) in the distance vector
-		nodeCosts = append(nodeCosts, topologyv1alpha1.CostInfo{
+		nodeCosts = append(nodeCosts, topologyv1alpha2.CostInfo{
 			Name:  makeZoneName(nodeIDDst),
 			Value: int64(dist),
 		})

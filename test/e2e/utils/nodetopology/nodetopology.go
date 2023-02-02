@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/onsi/gomega"
 
@@ -30,15 +30,15 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 )
 
-func GetNodeTopology(topologyClient *topologyclientset.Clientset, nodeName string) *v1alpha1.NodeResourceTopology {
+func GetNodeTopology(topologyClient *topologyclientset.Clientset, nodeName string) *v1alpha2.NodeResourceTopology {
 	return GetNodeTopologyWithResource(topologyClient, nodeName, "")
 }
 
-func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, nodeName, resName string) *v1alpha1.NodeResourceTopology {
-	var nodeTopology *v1alpha1.NodeResourceTopology
+func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, nodeName, resName string) *v1alpha2.NodeResourceTopology {
+	var nodeTopology *v1alpha2.NodeResourceTopology
 	var err error
 	gomega.EventuallyWithOffset(1, func() bool {
-		nodeTopology, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		nodeTopology, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			framework.Logf("failed to get the node topology resource: %v", err)
 			return false
@@ -51,7 +51,7 @@ func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, no
 	return nodeTopology
 }
 
-func IsValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, tmPolicy string) bool {
+func IsValidNodeTopology(nodeTopology *v1alpha2.NodeResourceTopology, tmPolicy string) bool {
 	if nodeTopology == nil || len(nodeTopology.TopologyPolicies) == 0 {
 		framework.Logf("failed to get topology policy from the node topology resource")
 		return false
@@ -92,7 +92,7 @@ func IsValidNodeTopology(nodeTopology *v1alpha1.NodeResourceTopology, tmPolicy s
 	return ret
 }
 
-func IsValidCostList(zoneName string, costs v1alpha1.CostList) bool {
+func IsValidCostList(zoneName string, costs v1alpha2.CostList) bool {
 	if len(costs) == 0 {
 		framework.Logf("failed to get topology costs for zone %q from the node topology resource", zoneName)
 		return false
@@ -107,7 +107,7 @@ func IsValidCostList(zoneName string, costs v1alpha1.CostList) bool {
 	return true
 }
 
-func IsValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) bool {
+func IsValidResourceList(zoneName string, resources v1alpha2.ResourceInfoList) bool {
 	if len(resources) == 0 {
 		framework.Logf("failed to get topology resources for zone %q from the node topology resource", zoneName)
 		return false
@@ -128,7 +128,7 @@ func IsValidResourceList(zoneName string, resources v1alpha1.ResourceInfoList) b
 	return foundCpu
 }
 
-func AvailableResourceListFromNodeResourceTopology(nodeTopo *v1alpha1.NodeResourceTopology) map[string]corev1.ResourceList {
+func AvailableResourceListFromNodeResourceTopology(nodeTopo *v1alpha2.NodeResourceTopology) map[string]corev1.ResourceList {
 	availRes := make(map[string]corev1.ResourceList)
 	for _, zone := range nodeTopo.Zones {
 		if zone.Type != "Node" {
@@ -220,7 +220,7 @@ func CmpAvailableCPUs(expected, got map[string]corev1.ResourceList) (string, int
 	return "", 0, true
 }
 
-func containsResource(nrt *v1alpha1.NodeResourceTopology, resName string) bool {
+func containsResource(nrt *v1alpha2.NodeResourceTopology, resName string) bool {
 	if nrt.Zones == nil || len(nrt.Zones) == 0 {
 		framework.Logf("failed to get topology zones from the node topology resource")
 		return false

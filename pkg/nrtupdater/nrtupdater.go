@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dump"
@@ -40,7 +40,7 @@ type NRTUpdater struct {
 
 type MonitorInfo struct {
 	Timer       bool
-	Zones       v1alpha1.ZoneList
+	Zones       v1alpha2.ZoneList
 	Annotations map[string]string
 }
 
@@ -78,9 +78,9 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 		return nil
 	}
 
-	nrt, err := cli.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
+	nrt, err := cli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		nrtNew := v1alpha1.NodeResourceTopology{
+		nrtNew := v1alpha2.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        te.args.Hostname,
 				Annotations: make(map[string]string),
@@ -88,7 +88,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 		}
 		te.updateNRTInfo(&nrtNew, info)
 
-		nrtCreated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
@@ -104,7 +104,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	nrtMutated := nrt.DeepCopy()
 	te.updateNRTInfo(nrtMutated, info)
 
-	nrtUpdated, err := cli.TopologyV1alpha1().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
+	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
@@ -113,7 +113,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	return nil
 }
 
-func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha1.NodeResourceTopology, info MonitorInfo) {
+func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info MonitorInfo) {
 	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
 	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.TopologyPolicies = []string{te.tmPolicy}

@@ -19,29 +19,29 @@ package topologypolicy
 import (
 	"k8s.io/kubernetes/pkg/kubelet/apis/config"
 
-	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	v1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 )
 
 // DetectTopologyPolicy returns string type which present
 // both Topology manager policy and scope
-func DetectTopologyPolicy(policy string, scope string) v1alpha1.TopologyManagerPolicy {
+func DetectTopologyPolicy(policy string, scope string) v1alpha2.TopologyManagerPolicy {
 	switch policy {
 	case config.SingleNumaNodeTopologyManagerPolicy:
 		if scope == config.PodTopologyManagerScope {
-			return v1alpha1.SingleNUMANodePodLevel
+			return v1alpha2.SingleNUMANodePodLevel
 		} else if scope == config.ContainerTopologyManagerScope {
-			return v1alpha1.SingleNUMANodeContainerLevel
+			return v1alpha2.SingleNUMANodeContainerLevel
 		} else {
 			// default scope for single-numa-node
-			return v1alpha1.SingleNUMANodeContainerLevel
+			return v1alpha2.SingleNUMANodeContainerLevel
 		}
 	case config.RestrictedTopologyManagerPolicy:
-		return v1alpha1.Restricted
+		return v1alpha2.Restricted
 	case config.BestEffortTopologyManagerPolicy:
-		return v1alpha1.BestEffort
+		return v1alpha2.BestEffort
 	case config.NoneTopologyManagerPolicy:
-		return v1alpha1.None
+		return v1alpha2.None
 	default:
-		return v1alpha1.None
+		return v1alpha2.None
 	}
 }

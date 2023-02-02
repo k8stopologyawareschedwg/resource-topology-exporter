@@ -35,7 +35,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 
@@ -131,14 +131,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			}(f.ClientSet, f.PodClient(), sleeperPod)
 
 			ginkgo.By("getting the updated topology")
-			var finalNodeTopo *v1alpha1.NodeResourceTopology
+			var finalNodeTopo *v1alpha2.NodeResourceTopology
 			gomega.Eventually(func() bool {
 				if !started {
 					stopChan <- struct{}{}
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
@@ -193,14 +193,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			ginkgo.By("getting the updated topology")
 			var err error
-			var finalNodeTopo *v1alpha1.NodeResourceTopology
+			var finalNodeTopo *v1alpha2.NodeResourceTopology
 			gomega.Eventually(func() bool {
 				if !started {
 					stopChan <- struct{}{}
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
@@ -274,7 +274,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
 
-			var currNrt *v1alpha1.NodeResourceTopology
+			var currNrt *v1alpha2.NodeResourceTopology
 			prevNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 
 			if _, ok := prevNrt.Annotations[podfingerprint.Annotation]; !ok {
@@ -350,11 +350,11 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 })
 
-func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string, prevNrt v1alpha1.NodeResourceTopology, timeout time.Duration) *v1alpha1.NodeResourceTopology {
+func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string, prevNrt v1alpha2.NodeResourceTopology, timeout time.Duration) *v1alpha2.NodeResourceTopology {
 	var err error
-	var currNrt *v1alpha1.NodeResourceTopology
+	var currNrt *v1alpha2.NodeResourceTopology
 	gomega.EventuallyWithOffset(1, func() bool {
-		currNrt, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		currNrt, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			framework.Logf("failed to get the node topology resource: %v", err)
 			return false
@@ -383,7 +383,7 @@ func dumpPods(f *framework.Framework, nodeName, message string) {
 	framework.Logf("END pods running on %q: %s", nodeName, message)
 }
 
-func expectPodFingerprintAnnotations(nrt1 v1alpha1.NodeResourceTopology, mode string, nrt2 v1alpha1.NodeResourceTopology) bool {
+func expectPodFingerprintAnnotations(nrt1 v1alpha2.NodeResourceTopology, mode string, nrt2 v1alpha2.NodeResourceTopology) bool {
 	pfp1, ok1 := nrt1.Annotations[podfingerprint.Annotation]
 	if !ok1 {
 		framework.Logf("cannot find pod fingerprint annotation in NRT %q", nrt1.Name)
@@ -423,7 +423,7 @@ func expectDifferentPFPs(name1, pfp1, name2, pfp2 string) bool {
 	return true
 }
 
-func estimateUpdateInterval(nrt v1alpha1.NodeResourceTopology) (time.Duration, string, error) {
+func estimateUpdateInterval(nrt v1alpha2.NodeResourceTopology) (time.Duration, string, error) {
 	fallbackInterval, err := time.ParseDuration(e2etestenv.GetPollInterval())
 	if err != nil {
 		return fallbackInterval, "estimated", err

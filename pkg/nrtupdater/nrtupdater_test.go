@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/fake"
 )
 
@@ -45,11 +45,11 @@ func TestUpdateTMPolicy(t *testing.T) {
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
-			Zones: v1alpha1.ZoneList{
+			Zones: v1alpha2.ZoneList{
 				{
 					Name: "test-zone-0",
 					Type: "node",
-					Resources: v1alpha1.ResourceInfoList{
+					Resources: v1alpha2.ResourceInfoList{
 						{
 							Name:        string(corev1.ResourceCPU),
 							Capacity:    resource.MustParse("16"),
@@ -71,7 +71,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 		t.Fatalf("failed to perform the initial creation: %v", err)
 	}
 
-	nrtResource := schema.GroupVersionResource{Group: "topology.node.k8s.io", Version: "v1alpha1", Resource: "noderesourcetopologies"}
+	nrtResource := schema.GroupVersionResource{Group: "topology.node.k8s.io", Version: "v1alpha2", Resource: "noderesourcetopologies"}
 	obj, err := cli.Tracker().Get(nrtResource, "", nodeName)
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
@@ -82,11 +82,11 @@ func TestUpdateTMPolicy(t *testing.T) {
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
-			Zones: v1alpha1.ZoneList{
+			Zones: v1alpha2.ZoneList{
 				{
 					Name: "test-zone-0",
 					Type: "node",
-					Resources: v1alpha1.ResourceInfoList{
+					Resources: v1alpha2.ResourceInfoList{
 						{
 							Name:        string(corev1.ResourceCPU),
 							Capacity:    resource.MustParse("16"),
@@ -118,7 +118,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string) {
 	t.Helper()
 
-	nrtObj, ok := obj.(*v1alpha1.NodeResourceTopology)
+	nrtObj, ok := obj.(*v1alpha2.NodeResourceTopology)
 	if !ok {
 		t.Fatalf("provided object is not a NodeResourceTopology")
 	}
