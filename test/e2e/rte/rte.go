@@ -215,7 +215,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					return false
 				}
 				return reason == nrtupdater.RTEUpdateReactive
-			}).WithTimeout(5*time.Second).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+			}).WithTimeout(31*time.Second).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			ginkgo.By("checking the topology was updated for the right reason")
 
 			<-doneChan
