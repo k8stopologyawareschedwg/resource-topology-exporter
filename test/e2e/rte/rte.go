@@ -188,6 +188,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rteContainerName, "/bin/touch", rteNotifyFilePath)
+				framework.Logf("notification triggered, exiting")
 				doneChan <- struct{}{}
 			}()
 
@@ -209,11 +210,15 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					framework.Logf("resource %s not yet updated - resource version not bumped", topologyUpdaterNode.Name)
 					return false
 				}
+
+				framework.Logf("resource %s updated! - resource version bumped (old %v new %v)", topologyUpdaterNode.Name, initialNodeTopo.ObjectMeta.ResourceVersion, finalNodeTopo.ObjectMeta.ResourceVersion)
+
 				reason, ok := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
 				if !ok {
 					framework.Logf("resource %s missing annotation!", topologyUpdaterNode.Name)
 					return false
 				}
+				framework.Logf("resource %s reason %v expected %v", topologyUpdaterNode.Name, reason, nrtupdater.RTEUpdateReactive)
 				return reason == nrtupdater.RTEUpdateReactive
 			}).WithTimeout(31*time.Second).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			ginkgo.By("checking the topology was updated for the right reason")
