@@ -162,6 +162,10 @@ func (es *UnlimitedEventSource) AddDirs(kubeletStateDirs []string) error {
 		return nil
 	}
 
+	klog.Infof("**DEPRECATED** watching state directories is insecure and has known issues")
+	klog.Infof("**DEPRECATED** watching state directories will be removed in a future version")
+	klog.Infof("**DEPRECATED** please use notification file instead")
+
 	dirCount := 0
 	for _, stateDir := range kubeletStateDirs {
 		klog.Infof("kubelet state dir: [%s]", stateDir)
