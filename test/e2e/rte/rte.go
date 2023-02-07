@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 
@@ -116,20 +117,18 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			doneChan := make(chan struct{})
 			started := false
 
-			go func() {
+			go func(cs clientset.Interface, podCli *framework.PodClient, refPod *corev1.Pod) {
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
 
-				pod := f.PodClient().CreateSync(sleeperPod)
-				podNamespace, podName := pod.Namespace, pod.Name
-				cs := f.ClientSet
+				pod := podCli.CreateSync(refPod)
 				ginkgo.By("waiting for at least poll interval seconds with the test pod running...")
 				time.Sleep(updateInterval * 3)
-				e2epods.DeletePodSyncByName(cs, podNamespace, podName)
+				e2epods.DeletePodSyncByName(cs, pod.Namespace, pod.Name)
 
 				doneChan <- struct{}{}
-			}()
+			}(f.ClientSet, f.PodClient(), sleeperPod)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha1.NodeResourceTopology

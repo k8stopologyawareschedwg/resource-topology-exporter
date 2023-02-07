@@ -111,7 +111,7 @@ func DeletePodSyncByName(cs clientset.Interface, podNamespace, podName string) e
 	delOpts := metav1.DeleteOptions{
 		GracePeriodSeconds: &gp,
 	}
-	framework.Logf("Deleting pod %s/%s cs=%v", podNamespace, podName, cs)
+	framework.Logf("Deleting pod %s/%s", podNamespace, podName)
 	err := cs.CoreV1().Pods(podNamespace).Delete(context.TODO(), podName, delOpts)
 	if err != nil && !apierrors.IsNotFound(err) {
 		framework.Failf("Failed to delete pod %q: %v", podName, err)
