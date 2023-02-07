@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 
 	ginkgo.Context("with cluster configured", func() {
-		ginkgo.It("[StateDirectories] it should react to pod changes using the smart poller", func() {
+		ginkgo.It("[DEPRECATED][StateDirectories] it should react to pod changes using the smart poller", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			if len(nodes) < 1 {
