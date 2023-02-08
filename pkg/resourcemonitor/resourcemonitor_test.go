@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 )
@@ -460,28 +460,28 @@ func TestResourcesScan(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
-			expected := topologyv1alpha1.ZoneList{
-				topologyv1alpha1.Zone{
+			expected := topologyv1alpha2.ZoneList{
+				topologyv1alpha2.Zone{
 					Name: "node-0",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 10,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 20,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("12"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("4"),
 							Allocatable: resource.MustParse("4"),
@@ -489,33 +489,33 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-				topologyv1alpha1.Zone{
+				topologyv1alpha2.Zone{
 					Name: "node-1",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 20,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 10,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("12"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/gpu",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("2"),
 							Allocatable: resource.MustParse("2"),
@@ -529,22 +529,10 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			scanRes, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
 
-			sort.Slice(res, func(i, j int) bool {
-				return res[i].Name < res[j].Name
-			})
-			for _, resource := range res {
-				sort.Slice(resource.Costs, func(x, y int) bool {
-					return resource.Costs[x].Name < resource.Costs[y].Name
-				})
-			}
-			for _, resource := range res {
-				sort.Slice(resource.Resources, func(x, y int) bool {
-					return resource.Resources[x].Name < resource.Resources[y].Name
-				})
-			}
+			res := scanRes.SortedZones()
 			log.Printf("result=%v", res)
 			log.Printf("expected=%v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
@@ -569,28 +557,28 @@ func TestResourcesScan(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
-			expected := topologyv1alpha1.ZoneList{
-				topologyv1alpha1.Zone{
+			expected := topologyv1alpha2.ZoneList{
+				topologyv1alpha2.Zone{
 					Name: "node-0",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 10,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 20,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("11"),
 							Allocatable: resource.MustParse("11"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("4"),
 							Allocatable: resource.MustParse("4"),
@@ -598,33 +586,33 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-				topologyv1alpha1.Zone{
+				topologyv1alpha2.Zone{
 					Name: "node-1",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 20,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 10,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("11"),
 							Allocatable: resource.MustParse("11"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/gpu",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("2"),
 							Allocatable: resource.MustParse("2"),
@@ -638,22 +626,10 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			scanRes, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
 			So(err, ShouldBeNil)
 
-			sort.Slice(res, func(i, j int) bool {
-				return res[i].Name < res[j].Name
-			})
-			for _, resource := range res {
-				sort.Slice(resource.Costs, func(x, y int) bool {
-					return resource.Costs[x].Name < resource.Costs[y].Name
-				})
-			}
-			for _, resource := range res {
-				sort.Slice(resource.Resources, func(x, y int) bool {
-					return resource.Resources[x].Name < resource.Resources[y].Name
-				})
-			}
+			res := scanRes.SortedZones()
 			log.Printf("result=%v", res)
 			log.Printf("expected=%v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
@@ -762,34 +738,34 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			expected := topologyv1alpha1.ZoneList{
-				topologyv1alpha1.Zone{
+			expected := topologyv1alpha2.ZoneList{
+				topologyv1alpha2.Zone{
 					Name: "node-0",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 10,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 20,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("12"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/resourceToBeExcluded",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
@@ -797,39 +773,39 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-				topologyv1alpha1.Zone{
+				topologyv1alpha2.Zone{
 					Name: "node-1",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 20,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 10,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("10"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/gpu",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("0"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/resourceToBeExcluded",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
@@ -846,8 +822,11 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(excludeList)
+			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+
+			res := scanRes.Zones.DeepCopy()
+
 			// Check if resources were excluded correctly
 			for _, zone := range res {
 				for _, resource := range zone.Resources {
@@ -857,7 +836,7 @@ func TestResourcesScan(t *testing.T) {
 
 			// Add devices after they have been removed by the exclude list
 			for i := range res {
-				res[i].Resources = append(res[i].Resources, topologyv1alpha1.ResourceInfo{
+				res[i].Resources = append(res[i].Resources, topologyv1alpha2.ResourceInfo{
 					Name:        "fake.io/resourceToBeExcluded",
 					Available:   resource.MustParse("1"),
 					Allocatable: resource.MustParse("1"),
@@ -930,34 +909,34 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			expected := topologyv1alpha1.ZoneList{
-				topologyv1alpha1.Zone{
+			expected := topologyv1alpha2.ZoneList{
+				topologyv1alpha2.Zone{
 					Name: "node-0",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 10,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 20,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("11"),
 							Allocatable: resource.MustParse("11"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/resourceToBeExcluded",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
@@ -965,39 +944,39 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-				topologyv1alpha1.Zone{
+				topologyv1alpha2.Zone{
 					Name: "node-1",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 20,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 10,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("10"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/gpu",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("0"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/resourceToBeExcluded",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
@@ -1014,8 +993,10 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(excludeList)
+			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+
+			res := scanRes.Zones.DeepCopy()
 			// Check if resources were excluded correctly
 			for _, zone := range res {
 				for _, resource := range zone.Resources {
@@ -1025,7 +1006,7 @@ func TestResourcesScan(t *testing.T) {
 
 			// Add devices after they have been removed by the exclude list
 			for i := range res {
-				res[i].Resources = append(res[i].Resources, topologyv1alpha1.ResourceInfo{
+				res[i].Resources = append(res[i].Resources, topologyv1alpha2.ResourceInfo{
 					Name:        "fake.io/resourceToBeExcluded",
 					Available:   resource.MustParse("1"),
 					Allocatable: resource.MustParse("1"),
@@ -1151,34 +1132,34 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			expected := topologyv1alpha1.ZoneList{
-				topologyv1alpha1.Zone{
+			expected := topologyv1alpha2.ZoneList{
+				topologyv1alpha2.Zone{
 					Name: "node-0",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 10,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 20,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("12"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/resourceToBeExcluded",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
@@ -1186,39 +1167,39 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-				topologyv1alpha1.Zone{
+				topologyv1alpha2.Zone{
 					Name: "node-1",
 					Type: "Node",
-					Costs: topologyv1alpha1.CostList{
-						topologyv1alpha1.CostInfo{
+					Costs: topologyv1alpha2.CostList{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-0",
 							Value: 20,
 						},
-						topologyv1alpha1.CostInfo{
+						topologyv1alpha2.CostInfo{
 							Name:  "node-1",
 							Value: 10,
 						},
 					},
-					Resources: topologyv1alpha1.ResourceInfoList{
-						topologyv1alpha1.ResourceInfo{
+					Resources: topologyv1alpha2.ResourceInfoList{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("10"),
 							Allocatable: resource.MustParse("12"),
 							Capacity:    resource.MustParse("12"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/gpu",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/net",
 							Available:   resource.MustParse("0"),
 							Allocatable: resource.MustParse("1"),
 							Capacity:    resource.MustParse("1"),
 						},
-						topologyv1alpha1.ResourceInfo{
+						topologyv1alpha2.ResourceInfo{
 							Name:        "fake.io/resourceToBeExcluded",
 							Available:   resource.MustParse("1"),
 							Allocatable: resource.MustParse("1"),
@@ -1235,8 +1216,10 @@ func TestResourcesScan(t *testing.T) {
 			}
 
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			res, _, err := resMon.Scan(excludeList)
+			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+
+			res := scanRes.Zones.DeepCopy()
 			// Check if resources were excluded correctly
 			for _, zone := range res {
 				for _, resource := range zone.Resources {
@@ -1246,7 +1229,7 @@ func TestResourcesScan(t *testing.T) {
 
 			// Add devices after they have been removed by the exclude list
 			for i := range res {
-				res[i].Resources = append(res[i].Resources, topologyv1alpha1.ResourceInfo{
+				res[i].Resources = append(res[i].Resources, topologyv1alpha2.ResourceInfo{
 					Name:        "fake.io/resourceToBeExcluded",
 					Available:   resource.MustParse("1"),
 					Allocatable: resource.MustParse("1"),
@@ -1363,10 +1346,10 @@ func TestResourcesScan(t *testing.T) {
 
 			mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			_, ann, err := resMon.Scan(ResourceExcludeList{})
+			scanRes, err := resMon.Scan(ResourceExcludeList{})
 
 			expectedFP := "pfp0v001fe53c4dbd2c5f4a0" // pre-computed and validated manually
-			fp, ok := ann[podfingerprint.Annotation]
+			fp, ok := scanRes.Annotations[podfingerprint.Annotation]
 			So(ok, ShouldBeTrue)
 			log.Printf("FP %q expected %q", fp, expectedFP)
 			So(cmp.Equal(fp, expectedFP), ShouldBeTrue)

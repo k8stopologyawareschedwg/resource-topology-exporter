@@ -17,6 +17,7 @@ limitations under the License.
 package nrtupdater
 
 import (
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/fake"
 )
 
@@ -40,16 +41,25 @@ func TestUpdateTMPolicy(t *testing.T) {
 	policyInitial := "policy-initial"
 	policyUpdated := "policy-updated"
 
+	tmConfInitial := TMConfig{
+		Scope:  "scope-initial",
+		Policy: "policy-initial",
+	}
+	tmConfUpdated := TMConfig{
+		Scope:  "scope-updated",
+		Policy: "polcy-updated",
+	}
+
 	var err error
-	nrtUpd = NewNRTUpdater(args, policyInitial)
+	nrtUpd = NewNRTUpdater(args, policyInitial, tmConfInitial)
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
-			Zones: v1alpha1.ZoneList{
+			Zones: v1alpha2.ZoneList{
 				{
 					Name: "test-zone-0",
 					Type: "node",
-					Resources: v1alpha1.ResourceInfoList{
+					Resources: v1alpha2.ResourceInfoList{
 						{
 							Name:        string(corev1.ResourceCPU),
 							Capacity:    resource.MustParse("16"),
@@ -71,22 +81,22 @@ func TestUpdateTMPolicy(t *testing.T) {
 		t.Fatalf("failed to perform the initial creation: %v", err)
 	}
 
-	nrtResource := schema.GroupVersionResource{Group: "topology.node.k8s.io", Version: "v1alpha1", Resource: "noderesourcetopologies"}
+	nrtResource := schema.GroupVersionResource{Group: "topology.node.k8s.io", Version: "v1alpha2", Resource: "noderesourcetopologies"}
 	obj, err := cli.Tracker().Get(nrtResource, "", nodeName)
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkTMPolicy(t, obj, policyInitial)
+	checkTMPolicy(t, obj, policyInitial, tmConfInitial)
 
-	nrtUpd = NewNRTUpdater(args, policyUpdated)
+	nrtUpd = NewNRTUpdater(args, policyUpdated, tmConfUpdated)
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
-			Zones: v1alpha1.ZoneList{
+			Zones: v1alpha2.ZoneList{
 				{
 					Name: "test-zone-0",
 					Type: "node",
-					Resources: v1alpha1.ResourceInfoList{
+					Resources: v1alpha2.ResourceInfoList{
 						{
 							Name:        string(corev1.ResourceCPU),
 							Capacity:    resource.MustParse("16"),
@@ -112,13 +122,13 @@ func TestUpdateTMPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkTMPolicy(t, obj, policyUpdated)
+	checkTMPolicy(t, obj, policyUpdated, tmConfUpdated)
 }
 
-func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string) {
+func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string, expectedConf TMConfig) {
 	t.Helper()
 
-	nrtObj, ok := obj.(*v1alpha1.NodeResourceTopology)
+	nrtObj, ok := obj.(*v1alpha2.NodeResourceTopology)
 	if !ok {
 		t.Fatalf("provided object is not a NodeResourceTopology")
 	}
@@ -128,4 +138,23 @@ func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string) {
 	if nrtObj.TopologyPolicies[0] != expectedPolicy {
 		t.Fatalf("topology policy mismatch: expected %q got %q", expectedPolicy, nrtObj.TopologyPolicies[0])
 	}
+	gotConf := tmConfigFromAttributes(nrtObj.Attributes)
+	if !reflect.DeepEqual(gotConf, expectedConf) {
+		t.Fatalf("config got=%+#v expected=%+#v", gotConf, expectedConf)
+	}
+}
+
+func tmConfigFromAttributes(attrs v1alpha2.AttributeList) TMConfig {
+	conf := TMConfig{}
+	for _, attr := range attrs {
+		if attr.Name == "topologyManagerScope" {
+			conf.Scope = attr.Value
+			continue
+		}
+		if attr.Name == "topologyManagerPolicy" {
+			conf.Policy = attr.Value
+			continue
+		}
+	}
+	return conf
 }

@@ -35,7 +35,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 
@@ -131,14 +131,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			}(f.ClientSet, f.PodClient(), sleeperPod)
 
 			ginkgo.By("getting the updated topology")
-			var finalNodeTopo *v1alpha1.NodeResourceTopology
+			var finalNodeTopo *v1alpha2.NodeResourceTopology
 			gomega.Eventually(func() bool {
 				if !started {
 					stopChan <- struct{}{}
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
@@ -193,14 +193,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			ginkgo.By("getting the updated topology")
 			var err error
-			var finalNodeTopo *v1alpha1.NodeResourceTopology
+			var finalNodeTopo *v1alpha2.NodeResourceTopology
 			gomega.Eventually(func() bool {
 				if !started {
 					stopChan <- struct{}{}
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					framework.Logf("failed to get the node topology resource: %v", err)
 					return false
@@ -235,7 +235,10 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			framework.Logf("Initial NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
 
 			if _, ok := prevNrt.Annotations[podfingerprint.Annotation]; !ok {
-				ginkgo.Skip("pod fingerprinting not found - assuming disabled")
+				ginkgo.Skip("pod fingerprinting annotation not found - assuming disabled")
+			}
+			if _, ok := findAttribute(prevNrt.Attributes, podfingerprint.Attribute); !ok {
+				ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
 			}
 
 			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
@@ -257,7 +260,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			// note we don't test no pods have been added/deleted. This is because the suite is supposed to own the cluster while it runs
 			// IOW, if we don't create/delete pods explicitely, noone else is supposed to do
-			pfpStable := expectPodFingerprintAnnotations(*prevNrt, "==", *currNrt)
+			pfpStable := expectPodFingerprint(*prevNrt, "==", *currNrt)
 			if !pfpStable {
 				dumpPods(f, topologyUpdaterNode.Name, "after PFP mismatch")
 				// ignore errors and carry on. We don't want to fail the test because of missing debug info.
@@ -274,11 +277,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
 
-			var currNrt *v1alpha1.NodeResourceTopology
+			var currNrt *v1alpha2.NodeResourceTopology
 			prevNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 
 			if _, ok := prevNrt.Annotations[podfingerprint.Annotation]; !ok {
 				ginkgo.Skip("pod fingerprinting not found - assuming disabled")
+			}
+			if _, ok := findAttribute(prevNrt.Attributes, podfingerprint.Attribute); !ok {
+				ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
 			}
 
 			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
@@ -296,7 +302,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			currNrt = getUpdatedNRT(topologyClient, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
-			pfpChanged := expectPodFingerprintAnnotations(*prevNrt, "!=", *currNrt)
+			pfpChanged := expectPodFingerprint(*prevNrt, "!=", *currNrt)
 			errMessage := "PFP did not change after pod creation"
 			if !pfpChanged {
 				dumpPods(f, topologyUpdaterNode.Name, errMessage)
@@ -309,7 +315,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			currNrt = getUpdatedNRT(topologyClient, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
-			pfpChanged = expectPodFingerprintAnnotations(*prevNrt, "!=", *currNrt)
+			pfpChanged = expectPodFingerprint(*prevNrt, "!=", *currNrt)
 			errMessage = "PFP did not change after pod deletion"
 			if !pfpChanged {
 				dumpPods(f, topologyUpdaterNode.Name, errMessage)
@@ -350,11 +356,11 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 })
 
-func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string, prevNrt v1alpha1.NodeResourceTopology, timeout time.Duration) *v1alpha1.NodeResourceTopology {
+func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string, prevNrt v1alpha2.NodeResourceTopology, timeout time.Duration) *v1alpha2.NodeResourceTopology {
 	var err error
-	var currNrt *v1alpha1.NodeResourceTopology
+	var currNrt *v1alpha2.NodeResourceTopology
 	gomega.EventuallyWithOffset(1, func() bool {
-		currNrt, err = topologyClient.TopologyV1alpha1().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		currNrt, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
 		if err != nil {
 			framework.Logf("failed to get the node topology resource: %v", err)
 			return false
@@ -383,16 +389,14 @@ func dumpPods(f *framework.Framework, nodeName, message string) {
 	framework.Logf("END pods running on %q: %s", nodeName, message)
 }
 
-func expectPodFingerprintAnnotations(nrt1 v1alpha1.NodeResourceTopology, mode string, nrt2 v1alpha1.NodeResourceTopology) bool {
-	pfp1, ok1 := nrt1.Annotations[podfingerprint.Annotation]
+func expectPodFingerprint(nrt1 v1alpha2.NodeResourceTopology, mode string, nrt2 v1alpha2.NodeResourceTopology) bool {
+	pfp1, ok1 := extractPFP(nrt1)
 	if !ok1 {
-		framework.Logf("cannot find pod fingerprint annotation in NRT %q", nrt1.Name)
 		return false
 	}
 
-	pfp2, ok2 := nrt2.Annotations[podfingerprint.Annotation]
+	pfp2, ok2 := extractPFP(nrt2)
 	if !ok2 {
-		framework.Logf("cannot find pod fingerprint annotation in NRT %q", nrt2.Name)
 		return false
 	}
 
@@ -405,6 +409,24 @@ func expectPodFingerprintAnnotations(nrt1 v1alpha1.NodeResourceTopology, mode st
 		framework.Logf("unsupported comparison mode %q", mode)
 		return false
 	}
+}
+
+func extractPFP(nrt v1alpha2.NodeResourceTopology) (string, bool) {
+	pfpAnn, okAnn := nrt.Annotations[podfingerprint.Annotation]
+	if !okAnn {
+		framework.Logf("cannot find pod fingerprint annotation in NRT %q", nrt.Name)
+		return "", false
+	}
+	pfpAttr, okAttr := findAttribute(nrt.Attributes, podfingerprint.Attribute)
+	if !okAttr {
+		framework.Logf("cannot find pod fingerprint attribute in NRT %q", nrt.Name)
+		return "", false
+	}
+	if pfpAnn != pfpAttr {
+		framework.Logf("PFP mismatch in %q  annotation=%q attribute=%q", nrt.Name, pfpAnn, pfpAttr)
+		return "", false
+	}
+	return pfpAttr, true
 }
 
 func expectEqualPFPs(name1, pfp1, name2, pfp2 string) bool {
@@ -423,7 +445,7 @@ func expectDifferentPFPs(name1, pfp1, name2, pfp2 string) bool {
 	return true
 }
 
-func estimateUpdateInterval(nrt v1alpha1.NodeResourceTopology) (time.Duration, string, error) {
+func estimateUpdateInterval(nrt v1alpha2.NodeResourceTopology) (time.Duration, string, error) {
 	fallbackInterval, err := time.ParseDuration(e2etestenv.GetPollInterval())
 	if err != nil {
 		return fallbackInterval, "estimated", err
@@ -475,4 +497,13 @@ func dumpRTELogs(f *framework.Framework, nodeName string) error {
 
 	framework.Logf("RTE logs:\n%s", logs)
 	return nil
+}
+
+func findAttribute(attrs v1alpha2.AttributeList, name string) (string, bool) {
+	for _, attr := range attrs {
+		if attr.Name == name {
+			return attr.Value, true
+		}
+	}
+	return "", false
 }

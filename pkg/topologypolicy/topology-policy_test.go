@@ -20,56 +20,56 @@ import (
 	"fmt"
 	"testing"
 
-	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	v1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 )
 
 func TestHugepageResourceName(t *testing.T) {
 	type testCase struct {
 		policy   string
 		scope    string
-		expected v1alpha1.TopologyManagerPolicy
+		expected v1alpha2.TopologyManagerPolicy
 	}
 
 	testCases := []testCase{
 		{
 			policy:   "single-numa-node",
 			scope:    "container",
-			expected: v1alpha1.SingleNUMANodeContainerLevel,
+			expected: v1alpha2.SingleNUMANodeContainerLevel,
 		},
 		{
 			policy:   "single-numa-node",
 			scope:    "pod",
-			expected: v1alpha1.SingleNUMANodePodLevel,
+			expected: v1alpha2.SingleNUMANodePodLevel,
 		},
 		{
 			policy:   "restricted",
 			scope:    "container",
-			expected: v1alpha1.Restricted,
+			expected: v1alpha2.Restricted,
 		},
 		{
 			policy:   "restricted",
 			scope:    "pod",
-			expected: v1alpha1.Restricted,
+			expected: v1alpha2.Restricted,
 		},
 		{
 			policy:   "best-effort",
 			scope:    "container",
-			expected: v1alpha1.BestEffort,
+			expected: v1alpha2.BestEffort,
 		},
 		{
 			policy:   "best-effort",
 			scope:    "pod",
-			expected: v1alpha1.BestEffort,
+			expected: v1alpha2.BestEffort,
 		},
 		{
 			policy:   "none",
 			scope:    "container",
-			expected: v1alpha1.None,
+			expected: v1alpha2.None,
 		},
 		{
 			policy:   "none",
 			scope:    "pod",
-			expected: v1alpha1.None,
+			expected: v1alpha2.None,
 		},
 	}
 

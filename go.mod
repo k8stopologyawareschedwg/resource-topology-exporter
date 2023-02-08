@@ -8,8 +8,8 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.8
 	github.com/jaypipes/ghw v0.8.1-0.20210609141030-acb1a36eaf89
-	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.0.12
-	github.com/k8stopologyawareschedwg/podfingerprint v0.1.1
+	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.1.0
+	github.com/k8stopologyawareschedwg/podfingerprint v0.1.2
 	github.com/mdomke/git-semver v1.0.0
 	github.com/onsi/ginkgo/v2 v2.4.0
 	github.com/onsi/gomega v1.22.1

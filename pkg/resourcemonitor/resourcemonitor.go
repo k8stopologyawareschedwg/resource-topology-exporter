@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,8 @@ import (
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
-	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
+	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
@@ -61,8 +63,32 @@ type Args struct {
 	PodSetFingerprintStatusFile string
 }
 
+type ScanResponse struct {
+	Zones       v1alpha2.ZoneList
+	Attributes  v1alpha2.AttributeList
+	Annotations map[string]string
+}
+
+func (sr ScanResponse) SortedZones() v1alpha2.ZoneList {
+	res := sr.Zones.DeepCopy()
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
+	for _, resource := range res {
+		sort.Slice(resource.Costs, func(x, y int) bool {
+			return resource.Costs[x].Name < resource.Costs[y].Name
+		})
+	}
+	for _, resource := range res {
+		sort.Slice(resource.Resources, func(x, y int) bool {
+			return resource.Resources[x].Name < resource.Resources[y].Name
+		})
+	}
+	return res
+}
+
 type ResourceMonitor interface {
-	Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error)
+	Scan(excludeList ResourceExcludeList) (ScanResponse, error)
 }
 
 // ToMapSet keeps the original keys, but replaces values with set.String types
@@ -174,23 +200,30 @@ func WithNodeName(name string) func(*resourceMonitor) {
 	}
 }
 
-func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alpha1.ZoneList, map[string]string, error) {
+func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (ScanResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
 	if err != nil {
 		prometheus.UpdatePodResourceApiCallsFailureMetric("list")
-		return nil, nil, err
+		return ScanResponse{}, err
 	}
 
 	var st podfingerprint.Status
-	annotations := make(map[string]string)
+	scanRes := ScanResponse{
+		Attributes:  topologyv1alpha2.AttributeList{},
+		Annotations: map[string]string{},
+	}
 
 	respPodRes := resp.GetPodResources()
 
 	if rm.args.PodSetFingerprint {
 		pfpSign := ComputePodFingerprint(respPodRes, &st)
-		annotations[podfingerprint.Annotation] = pfpSign
+		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
+			Name:  podfingerprint.Attribute,
+			Value: pfpSign,
+		})
+		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
 		klog.V(6).Infof("pfp: " + st.Repr())
 	}
 
@@ -198,14 +231,14 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 	allocated := ContainerDevicesToPerNUMAResourceCounters(allDevs)
 
 	excludeSet := excludeList.ToMapSet()
-	zones := make(topologyv1alpha1.ZoneList, 0)
+	zones := make(topologyv1alpha2.ZoneList, 0, len(rm.topo.Nodes))
 	// if there are no allocatable resources under a NUMA we might ended up with holes in the NRT objects.
 	// this is why we're using the topology info and not the nodeAllocatable
 	for nodeID := range rm.topo.Nodes {
-		zone := topologyv1alpha1.Zone{
+		zone := topologyv1alpha2.Zone{
 			Name:      makeZoneName(nodeID),
 			Type:      "Node",
-			Resources: make(topologyv1alpha1.ResourceInfoList, 0),
+			Resources: make(topologyv1alpha2.ResourceInfoList, 0),
 		}
 
 		costs, err := makeCostsPerNumaNode(rm.topo.Nodes, nodeID)
@@ -264,7 +297,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 				resAvail = 0
 			}
 
-			zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
+			zone.Resources = append(zone.Resources, topologyv1alpha2.ResourceInfo{
 				Name:        resName.String(),
 				Available:   *resource.NewQuantity(resAvail, resource.DecimalSI),
 				Allocatable: *resource.NewQuantity(resAlloc, resource.DecimalSI),
@@ -274,6 +307,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 
 		zones = append(zones, zone)
 	}
+	scanRes.Zones = zones
 
 	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
 		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
@@ -281,7 +315,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (topologyv1alph
 		klog.V(6).InfoS("error dumping the pfp status to %q (%v): %v", rm.args.PodSetFingerprintStatusFile, file, err)
 		// intentionally ignore error, we must keep going.
 	}
-	return zones, annotations, nil
+	return scanRes, nil
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
@@ -474,15 +508,15 @@ func MakeCoreIDToNodeIDMap(topo *ghw.TopologyInfo) map[int]int {
 }
 
 // makeCostsPerNumaNode builds the cost map to reach all the known NUMA zones (mapping (numa zone) -> cost) starting from the given NUMA zone.
-func makeCostsPerNumaNode(nodes []*ghw.TopologyNode, nodeIDSrc int) ([]topologyv1alpha1.CostInfo, error) {
+func makeCostsPerNumaNode(nodes []*ghw.TopologyNode, nodeIDSrc int) ([]topologyv1alpha2.CostInfo, error) {
 	nodeSrc := findNodeByID(nodes, nodeIDSrc)
 	if nodeSrc == nil {
 		return nil, fmt.Errorf("unknown node: %d", nodeIDSrc)
 	}
-	nodeCosts := make([]topologyv1alpha1.CostInfo, 0, len(nodeSrc.Distances))
+	nodeCosts := make([]topologyv1alpha2.CostInfo, 0, len(nodeSrc.Distances))
 	for nodeIDDst, dist := range nodeSrc.Distances {
 		// TODO: this assumes there are no holes (= no offline node) in the distance vector
-		nodeCosts = append(nodeCosts, topologyv1alpha1.CostInfo{
+		nodeCosts = append(nodeCosts, topologyv1alpha2.CostInfo{
 			Name:  makeZoneName(nodeIDDst),
 			Value: int64(dist),
 		})

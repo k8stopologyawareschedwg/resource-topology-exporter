@@ -3,7 +3,7 @@ package dump
 import (
 	"testing"
 
-	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 )
 
 func TestDumpObject(t *testing.T) {
@@ -21,7 +21,7 @@ func TestDumpObject(t *testing.T) {
 		},
 		{
 			name:     "empty topology zone",
-			obj:      v1alpha1.Zone{},
+			obj:      v1alpha2.Zone{},
 			expected: "name: \"\"\ntype: \"\"\n",
 		},
 	}

@@ -52,6 +52,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 		select {
 		case ev := <-eventsChan:
 			var err error
+
 			monInfo := nrtupdater.MonitorInfo{Timer: ev.IsTimer()}
 
 			tsWakeupDiff := ev.Timestamp.Sub(lastWakeup)
@@ -59,8 +60,12 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
 			tsBegin := time.Now()
-			monInfo.Zones, monInfo.Annotations, err = rm.resMon.Scan(rm.excludeList)
+			scanRes, err := rm.resMon.Scan(rm.excludeList)
 			tsEnd := time.Now()
+
+			monInfo.Annotations = scanRes.Annotations
+			monInfo.Attributes = scanRes.Attributes
+			monInfo.Zones = scanRes.Zones
 
 			if rm.exposeTiming {
 				monInfo.Annotations[k8sannotations.SleepDuration] = clampTime(tsWakeupDiff.Round(time.Second)).String()
