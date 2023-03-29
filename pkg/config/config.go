@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
@@ -59,6 +60,7 @@ type kubeletParams struct {
 type config struct {
 	Kubelet         kubeletParams                   `json:"kubelet,omitempty"`
 	ResourceExclude resourcemonitor.ResourceExclude `json:"resourceExclude,omitempty"`
+	PodExclude      podexclude.List                 `json:"podExclude,omitempty"`
 }
 
 func readConfig(configPath string) (config, error) {
@@ -160,6 +162,11 @@ func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
 	if len(conf.ResourceExclude) > 0 {
 		pArgs.Resourcemonitor.ResourceExclude = conf.ResourceExclude
 		klog.V(2).Infof("using resources exclude:\n%s", pArgs.Resourcemonitor.ResourceExclude.String())
+	}
+
+	if len(conf.PodExclude) > 0 {
+		pArgs.Resourcemonitor.PodExclude = conf.PodExclude
+		klog.V(2).Infof("using pod excludes:\n%s", pArgs.Resourcemonitor.PodExclude.String())
 	}
 
 	if pArgs.RTE.TopologyManagerPolicy == "" {

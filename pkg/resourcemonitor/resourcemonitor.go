@@ -42,6 +42,7 @@ import (
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
@@ -61,6 +62,7 @@ type Args struct {
 	PodSetFingerprint           bool
 	ExposeTiming                bool
 	PodSetFingerprintStatusFile string
+	PodExclude                  podexclude.List
 }
 
 type ScanResponse struct {

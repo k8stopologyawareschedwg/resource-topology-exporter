@@ -8,6 +8,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/config"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
@@ -52,6 +53,10 @@ func main() {
 	}
 
 	cli = sharedcpuspool.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
+
+	if len(parsedArgs.Resourcemonitor.PodExclude) > 0 {
+		cli = podexclude.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.Resourcemonitor.PodExclude)
+	}
 
 	err = prometheus.InitPrometheus()
 	if err != nil {
