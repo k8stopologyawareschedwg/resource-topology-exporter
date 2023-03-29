@@ -14,7 +14,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/ratelimiter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/topologypolicy"
@@ -22,7 +22,7 @@ import (
 
 type Args struct {
 	Debug                  bool
-	ReferenceContainer     *podrescli.ContainerIdent
+	ReferenceContainer     *sharedcpuspool.ContainerIdent
 	TopologyManagerPolicy  string
 	TopologyManagerScope   string
 	KubeletConfigFile      string

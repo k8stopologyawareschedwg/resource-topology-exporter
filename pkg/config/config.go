@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
@@ -144,7 +144,7 @@ Special targets:
 		return pArgs, err
 	}
 	if pArgs.RTE.ReferenceContainer.IsEmpty() {
-		pArgs.RTE.ReferenceContainer = podrescli.ContainerIdentFromEnv()
+		pArgs.RTE.ReferenceContainer = sharedcpuspool.ContainerIdentFromEnv()
 	}
 
 	conf, err := readConfig(configPath)
@@ -182,14 +182,14 @@ func setKubeletStateDirs(value string) ([]string, error) {
 	return ksd, nil
 }
 
-func setContainerIdent(value string) (*podrescli.ContainerIdent, error) {
-	ci, err := podrescli.ContainerIdentFromString(value)
+func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {
+	ci, err := sharedcpuspool.ContainerIdentFromString(value)
 	if err != nil {
 		return nil, err
 	}
 
 	if ci == nil {
-		return &podrescli.ContainerIdent{}, nil
+		return &sharedcpuspool.ContainerIdent{}, nil
 	}
 
 	return ci, nil

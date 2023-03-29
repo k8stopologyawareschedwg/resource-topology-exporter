@@ -1,4 +1,4 @@
-package podrescli
+package sharedcpuspool
 
 import (
 	"context"
@@ -6,20 +6,12 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc"
 
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
-	"k8s.io/kubernetes/pkg/kubelet/apis/podresources"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
-)
-
-const (
-	defaultPodResourcesTimeout = 10 * time.Second
-	defaultPodResourcesMaxSize = 1024 * 1024 * 16 // 16 Mb
-	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
 )
 
 type ContainerIdent struct {
@@ -120,26 +112,12 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 	return fc.FilterAllocatableResponse(resp), nil
 }
 
-func NewK8SClient(socketPath string) (podresourcesapi.PodResourcesListerClient, error) {
-	cli, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
-	return cli, err
-}
-
-func NewFilteringClient(socketPath string, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
-	cli, err := NewK8SClient(socketPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create podresource client: %w", err)
-	}
-	klog.V(4).Infof("connected to %q", socketPath)
-	return NewFilteringClientFromLister(cli, debug, referenceContainer)
-}
-
-func NewFilteringClientFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, referenceContainer *ContainerIdent) (podresourcesapi.PodResourcesListerClient, error) {
+func NewFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, referenceContainer *ContainerIdent) podresourcesapi.PodResourcesListerClient {
 	return &filteringClient{
 		debug:  debug,
 		cli:    cli,
 		refCnt: referenceContainer,
-	}, nil
+	}
 }
 
 func findSharedPoolCPUsInListResponse(refCnt *ContainerIdent, podResources []*podresourcesapi.PodResources) cpuset.CPUSet {

@@ -7,7 +7,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/config"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
@@ -45,10 +46,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	cli, err := podrescli.NewFilteringClient(parsedArgs.RTE.PodResourcesSocketPath, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
+	cli, err := podres.GetClient(parsedArgs.RTE.PodResourcesSocketPath)
 	if err != nil {
 		klog.Fatalf("failed to get podresources client: %v", err)
 	}
+
+	cli = sharedcpuspool.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
 
 	err = prometheus.InitPrometheus()
 	if err != nil {

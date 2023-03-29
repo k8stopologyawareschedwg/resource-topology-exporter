@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
@@ -74,7 +74,7 @@ func TestReferenceContainer(t *testing.T) {
 		t.Errorf("invalid data, got %v expected %v", pArgs.RTE.KubeletStateDirs, expectedDirs)
 	}
 
-	expectedRefCnt := podrescli.ContainerIdent{Namespace: "ns", PodName: "pod", ContainerName: "cont"}
+	expectedRefCnt := sharedcpuspool.ContainerIdent{Namespace: "ns", PodName: "pod", ContainerName: "cont"}
 	if pArgs.RTE.ReferenceContainer.String() != expectedRefCnt.String() {
 		t.Errorf("invalid data, got %v expected %v", pArgs.RTE.ReferenceContainer, expectedRefCnt)
 	}
