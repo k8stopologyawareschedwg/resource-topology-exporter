@@ -57,8 +57,8 @@ type kubeletParams struct {
 }
 
 type config struct {
-	Kubelet     kubeletParams `json:"kubelet,omitempty"`
-	ExcludeList resourcemonitor.ResourceExcludeList
+	Kubelet         kubeletParams                   `json:"kubelet,omitempty"`
+	ResourceExclude resourcemonitor.ResourceExclude `json:"resourceExclude,omitempty"`
 }
 
 func readConfig(configPath string) (config, error) {
@@ -157,9 +157,9 @@ Special targets:
 }
 
 func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
-	if len(conf.ExcludeList) != 0 {
-		pArgs.Resourcemonitor.ExcludeList = conf.ExcludeList
-		klog.V(2).Infof("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
+	if len(conf.ResourceExclude) > 0 {
+		pArgs.Resourcemonitor.ResourceExclude = conf.ResourceExclude
+		klog.V(2).Infof("using resources exclude:\n%s", pArgs.Resourcemonitor.ResourceExclude.String())
 	}
 
 	if pArgs.RTE.TopologyManagerPolicy == "" {
