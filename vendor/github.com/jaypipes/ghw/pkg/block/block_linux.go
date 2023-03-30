@@ -91,15 +91,29 @@ func diskVendor(paths *linuxpath.Paths, disk string) string {
 	return strings.TrimSpace(string(contents))
 }
 
-func udevInfo(paths *linuxpath.Paths, disk string) (map[string]string, error) {
+// udevInfoDisk gets the udev info for a disk
+func udevInfoDisk(paths *linuxpath.Paths, disk string) (map[string]string, error) {
 	// Get device major:minor numbers
 	devNo, err := ioutil.ReadFile(filepath.Join(paths.SysBlock, disk, "dev"))
 	if err != nil {
 		return nil, err
 	}
+	return udevInfo(paths, string(devNo))
+}
 
+// udevInfoPartition gets the udev info for a partition
+func udevInfoPartition(paths *linuxpath.Paths, disk string, partition string) (map[string]string, error) {
+	// Get device major:minor numbers
+	devNo, err := ioutil.ReadFile(filepath.Join(paths.SysBlock, disk, partition, "dev"))
+	if err != nil {
+		return nil, err
+	}
+	return udevInfo(paths, string(devNo))
+}
+
+func udevInfo(paths *linuxpath.Paths, devNo string) (map[string]string, error) {
 	// Look up block device in udev runtime database
-	udevID := "b" + strings.TrimSpace(string(devNo))
+	udevID := "b" + strings.TrimSpace(devNo)
 	udevBytes, err := ioutil.ReadFile(filepath.Join(paths.RunUdevData, udevID))
 	if err != nil {
 		return nil, err
@@ -117,7 +131,7 @@ func udevInfo(paths *linuxpath.Paths, disk string) (map[string]string, error) {
 }
 
 func diskModel(paths *linuxpath.Paths, disk string) string {
-	info, err := udevInfo(paths, disk)
+	info, err := udevInfoDisk(paths, disk)
 	if err != nil {
 		return util.UNKNOWN
 	}
@@ -129,7 +143,7 @@ func diskModel(paths *linuxpath.Paths, disk string) string {
 }
 
 func diskSerialNumber(paths *linuxpath.Paths, disk string) string {
-	info, err := udevInfo(paths, disk)
+	info, err := udevInfoDisk(paths, disk)
 	if err != nil {
 		return util.UNKNOWN
 	}
@@ -147,7 +161,7 @@ func diskSerialNumber(paths *linuxpath.Paths, disk string) string {
 }
 
 func diskBusPath(paths *linuxpath.Paths, disk string) string {
-	info, err := udevInfo(paths, disk)
+	info, err := udevInfoDisk(paths, disk)
 	if err != nil {
 		return util.UNKNOWN
 	}
@@ -161,7 +175,7 @@ func diskBusPath(paths *linuxpath.Paths, disk string) string {
 }
 
 func diskWWN(paths *linuxpath.Paths, disk string) string {
-	info, err := udevInfo(paths, disk)
+	info, err := udevInfoDisk(paths, disk)
 	if err != nil {
 		return util.UNKNOWN
 	}
@@ -196,6 +210,10 @@ func diskPartitions(ctx *context.Context, paths *linuxpath.Paths, disk string) [
 		size := partitionSizeBytes(paths, disk, fname)
 		mp, pt, ro := partitionInfo(paths, fname)
 		du := diskPartUUID(ctx, fname)
+		label := diskPartLabel(paths, disk, fname)
+		if pt == "" {
+			pt = diskPartTypeUdev(paths, disk, fname)
+		}
 		p := &Partition{
 			Name:       fname,
 			SizeBytes:  size,
@@ -203,13 +221,44 @@ func diskPartitions(ctx *context.Context, paths *linuxpath.Paths, disk string) [
 			Type:       pt,
 			IsReadOnly: ro,
 			UUID:       du,
+			Label:      label,
 		}
 		out = append(out, p)
 	}
 	return out
 }
 
+func diskPartLabel(paths *linuxpath.Paths, disk string, partition string) string {
+	info, err := udevInfoPartition(paths, disk, partition)
+	if err != nil {
+		return util.UNKNOWN
+	}
+
+	if label, ok := info["ID_FS_LABEL"]; ok {
+		return label
+	}
+	return util.UNKNOWN
+}
+
+// diskPartTypeUdev gets the partition type from the udev database directly and its only used as fallback when
+// the partition is not mounted, so we cannot get the type from paths.ProcMounts from the partitionInfo function
+func diskPartTypeUdev(paths *linuxpath.Paths, disk string, partition string) string {
+	info, err := udevInfoPartition(paths, disk, partition)
+	if err != nil {
+		return util.UNKNOWN
+	}
+
+	if pType, ok := info["ID_FS_TYPE"]; ok {
+		return pType
+	}
+	return util.UNKNOWN
+}
+
 func diskPartUUID(ctx *context.Context, part string) string {
+	if !ctx.EnableTools {
+		ctx.Warn("EnableTools=false disables partition UUID detection.")
+		return ""
+	}
 	if !strings.HasPrefix(part, "/dev") {
 		part = "/dev/" + part
 	}
@@ -225,7 +274,7 @@ func diskPartUUID(ctx *context.Context, part string) string {
 		return ""
 	}
 
-	if out == nil || len(out) == 0 {
+	if len(out) == 0 {
 		return ""
 	}
 
@@ -245,10 +294,7 @@ func diskIsRemovable(paths *linuxpath.Paths, disk string) bool {
 		return false
 	}
 	removable := strings.TrimSpace(string(contents))
-	if removable == "1" {
-		return true
-	}
-	return false
+	return removable == "1"
 }
 
 func disks(ctx *context.Context, paths *linuxpath.Paths) []*Disk {
@@ -452,19 +498,4 @@ func parseMountEntry(line string) *mountEntry {
 	opts := strings.Split(fields[3], ",")
 	res.Options = opts
 	return res
-}
-
-func partitionMountPoint(paths *linuxpath.Paths, part string) string {
-	mp, _, _ := partitionInfo(paths, part)
-	return mp
-}
-
-func partitionType(paths *linuxpath.Paths, part string) string {
-	_, pt, _ := partitionInfo(paths, part)
-	return pt
-}
-
-func partitionIsReadOnly(paths *linuxpath.Paths, part string) bool {
-	_, _, ro := partitionInfo(paths, part)
-	return ro
 }
