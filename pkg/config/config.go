@@ -97,6 +97,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	flags.BoolVar(&pArgs.Resourcemonitor.ExposeTiming, "expose-timing", false, "If enable, expose expected and actual sleep interval as annotations.")
 	flags.BoolVar(&pArgs.Resourcemonitor.RefreshNodeResources, "refresh-node-resources", false, "If enable, track changes in node's resources")
 	flags.StringVar(&pArgs.Resourcemonitor.PodSetFingerprintStatusFile, "pods-fingerprint-status-file", "", "File to dump the pods fingerprint status. Use empty string to disable.")
+	flags.BoolVar(&pArgs.Resourcemonitor.PodSetFingerprintUnrestricted, "pods-fingerprint-unrestricted", false, "If enable, compute the pod set fingerprint using all pods, not just the ones with NUMA-pinned resources.")
 
 	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
 

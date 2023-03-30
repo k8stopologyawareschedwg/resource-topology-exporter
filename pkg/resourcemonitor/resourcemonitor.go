@@ -42,6 +42,8 @@ import (
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
+	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter/numalocality"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
@@ -55,14 +57,15 @@ const (
 type ResourceExclude map[string][]string
 
 type Args struct {
-	Namespace                   string
-	SysfsRoot                   string
-	ResourceExclude             ResourceExclude
-	RefreshNodeResources        bool
-	PodSetFingerprint           bool
-	ExposeTiming                bool
-	PodSetFingerprintStatusFile string
-	PodExclude                  podexclude.List
+	Namespace                     string
+	SysfsRoot                     string
+	ResourceExclude               ResourceExclude
+	RefreshNodeResources          bool
+	PodSetFingerprint             bool
+	PodSetFingerprintUnrestricted bool
+	ExposeTiming                  bool
+	PodSetFingerprintStatusFile   string
+	PodExclude                    podexclude.List
 }
 
 type ScanResponse struct {
@@ -220,7 +223,11 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	respPodRes := resp.GetPodResources()
 
 	if rm.args.PodSetFingerprint {
-		pfpSign := ComputePodFingerprint(respPodRes, &st)
+		podresFilter := numalocality.Required
+		if rm.args.PodSetFingerprintUnrestricted {
+			podresFilter = podresfilter.AlwaysPass
+		}
+		pfpSign := ComputePodFingerprint(respPodRes, &st, podresFilter)
 		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
 			Name:  podfingerprint.Attribute,
 			Value: pfpSign,
@@ -416,9 +423,12 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 	return allCntRes
 }
 
-func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status) string {
+func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, allowFilter func(*podresourcesapi.PodResources) bool) string {
 	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
 	for _, pr := range podRes {
+		if !allowFilter(pr) {
+			continue
+		}
 		fp.AddPod(pr)
 	}
 	return fp.Sign()
