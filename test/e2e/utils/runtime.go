@@ -7,6 +7,7 @@ import (
 )
 
 var BinariesPath string
+var TestDataPath string
 
 func init() {
 
@@ -17,4 +18,5 @@ func init() {
 
 	baseDir := filepath.Dir(file)
 	BinariesPath = filepath.Clean(filepath.Join(baseDir, "..", "..", "..", "./_out"))
+	TestDataPath = filepath.Clean(filepath.Join(baseDir, "..", "..", "..", "test", "data"))
 }

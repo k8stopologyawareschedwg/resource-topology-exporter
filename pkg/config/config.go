@@ -51,7 +51,13 @@ func (pa *ProgArgs) ToYaml() ([]byte, error) {
 	return yaml.Marshal(pa)
 }
 
+type kubeletParams struct {
+	TopologyManagerPolicy string `json:"topologyManagerPolicy,omitempty"`
+	TopologyManagerScope  string `json:"topologyManagerScope,omitempty"`
+}
+
 type config struct {
+	Kubelet     kubeletParams `json:"kubelet,omitempty"`
 	ExcludeList resourcemonitor.ResourceExcludeList
 }
 
@@ -128,16 +134,6 @@ Special targets:
 		return pArgs, err
 	}
 
-	conf, err := readConfig(configPath)
-	if err != nil {
-		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %w", err)
-	}
-
-	if len(conf.ExcludeList) != 0 {
-		pArgs.Resourcemonitor.ExcludeList = conf.ExcludeList
-		klog.V(2).Infof("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
-	}
-
 	pArgs.RTE.KubeletStateDirs, err = setKubeletStateDirs(*kubeletStateDirs)
 	if err != nil {
 		return pArgs, err
@@ -151,7 +147,31 @@ Special targets:
 		pArgs.RTE.ReferenceContainer = podrescli.ContainerIdentFromEnv()
 	}
 
-	return pArgs, nil
+	conf, err := readConfig(configPath)
+	if err != nil {
+		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %w", err)
+	}
+
+	err = setupArgsFromConfig(&pArgs, conf)
+	return pArgs, err
+}
+
+func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
+	if len(conf.ExcludeList) != 0 {
+		pArgs.Resourcemonitor.ExcludeList = conf.ExcludeList
+		klog.V(2).Infof("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
+	}
+
+	if pArgs.RTE.TopologyManagerPolicy == "" {
+		pArgs.RTE.TopologyManagerPolicy = conf.Kubelet.TopologyManagerPolicy
+		klog.V(2).Infof("using kubelet topology manager policy: %q", pArgs.RTE.TopologyManagerPolicy)
+	}
+	if pArgs.RTE.TopologyManagerScope == "" {
+		pArgs.RTE.TopologyManagerScope = conf.Kubelet.TopologyManagerScope
+		klog.V(2).Infof("using kubelet topology manager scope: %q", pArgs.RTE.TopologyManagerScope)
+	}
+
+	return nil
 }
 
 func setKubeletStateDirs(value string) ([]string, error) {
