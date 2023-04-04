@@ -30,7 +30,9 @@ import (
 	goversion "github.com/aquasecurity/go-version/pkg/version"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"sigs.k8s.io/yaml"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/config"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils"
@@ -53,6 +55,51 @@ var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 			text := strings.TrimSpace(strings.Trim(string(out), version.ProgramName))
 			_, err = goversion.Parse(text)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		})
+
+		ginkgo.It("[release] it should read the config file to get TM config", func() {
+			cmdline := []string{
+				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
+				"--config", filepath.Join(utils.TestDataPath, "rteconfig", "kubelet_tm_full.yaml"),
+				"--dump-config", ".andexit",
+			}
+			fmt.Fprintf(ginkgo.GinkgoWriter, "running: %v\n", cmdline)
+
+			cmd := exec.Command(cmdline[0], cmdline[1:]...)
+			cmd.Stderr = ginkgo.GinkgoWriter
+			out, err := cmd.Output()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			progArgs := config.ProgArgs{}
+			err = yaml.Unmarshal(out, &progArgs)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			// determined inspecting the config file
+			gomega.Expect(progArgs.RTE.TopologyManagerPolicy).To(gomega.Equal("restricted"))
+			gomega.Expect(progArgs.RTE.TopologyManagerScope).To(gomega.Equal("pod"))
+		})
+
+		ginkgo.It("[release] it should read the config file to get TM config but enable command-line overrides", func() {
+			cmdline := []string{
+				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
+				"--topology-manager-policy", "single-numa-node",
+				"--config", filepath.Join(utils.TestDataPath, "rteconfig", "kubelet_tm_full.yaml"),
+				"--dump-config", ".andexit",
+			}
+			fmt.Fprintf(ginkgo.GinkgoWriter, "running: %v\n", cmdline)
+
+			cmd := exec.Command(cmdline[0], cmdline[1:]...)
+			cmd.Stderr = ginkgo.GinkgoWriter
+			out, err := cmd.Output()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			progArgs := config.ProgArgs{}
+			err = yaml.Unmarshal(out, &progArgs)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			// determined inspecting the config file
+			gomega.Expect(progArgs.RTE.TopologyManagerPolicy).To(gomega.Equal("single-numa-node"))
+			gomega.Expect(progArgs.RTE.TopologyManagerScope).To(gomega.Equal("pod"))
 		})
 	})
 })
