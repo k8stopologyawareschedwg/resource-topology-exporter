@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/aquasecurity/go-version v0.0.0-20210121072130-637058cfe492
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-cmp v0.5.8
 	github.com/jaypipes/ghw v0.9.0
 	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.1.0
@@ -74,6 +73,7 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
+	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
