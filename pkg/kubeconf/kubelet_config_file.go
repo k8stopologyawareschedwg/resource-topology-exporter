@@ -3,7 +3,7 @@ package kubeconf
 import (
 	"io/ioutil"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 
 	kubeletconfigv1beta1 "k8s.io/kubelet/config/v1beta1"
 )
