@@ -1,0 +1,3 @@
+kubelet:
+  topologyManagerPolicy: restricted
+  topologyManagerScope: pod
