@@ -1,4 +1,4 @@
-excludelist:
+resourceExclude:
   masternode: [memory, device/exampleA]
   workernode1: [memory, device/exampleB]
   workernode2: [cpu]

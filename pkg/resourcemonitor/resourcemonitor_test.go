@@ -529,7 +529,7 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			scanRes, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			scanRes, err := resMon.Scan(ResourceExclude{}) // no pods allocation
 			So(err, ShouldBeNil)
 
 			res := scanRes.SortedZones()
@@ -626,7 +626,7 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			scanRes, err := resMon.Scan(ResourceExcludeList{}) // no pods allocation
+			scanRes, err := resMon.Scan(ResourceExclude{}) // no pods allocation
 			So(err, ShouldBeNil)
 
 			res := scanRes.SortedZones()
@@ -815,7 +815,7 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			excludeList := ResourceExcludeList{
+			excludeList := ResourceExclude{
 				"*": {
 					"fake.io/resourceToBeExcluded",
 				},
@@ -986,7 +986,7 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			excludeList := ResourceExcludeList{
+			excludeList := ResourceExclude{
 				"*": {
 					"fake.io/resourceToBeExcluded",
 				},
@@ -1209,7 +1209,7 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			excludeList := ResourceExcludeList{
+			excludeList := ResourceExclude{
 				"*": {
 					"fake.io/resourceToBeExcluded",
 				},
@@ -1346,7 +1346,7 @@ func TestResourcesScan(t *testing.T) {
 
 			mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
-			scanRes, err := resMon.Scan(ResourceExcludeList{})
+			scanRes, err := resMon.Scan(ResourceExclude{})
 
 			expectedFP := "pfp0v001fe53c4dbd2c5f4a0" // pre-computed and validated manually
 			fp, ok := scanRes.Annotations[podfingerprint.Annotation]

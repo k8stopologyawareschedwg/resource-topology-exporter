@@ -2,9 +2,9 @@ package podres
 
 import (
 	"fmt"
-	"log"
 	"time"
 
+	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 	"k8s.io/kubernetes/pkg/kubelet/apis/podresources"
 )
@@ -15,11 +15,11 @@ const (
 	defaultPodResourcesMaxSize = 1024 * 1024 * 16 // 16 Mb
 )
 
-func GetPodResClient(socketPath string) (podresourcesapi.PodResourcesListerClient, error) {
-	podResourceClient, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
+func GetClient(socketPath string) (podresourcesapi.PodResourcesListerClient, error) {
+	cli, _, err := podresources.GetV1Client(socketPath, defaultPodResourcesTimeout, defaultPodResourcesMaxSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create podresource client: %w", err)
 	}
-	log.Printf("Connected to '%q'!", socketPath)
-	return podResourceClient, nil
+	klog.Infof("Connected to '%q'!", socketPath)
+	return cli, nil
 }

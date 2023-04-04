@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
@@ -74,7 +74,7 @@ func TestReferenceContainer(t *testing.T) {
 		t.Errorf("invalid data, got %v expected %v", pArgs.RTE.KubeletStateDirs, expectedDirs)
 	}
 
-	expectedRefCnt := podrescli.ContainerIdent{Namespace: "ns", PodName: "pod", ContainerName: "cont"}
+	expectedRefCnt := sharedcpuspool.ContainerIdent{Namespace: "ns", PodName: "pod", ContainerName: "cont"}
 	if pArgs.RTE.ReferenceContainer.String() != expectedRefCnt.String() {
 		t.Errorf("invalid data, got %v expected %v", pArgs.RTE.ReferenceContainer, expectedRefCnt)
 	}
@@ -129,7 +129,7 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
-func TestReadExcludeList(t *testing.T) {
+func TestReadResourceExclude(t *testing.T) {
 	closer := setupTest(t)
 	t.Cleanup(closer)
 
@@ -141,7 +141,7 @@ func TestReadExcludeList(t *testing.T) {
 		os.Remove(cfg.Name())
 	})
 
-	cfgContent := `excludelist:
+	cfgContent := `resourceExclude:
   masternode: [memory, device/exampleA]
   workernode1: [memory, device/exampleB]
   workernode2: [cpu]
@@ -159,15 +159,15 @@ func TestReadExcludeList(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedExcludeList := resourcemonitor.ResourceExcludeList{
+	expectedResourceExclude := resourcemonitor.ResourceExclude{
 		"masternode":  {"memory", "device/exampleA"},
 		"workernode1": {"memory", "device/exampleB"},
 		"workernode2": {"cpu"},
 		"*":           {"device/exampleC"},
 	}
 
-	if !reflect.DeepEqual(pArgs.Resourcemonitor.ExcludeList, expectedExcludeList) {
-		t.Errorf("ExcludeList is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ExcludeList, expectedExcludeList)
+	if !reflect.DeepEqual(pArgs.Resourcemonitor.ResourceExclude, expectedResourceExclude) {
+		t.Errorf("ResourceExclude is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ResourceExclude, expectedResourceExclude)
 	}
 }
 

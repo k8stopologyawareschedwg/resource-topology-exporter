@@ -42,6 +42,9 @@ import (
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
+	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter/numalocality"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
@@ -51,16 +54,18 @@ const (
 	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
 )
 
-type ResourceExcludeList map[string][]string
+type ResourceExclude map[string][]string
 
 type Args struct {
-	Namespace                   string
-	SysfsRoot                   string
-	ExcludeList                 ResourceExcludeList
-	RefreshNodeResources        bool
-	PodSetFingerprint           bool
-	ExposeTiming                bool
-	PodSetFingerprintStatusFile string
+	Namespace                     string
+	SysfsRoot                     string
+	ResourceExclude               ResourceExclude
+	RefreshNodeResources          bool
+	PodSetFingerprint             bool
+	PodSetFingerprintUnrestricted bool
+	ExposeTiming                  bool
+	PodSetFingerprintStatusFile   string
+	PodExclude                    podexclude.List
 }
 
 type ScanResponse struct {
@@ -88,11 +93,11 @@ func (sr ScanResponse) SortedZones() v1alpha2.ZoneList {
 }
 
 type ResourceMonitor interface {
-	Scan(excludeList ResourceExcludeList) (ScanResponse, error)
+	Scan(excludeList ResourceExclude) (ScanResponse, error)
 }
 
 // ToMapSet keeps the original keys, but replaces values with set.String types
-func (rel ResourceExcludeList) ToMapSet() map[string]sets.String {
+func (rel ResourceExclude) ToMapSet() map[string]sets.String {
 	asSet := make(map[string]sets.String)
 	for k, v := range rel {
 		asSet[k] = sets.NewString(v...)
@@ -100,7 +105,7 @@ func (rel ResourceExcludeList) ToMapSet() map[string]sets.String {
 	return asSet
 }
 
-func (rel ResourceExcludeList) String() string {
+func (rel ResourceExclude) String() string {
 	var b strings.Builder
 	for name, items := range rel {
 		fmt.Fprintf(&b, "- %s: [%s]\n", name, strings.Join(items, ", "))
@@ -200,7 +205,7 @@ func WithNodeName(name string) func(*resourceMonitor) {
 	}
 }
 
-func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (ScanResponse, error) {
+func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
@@ -218,7 +223,11 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExcludeList) (ScanResponse, 
 	respPodRes := resp.GetPodResources()
 
 	if rm.args.PodSetFingerprint {
-		pfpSign := ComputePodFingerprint(respPodRes, &st)
+		podresFilter := numalocality.Required
+		if rm.args.PodSetFingerprintUnrestricted {
+			podresFilter = podresfilter.AlwaysPass
+		}
+		pfpSign := ComputePodFingerprint(respPodRes, &st, podresFilter)
 		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
 			Name:  podfingerprint.Attribute,
 			Value: pfpSign,
@@ -414,9 +423,12 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 	return allCntRes
 }
 
-func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status) string {
+func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, allowFilter func(*podresourcesapi.PodResources) bool) string {
 	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
 	for _, pr := range podRes {
+		if !allowFilter(pr) {
+			continue
+		}
 		fp.AddPod(pr)
 	}
 	return fp.Sign()

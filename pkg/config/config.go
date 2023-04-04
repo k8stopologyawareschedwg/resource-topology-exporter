@@ -29,7 +29,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podrescli"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
@@ -57,8 +58,9 @@ type kubeletParams struct {
 }
 
 type config struct {
-	Kubelet     kubeletParams `json:"kubelet,omitempty"`
-	ExcludeList resourcemonitor.ResourceExcludeList
+	Kubelet         kubeletParams                   `json:"kubelet,omitempty"`
+	ResourceExclude resourcemonitor.ResourceExclude `json:"resourceExclude,omitempty"`
+	PodExclude      podexclude.List                 `json:"podExclude,omitempty"`
 }
 
 func readConfig(configPath string) (config, error) {
@@ -95,6 +97,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	flags.BoolVar(&pArgs.Resourcemonitor.ExposeTiming, "expose-timing", false, "If enable, expose expected and actual sleep interval as annotations.")
 	flags.BoolVar(&pArgs.Resourcemonitor.RefreshNodeResources, "refresh-node-resources", false, "If enable, track changes in node's resources")
 	flags.StringVar(&pArgs.Resourcemonitor.PodSetFingerprintStatusFile, "pods-fingerprint-status-file", "", "File to dump the pods fingerprint status. Use empty string to disable.")
+	flags.BoolVar(&pArgs.Resourcemonitor.PodSetFingerprintUnrestricted, "pods-fingerprint-unrestricted", false, "If enable, compute the pod set fingerprint using all pods, not just the ones with NUMA-pinned resources.")
 
 	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
 
@@ -144,7 +147,7 @@ Special targets:
 		return pArgs, err
 	}
 	if pArgs.RTE.ReferenceContainer.IsEmpty() {
-		pArgs.RTE.ReferenceContainer = podrescli.ContainerIdentFromEnv()
+		pArgs.RTE.ReferenceContainer = sharedcpuspool.ContainerIdentFromEnv()
 	}
 
 	conf, err := readConfig(configPath)
@@ -157,9 +160,14 @@ Special targets:
 }
 
 func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
-	if len(conf.ExcludeList) != 0 {
-		pArgs.Resourcemonitor.ExcludeList = conf.ExcludeList
-		klog.V(2).Infof("using exclude list:\n%s", pArgs.Resourcemonitor.ExcludeList.String())
+	if len(conf.ResourceExclude) > 0 {
+		pArgs.Resourcemonitor.ResourceExclude = conf.ResourceExclude
+		klog.V(2).Infof("using resources exclude:\n%s", pArgs.Resourcemonitor.ResourceExclude.String())
+	}
+
+	if len(conf.PodExclude) > 0 {
+		pArgs.Resourcemonitor.PodExclude = conf.PodExclude
+		klog.V(2).Infof("using pod excludes:\n%s", pArgs.Resourcemonitor.PodExclude.String())
 	}
 
 	if pArgs.RTE.TopologyManagerPolicy == "" {
@@ -182,14 +190,14 @@ func setKubeletStateDirs(value string) ([]string, error) {
 	return ksd, nil
 }
 
-func setContainerIdent(value string) (*podrescli.ContainerIdent, error) {
-	ci, err := podrescli.ContainerIdentFromString(value)
+func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {
+	ci, err := sharedcpuspool.ContainerIdentFromString(value)
 	if err != nil {
 		return nil, err
 	}
 
 	if ci == nil {
-		return &podrescli.ContainerIdent{}, nil
+		return &sharedcpuspool.ContainerIdent{}, nil
 	}
 
 	return ci, nil

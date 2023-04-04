@@ -17,12 +17,12 @@ import (
 )
 
 type ResourceObserver struct {
-	Infos        <-chan nrtupdater.MonitorInfo
-	resMon       resourcemonitor.ResourceMonitor
-	excludeList  resourcemonitor.ResourceExcludeList
-	infoChan     chan nrtupdater.MonitorInfo
-	stopChan     chan struct{}
-	exposeTiming bool
+	Infos           <-chan nrtupdater.MonitorInfo
+	resMon          resourcemonitor.ResourceMonitor
+	resourceExclude resourcemonitor.ResourceExclude
+	infoChan        chan nrtupdater.MonitorInfo
+	stopChan        chan struct{}
+	exposeTiming    bool
 }
 
 func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceObserver, error) {
@@ -32,11 +32,11 @@ func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args reso
 	}
 
 	resObs := ResourceObserver{
-		resMon:       resMon,
-		excludeList:  args.ExcludeList,
-		stopChan:     make(chan struct{}),
-		infoChan:     make(chan nrtupdater.MonitorInfo),
-		exposeTiming: args.ExposeTiming,
+		resMon:          resMon,
+		resourceExclude: args.ResourceExclude,
+		stopChan:        make(chan struct{}),
+		infoChan:        make(chan nrtupdater.MonitorInfo),
+		exposeTiming:    args.ExposeTiming,
 	}
 	resObs.Infos = resObs.infoChan
 	return &resObs, nil
@@ -60,7 +60,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
 			tsBegin := time.Now()
-			scanRes, err := rm.resMon.Scan(rm.excludeList)
+			scanRes, err := rm.resMon.Scan(rm.resourceExclude)
 			tsEnd := time.Now()
 
 			monInfo.Annotations = scanRes.Annotations
