@@ -230,6 +230,23 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		})
 	})
 	ginkgo.Context("with pod fingerprinting enabled", func() {
+		ginkgo.It("[PodFingerprint] it should report the computation method in the attributes", func() {
+			nrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			framework.Logf("Initial NRT: %q generation=%v resourceVersion=%v", nrt.Name, nrt.Generation, nrt.ResourceVersion)
+
+			if _, ok := findAttribute(nrt.Attributes, podfingerprint.Attribute); !ok {
+				ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
+			}
+			meth, ok := findAttribute(nrt.Attributes, podfingerprint.AttributeMethod)
+			gomega.Expect(ok).To(gomega.BeTrue(), "attribute %q missing, but PFP reported", podfingerprint.AttributeMethod)
+			// note this is a subset of all the available methods declared in the podfingerprint package
+			validMethods := []string{
+				podfingerprint.MethodAll,
+				podfingerprint.MethodWithExclusiveResources,
+			}
+			gomega.Expect(validMethods).Should(gomega.ContainElement(meth), "unsupported PFP computation method %q", meth)
+		})
+
 		ginkgo.It("[PodFingerprint] it should report stable value if the pods do not change", func() {
 			prevNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
 			framework.Logf("Initial NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
