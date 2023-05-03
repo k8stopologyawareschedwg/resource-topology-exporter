@@ -205,6 +205,13 @@ func WithNodeName(name string) func(*resourceMonitor) {
 	}
 }
 
+func pfpMethodToString(args Args) string {
+	if args.PodSetFingerprintUnrestricted {
+		return podfingerprint.MethodAll
+	}
+	return podfingerprint.MethodWithExclusiveResources
+}
+
 func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
@@ -231,6 +238,10 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
 			Name:  podfingerprint.Attribute,
 			Value: pfpSign,
+		})
+		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
+			Name:  podfingerprint.AttributeMethod,
+			Value: pfpMethodToString(rm.args),
 		})
 		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
 		klog.V(6).Infof("pfp: " + st.Repr())
