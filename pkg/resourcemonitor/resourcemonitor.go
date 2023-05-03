@@ -214,7 +214,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		return ScanResponse{}, err
 	}
 
-	var st podfingerprint.Status
+	st := podfingerprint.MakeStatus(rm.nodeName)
 	scanRes := ScanResponse{
 		Attributes:  topologyv1alpha2.AttributeList{},
 		Annotations: map[string]string{},
