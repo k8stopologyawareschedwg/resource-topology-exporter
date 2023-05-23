@@ -41,6 +41,7 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
+
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter/numalocality"
@@ -57,15 +58,15 @@ const (
 type ResourceExclude map[string][]string
 
 type Args struct {
-	Namespace                     string
-	SysfsRoot                     string
-	ResourceExclude               ResourceExclude
-	RefreshNodeResources          bool
-	PodSetFingerprint             bool
-	PodSetFingerprintUnrestricted bool
-	ExposeTiming                  bool
-	PodSetFingerprintStatusFile   string
-	PodExclude                    podexclude.List
+	Namespace                   string
+	SysfsRoot                   string
+	ResourceExclude             ResourceExclude
+	RefreshNodeResources        bool
+	PodSetFingerprint           bool
+	PodSetFingerprintMethod     string
+	ExposeTiming                bool
+	PodSetFingerprintStatusFile string
+	PodExclude                  podexclude.List
 }
 
 type ScanResponse struct {
@@ -205,13 +206,6 @@ func WithNodeName(name string) func(*resourceMonitor) {
 	}
 }
 
-func pfpMethodToString(args Args) string {
-	if args.PodSetFingerprintUnrestricted {
-		return podfingerprint.MethodAll
-	}
-	return podfingerprint.MethodWithExclusiveResources
-}
-
 func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
@@ -231,7 +225,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 
 	if rm.args.PodSetFingerprint {
 		podresFilter := numalocality.Required
-		if rm.args.PodSetFingerprintUnrestricted {
+		if rm.args.PodSetFingerprintMethod == podfingerprint.MethodAll {
 			podresFilter = podresfilter.AlwaysPass
 		}
 		pfpSign := ComputePodFingerprint(respPodRes, &st, podresFilter)
@@ -241,7 +235,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		})
 		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
 			Name:  podfingerprint.AttributeMethod,
-			Value: pfpMethodToString(rm.args),
+			Value: rm.args.PodSetFingerprintMethod,
 		})
 		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
 		klog.V(6).Infof("pfp: " + st.Repr())
@@ -620,4 +614,20 @@ func toFile(st podfingerprint.Status, dir, file string) error {
 	}
 
 	return os.Rename(dst.Name(), filepath.Join(dir, file))
+}
+
+func PFPMethodSupported() string {
+	methods := []string{
+		podfingerprint.MethodAll,
+		podfingerprint.MethodWithExclusiveResources,
+	}
+	return strings.Join(methods, ",")
+}
+
+func PFPMethodIsSupported(value string) (string, error) {
+	val := strings.ToLower(value)
+	if val == podfingerprint.MethodAll || val == podfingerprint.MethodWithExclusiveResources {
+		return val, nil
+	}
+	return val, fmt.Errorf("unsupported method  %q", value)
 }
