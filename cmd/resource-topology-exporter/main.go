@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/config"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/terminalpods"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
@@ -56,6 +60,18 @@ func main() {
 
 	if len(parsedArgs.Resourcemonitor.PodExclude) > 0 {
 		cli = podexclude.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.Resourcemonitor.PodExclude)
+	}
+
+	if parsedArgs.Resourcemonitor.ExcludeTerminalPods {
+		klog.Infof("terminal pods are filtered from the PodResourcesLister client")
+		k8scli, err := k8shelpers.GetK8sClient("")
+		if err != nil {
+			klog.Fatalf("failed to get k8s client: %w", err)
+		}
+		cli, err = terminalpods.NewFromLister(context.TODO(), cli, k8scli, time.Minute, parsedArgs.RTE.Debug)
+		if err != nil {
+			klog.Fatalf("failed to get PodResourceAPI client: %w", err)
+		}
 	}
 
 	err = prometheus.InitPrometheus(parsedArgs.RTE.PrometheusMode)
