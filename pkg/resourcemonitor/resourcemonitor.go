@@ -67,6 +67,7 @@ type Args struct {
 	ExposeTiming                bool
 	PodSetFingerprintStatusFile string
 	PodExclude                  podexclude.List
+	ExcludeTerminalPods         bool
 }
 
 type ScanResponse struct {
