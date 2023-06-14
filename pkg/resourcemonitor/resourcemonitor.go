@@ -332,7 +332,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
 		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
 		err := toFile(st, dir, file)
-		klog.V(6).InfoS("error dumping the pfp status to %q (%v): %v", rm.args.PodSetFingerprintStatusFile, file, err)
+		klog.V(6).InfoS("error dumping the pfp status", "fullPath", rm.args.PodSetFingerprintStatusFile, "statusFile", file, "err", err)
 		// intentionally ignore error, we must keep going.
 	}
 	return scanRes, nil
