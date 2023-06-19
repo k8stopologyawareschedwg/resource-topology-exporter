@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
+	k8se2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	admissionapi "k8s.io/pod-security-admission/api"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
@@ -117,7 +118,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			doneChan := make(chan struct{})
 			started := false
 
-			go func(cs clientset.Interface, podCli *framework.PodClient, refPod *corev1.Pod) {
+			go func(cs clientset.Interface, podCli *k8se2epod.PodClient, refPod *corev1.Pod) {
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
@@ -128,7 +129,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				e2epods.DeletePodSyncByName(cs, pod.Namespace, pod.Name)
 
 				doneChan <- struct{}{}
-			}(f.ClientSet, f.PodClient(), sleeperPod)
+			}(f.ClientSet, k8se2epod.NewPodClient(f), sleeperPod)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha2.NodeResourceTopology
@@ -311,7 +312,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			framework.Logf("%s update interval: %s", method, updateInterval)
 
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-			pod := f.PodClient().CreateSync(sleeperPod)
+			pod := k8se2epod.NewPodClient(f).CreateSync(sleeperPod)
 			// (try to) delete the pod twice is no bother
 			cs := f.ClientSet
 			podNamespace, podName := pod.Namespace, pod.Name
@@ -481,7 +482,7 @@ func estimateUpdateInterval(nrt v1alpha2.NodeResourceTopology) (time.Duration, s
 }
 
 func execCommandInContainer(f *framework.Framework, namespace, podName, containerName string, cmd ...string) string {
-	stdout, stderr, err := f.ExecWithOptions(framework.ExecOptions{
+	stdout, stderr, err := k8se2epod.ExecWithOptions(f, k8se2epod.ExecOptions{
 		Command:            cmd,
 		Namespace:          namespace,
 		PodName:            podName,
