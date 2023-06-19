@@ -116,7 +116,7 @@ func DeletePodSyncByName(cs clientset.Interface, podNamespace, podName string) e
 	if err != nil && !apierrors.IsNotFound(err) {
 		framework.Failf("Failed to delete pod %q: %v", podName, err)
 	}
-	return e2epod.WaitForPodToDisappear(cs, podNamespace, podName, labels.Everything(), 2*time.Second, framework.DefaultPodDeletionTimeout)
+	return e2epod.WaitForPodToDisappear(cs, podNamespace, podName, labels.Everything(), 2*time.Second, e2epod.DefaultPodDeletionTimeout)
 }
 
 func GetPodsByLabel(f *framework.Framework, ns, label string) ([]corev1.Pod, error) {

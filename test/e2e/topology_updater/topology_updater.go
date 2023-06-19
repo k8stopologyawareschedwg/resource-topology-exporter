@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
+	k8se2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	admissionapi "k8s.io/pod-security-admission/api"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
@@ -101,7 +102,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
 			sleeperPod := e2epods.MakeBestEffortSleeperPod()
 
-			pod := f.PodClient().CreateSync(sleeperPod)
+			pod := k8se2epod.NewPodClient(f).CreateSync(sleeperPod)
 			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
 				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
 			}, f.ClientSet, pod.Namespace, pod.Name)
@@ -141,7 +142,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (guaranteed QoS, nonintegral request)")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("500m")
 
-			pod := f.PodClient().CreateSync(sleeperPod)
+			pod := k8se2epod.NewPodClient(f).CreateSync(sleeperPod)
 			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
 				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
 			}, f.ClientSet, pod.Namespace, pod.Name)
@@ -189,7 +190,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("creating a pod consuming exclusive CPUs")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 
-			pod := f.PodClient().CreateSync(sleeperPod)
+			pod := k8se2epod.NewPodClient(f).CreateSync(sleeperPod)
 			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
 				return e2epods.DeletePodSyncByName(cs, podNamespace, podName)
 			}, f.ClientSet, pod.Namespace, pod.Name)
