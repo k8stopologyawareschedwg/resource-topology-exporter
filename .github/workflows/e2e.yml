@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   e2e-ic:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       # TODO
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
