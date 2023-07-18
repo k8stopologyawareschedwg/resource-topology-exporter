@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/kubernetes/test/e2e/framework"
+
+	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 )
 
 const (
@@ -117,4 +119,21 @@ func LabelNode(f *framework.Framework, node *corev1.Node, newLabels map[string]s
 
 	_, err = f.ClientSet.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 	return err
+}
+
+func PickTargetNode(workerNodes []corev1.Node) (*corev1.Node, bool) {
+	if len(workerNodes) == 0 {
+		return nil, false
+	}
+
+	for idx := range workerNodes {
+		node := &workerNodes[idx]
+		if node.Labels != nil {
+			if _, ok := node.Labels[e2etestconsts.TestNodeLabel]; ok {
+				return node, true
+			}
+		}
+	}
+
+	return &workerNodes[0], false // any node is fine.
 }
