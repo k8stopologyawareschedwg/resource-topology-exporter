@@ -73,18 +73,21 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(workerNodes).ToNot(gomega.BeEmpty())
 
 			// pick any worker node. The (implicit, TODO: make explicit) assumption is
 			// the daemonset runs on CI on all the worker nodes.
-			topologyUpdaterNode = &workerNodes[0]
+			var hasLabel bool
+			topologyUpdaterNode, hasLabel = e2enodes.PickTargetNode(workerNodes)
 			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
-
-			// during the e2e tests we expect changes on the node topology.
-			// but in an environment with multiple worker nodes, we might be looking at the wrong node.
-			// thus, we assign a unique label to the picked worker node
-			// and making sure to deploy the pod on it during the test using nodeSelector
-			err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			if !hasLabel {
+				// during the e2e tests we expect changes on the node topology.
+				// but in an environment with multiple worker nodes, we might be looking at the wrong node.
+				// thus, we assign a unique label to the picked worker node
+				// and making sure to deploy the pod on it during the test using nodeSelector
+				err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			}
 
 			tmPolicy = e2etestenv.GetTopologyManagerPolicy()
 
