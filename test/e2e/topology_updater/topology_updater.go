@@ -49,6 +49,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		initialized         bool
 		timeout             time.Duration
 		tmPolicy            string
+		tmScope             string
 		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *corev1.Node
 		workerNodes         []corev1.Node
@@ -90,6 +91,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			}
 
 			tmPolicy = e2etestenv.GetTopologyManagerPolicy()
+			tmScope = e2etestenv.GetTopologyManagerScope()
 
 			initialized = true
 		}
@@ -222,7 +224,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 		ginkgo.It("should fill the node resource topologies CR with the data", func() {
 			nodeTopology := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
-			isValid := e2enodetopology.IsValidNodeTopology(nodeTopology, tmPolicy)
+			isValid := e2enodetopology.IsValidNodeTopology(nodeTopology, tmPolicy, tmScope)
 			gomega.Expect(isValid).To(gomega.BeTrue(), "received invalid topology: %v", nodeTopology)
 		})
 	})
