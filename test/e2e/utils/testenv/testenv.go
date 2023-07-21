@@ -24,7 +24,8 @@ const (
 	// we rely on kind for our CI
 	DefaultNodeName             = "kind-worker"
 	DefaultNamespace            = ""
-	DefaultTopologyMangerPolicy = "none"
+	DefaultTopologyMangerPolicy = ""
+	DefaultTopologyMangerScope  = ""
 	DefaultRTEPollInterval      = "10s"
 	RTELabelName                = "resource-topology"
 	RTEContainerName            = "resource-topology-exporter-container"
@@ -35,12 +36,14 @@ var (
 	currentNodeName       string
 	currentNamespace      string
 	currentTopologyPolicy string
+	currentTopologyScope  string
 )
 
 func init() {
 	currentNodeName = DefaultNodeName
 	currentNamespace = DefaultNamespace
 	currentTopologyPolicy = DefaultTopologyMangerPolicy
+	currentTopologyScope = DefaultTopologyMangerScope
 }
 
 func GetNodeName() string {
@@ -62,6 +65,13 @@ func GetTopologyManagerPolicy() string {
 		return tmPolicy
 	}
 	return currentTopologyPolicy
+}
+
+func GetTopologyManagerScope() string {
+	if tmScope, ok := os.LookupEnv("E2E_TOPOLOGY_MANAGER_SCOPE"); ok {
+		return tmScope
+	}
+	return currentTopologyScope
 }
 
 func GetPollInterval() string {
