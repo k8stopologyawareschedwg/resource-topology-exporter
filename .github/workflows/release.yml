@@ -18,7 +18,8 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawareschedwg/resource-topology-exporter
-      E2E_TOPOLOGY_MANAGER_POLICY: SingleNUMANodeContainerLevel
+      E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
+      E2E_TOPOLOGY_MANAGER_SCOPE: container
     steps:
     - name: checkout sources
       uses: actions/checkout@v2

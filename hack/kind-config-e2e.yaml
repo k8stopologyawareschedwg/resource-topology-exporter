@@ -5,6 +5,7 @@ kubeadmConfigPatches:
   kind: KubeletConfiguration
   cpuManagerPolicy: "static"
   topologyManagerPolicy: "single-numa-node"
+  topologyManagerScope: "container"
   reservedSystemCPUs: "0"
 nodes:
 - role: control-plane
