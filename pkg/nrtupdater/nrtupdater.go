@@ -43,7 +43,6 @@ func (conf TMConfig) IsValid() bool {
 
 type NRTUpdater struct {
 	args     Args
-	tmPolicy string
 	tmConfig TMConfig
 	stopChan chan struct{}
 }
@@ -62,10 +61,9 @@ func (mi MonitorInfo) UpdateReason() string {
 	return RTEUpdateReactive
 }
 
-func NewNRTUpdater(args Args, policy string, tmconf TMConfig) *NRTUpdater {
+func NewNRTUpdater(args Args, tmconf TMConfig) *NRTUpdater {
 	return &NRTUpdater{
 		args:     args,
-		tmPolicy: policy,
 		tmConfig: tmconf,
 		stopChan: make(chan struct{}),
 	}
@@ -128,7 +126,6 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info MonitorInfo) {
 	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
 	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
-	nrt.TopologyPolicies = []string{te.tmPolicy}
 	nrt.Zones = info.Zones.DeepCopy()
 	nrt.Attributes = info.Attributes.DeepCopy()
 	nrt.Attributes = append(nrt.Attributes, te.makeAttributes()...)
