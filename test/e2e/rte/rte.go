@@ -409,7 +409,7 @@ func dumpPods(f *framework.Framework, nodeName, message string) {
 
 	framework.Logf("BEGIN pods running on %q: %s", nodeName, message)
 	for _, pod := range pods.Items {
-		framework.Logf("%s %s/%s annotations=%v status=%s (%s %s)", nodeName, pod.Namespace, pod.Name, pod.Annotations, pod.Status.Phase, pod.Status.Message, pod.Status.Reason)
+		framework.Logf("%s %s/%s status=%s (%s %s)", nodeName, pod.Namespace, pod.Name, pod.Status.Phase, pod.Status.Message, pod.Status.Reason)
 	}
 	framework.Logf("END pods running on %q: %s", nodeName, message)
 }
