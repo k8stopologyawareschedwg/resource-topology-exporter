@@ -34,6 +34,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 
+	e2etestns "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/namespace"
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2ertepod "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods/rtepod"
@@ -53,8 +54,14 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 
 	f := framework.NewDefaultFramework("metrics")
 	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
+	f.SkipNamespaceCreation = true
 
 	ginkgo.BeforeEach(func() {
+		var err error
+
+		err = e2etestns.Setup(f)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 		if !initialized {
 			var err error
 			hasMetrics = e2etestenv.GetMetricsEnabled()
