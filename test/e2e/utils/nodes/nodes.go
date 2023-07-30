@@ -35,15 +35,11 @@ import (
 const (
 	// RoleWorker contains the worker role
 	RoleWorker = "worker"
-	// DefaultNodeName we rely on kind for our CI
-	DefaultNodeName = "kind-worker"
 )
 
 const (
 	// LabelRole contains the key for the role label
 	LabelRole = "node-role.kubernetes.io"
-	// LabelHostname contains the key for the hostname label
-	LabelHostname = "kubernetes.io/hostname"
 )
 
 type patchMapStringStringValue struct {
@@ -57,7 +53,7 @@ func GetWorkerNodes(cs kubernetes.Interface) ([]corev1.Node, error) {
 	return GetNodesByRole(cs, RoleWorker)
 }
 
-// GetByRole returns all nodes with the specified role
+// GetNodesByRole GetByRole returns all nodes with the specified role
 func GetNodesByRole(cs kubernetes.Interface, role string) ([]corev1.Node, error) {
 	selector, err := labels.Parse(fmt.Sprintf("%s/%s=", LabelRole, role))
 	if err != nil {
@@ -66,7 +62,7 @@ func GetNodesByRole(cs kubernetes.Interface, role string) ([]corev1.Node, error)
 	return GetNodesBySelector(cs, selector)
 }
 
-// GetBySelector returns all nodes with the specified selector
+// GetNodesBySelector GetBySelector returns all nodes with the specified selector
 func GetNodesBySelector(cs kubernetes.Interface, selector labels.Selector) ([]corev1.Node, error) {
 	nodes, err := cs.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
