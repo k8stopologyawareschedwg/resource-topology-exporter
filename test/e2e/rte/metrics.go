@@ -23,6 +23,7 @@ package rte
 import (
 	"context"
 	"fmt"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/fixture"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -35,7 +36,6 @@ import (
 	k8se2epod "k8s.io/kubernetes/test/e2e/framework/pod"
 	admissionapi "k8s.io/pod-security-admission/api"
 
-	e2etestns "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/namespace"
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2ertepod "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods/rtepod"
@@ -59,8 +59,9 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	ginkgo.BeforeEach(func() {
 		var err error
 
-		err = e2etestns.Setup(f)
+		nsCleanup, err := fixture.F.CreateNamespace("metrics")
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		ginkgo.DeferCleanup(nsCleanup())
 
 		if !initialized {
 			var pods *corev1.PodList
