@@ -24,6 +24,7 @@ package topology_updater
 import (
 	"context"
 	"fmt"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/fixture"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -39,7 +40,6 @@ import (
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
-	e2etestns "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/namespace"
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
@@ -64,9 +64,9 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 	ginkgo.BeforeEach(func() {
 		var err error
-
-		err = e2etestns.Setup(f)
+		nsCleanup, err := fixture.F.CreateNamespace("topology-updater")
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		ginkgo.DeferCleanup(nsCleanup())
 
 		if !initialized {
 			timeout, err = time.ParseDuration(e2etestenv.GetPollInterval())
