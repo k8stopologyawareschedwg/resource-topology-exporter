@@ -44,18 +44,18 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			namespace = e2etestenv.GetNamespaceName()
 
 			timeout, err = time.ParseDuration(e2etestenv.GetPollInterval())
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
 			// add a little skew. We pick 1 second randomly, but the idea is that small (2, 3, 5) multipliers
 			// should again not cause a total multiple of the poll interval.
 			timeout += 1 * time.Second
 
 			extClient, err = e2eclient.NewK8sExtFromFramework(f)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			// getting the CRD first, so we could recreate it later
 			crd, err = extClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			initialized = true
 		}
@@ -67,7 +67,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 		if apierrors.IsNotFound(err) {
 			crd.ResourceVersion = ""
 			_, err = extClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		}
 	})
 
@@ -103,7 +103,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			ginkgo.By("deleting the crd")
 
 			err := extClient.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), crdName, metav1.DeleteOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
@@ -113,7 +113,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			ginkgo.By("recreating the crd")
 			crd.ResourceVersion = ""
 			_, err = extClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
