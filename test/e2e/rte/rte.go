@@ -72,28 +72,28 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		var err error
 
 		err = e2etestns.Setup(f)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		if !initialized {
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Expect(workerNodes).ToNot(gomega.BeEmpty())
 
 			// pick any worker node. The (implicit, TODO: make explicit) assumption is
 			// the daemonset runs on CI on all the worker nodes.
 			var hasLabel bool
 			topologyUpdaterNode, hasLabel = e2enodes.PickTargetNode(workerNodes)
-			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
+			gomega.Expect(topologyUpdaterNode).ToNot(gomega.BeNil())
 			if !hasLabel {
 				// during the e2e tests we expect changes on the node topology.
 				// but in an environment with multiple worker nodes, we might be looking at the wrong node.
 				// thus, we assign a unique label to the picked worker node
 				// and making sure to deploy the pod on it during the test using nodeSelector
 				err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 
 			initialized = true
@@ -103,7 +103,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	ginkgo.Context("with cluster configured", func() {
 		ginkgo.It("[DEPRECATED][StateDirectories] it should react to pod changes using the smart poller", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			if len(nodes) < 1 {
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
@@ -113,7 +113,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 
 			updateInterval, method, err := estimateUpdateInterval(*initialNodeTopo)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			klog.Infof("%s update interval: %s", method, updateInterval)
 
 			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
@@ -189,10 +189,10 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				framework.ExpectNoError(err)
 
 				rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 				rteNotifyFilePath, err := e2ertepod.FindNotificationFilePath(rtePod)
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rteContainerName, "/bin/touch", rteNotifyFilePath)
 				klog.Infof("notification triggered, exiting")
@@ -269,7 +269,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
 
 			updateInterval, method, err := estimateUpdateInterval(*prevNrt)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			klog.Infof("%s update interval: %s", method, updateInterval)
 
 			// 3 timess is "long enough" - decided after quick tuning and try/error
@@ -297,7 +297,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 		ginkgo.It("[release][PodFingerprint] it should report updated value if the set of running pods changes", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			if len(nodes) < 1 {
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
@@ -315,7 +315,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
 
 			updateInterval, method, err := estimateUpdateInterval(*prevNrt)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			klog.Infof("%s update interval: %s", method, updateInterval)
 
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
@@ -369,11 +369,11 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			framework.ExpectNoError(err)
 
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
 				logs, err := e2epods.GetLogsForPod(f, rtePod.Namespace, rtePod.Name, rteContainerName)
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 				return strings.Contains(logs, "update node resources")
 			}, time.Second*30, time.Second*10).Should(gomega.BeTrue(), "container: %q in pod: %q doesn't contains the refresh log message", rteContainerName, rtePod.Name)
@@ -405,7 +405,7 @@ func dumpPods(f *framework.Framework, nodeName, message string) {
 	}.AsSelector().String()
 
 	pods, err := f.ClientSet.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{FieldSelector: nodeSelector})
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	klog.Infof("BEGIN pods running on %q: %s", nodeName, message)
 	for _, pod := range pods.Items {

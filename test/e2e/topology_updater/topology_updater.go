@@ -66,35 +66,35 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		var err error
 
 		err = e2etestns.Setup(f)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		if !initialized {
 			timeout, err = time.ParseDuration(e2etestenv.GetPollInterval())
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
 			// add a little skew. We pick 1 second randomly, but the idea is that small (2, 3, 5) multipliers
 			// should again not cause a total multiple of the poll interval.
 			timeout += 1 * time.Second
 
 			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Expect(workerNodes).ToNot(gomega.BeEmpty())
 
 			// pick any worker node. The (implicit, TODO: make explicit) assumption is
 			// the daemonset runs on CI on all the worker nodes.
 			var hasLabel bool
 			topologyUpdaterNode, hasLabel = e2enodes.PickTargetNode(workerNodes)
-			gomega.Expect(topologyUpdaterNode).NotTo(gomega.BeNil())
+			gomega.Expect(topologyUpdaterNode).ToNot(gomega.BeNil())
 			if !hasLabel {
 				// during the e2e tests we expect changes on the node topology.
 				// but in an environment with multiple worker nodes, we might be looking at the wrong node.
 				// thus, we assign a unique label to the picked worker node
 				// and making sure to deploy the pod on it during the test using nodeSelector
 				err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 
 			tmPolicy = e2etestenv.GetTopologyManagerPolicy()
@@ -189,7 +189,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 		ginkgo.It("it should account for containers requesting exclusive cpus", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			if len(nodes) < 1 {
 				ginkgo.Skip("not enough available cores for this test")
 			}

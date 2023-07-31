@@ -60,14 +60,14 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		var err error
 
 		err = e2etestns.Setup(f)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		if !initialized {
 			var err error
 			hasMetrics = e2etestenv.GetMetricsEnabled()
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Expect(workerNodes).ToNot(gomega.BeEmpty())
 
 			// pick any worker node. The (implicit, TODO: make explicit) assumption is
@@ -82,7 +82,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 				// thus, we assign a unique label to the picked worker node
 				// and making sure to deploy the pod on it during the test using nodeSelector
 				err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
-				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 
 			var pods *corev1.PodList
@@ -113,7 +113,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 
 		ginkgo.It("[EventChain] should have some metrics exported", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			stdout, stderr, err := f.ExecWithOptions(framework.ExecOptions{
 				Command:            []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)},
@@ -125,14 +125,14 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 				CaptureStderr:      true,
 				PreserveWhitespace: false,
 			})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "ExecWithOptions failed with %s:\n%s", err, stderr)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "ExecWithOptions failed with %s:\n%s", err, stderr)
 			gomega.Expect(stdout).To(gomega.ContainSubstring("operation_delay"))
 			gomega.Expect(stdout).To(gomega.ContainSubstring("wakeup_delay"))
 		})
 
 		ginkgo.It("[release] it should report noderesourcetopology writes", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			if len(nodes) < 1 {
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
@@ -147,7 +147,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 
 			// now we are sure we have at least a write to be reported
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			stdout, stderr, err := f.ExecWithOptions(framework.ExecOptions{
 				Command:            []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)},
@@ -159,7 +159,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 				CaptureStderr:      true,
 				PreserveWhitespace: false,
 			})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "ExecWithOptions failed with %s:\n%s", err, stderr)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "ExecWithOptions failed with %s:\n%s", err, stderr)
 			gomega.Expect(stdout).To(gomega.ContainSubstring("noderesourcetopology_writes_total"))
 		})
 
