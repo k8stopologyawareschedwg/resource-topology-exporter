@@ -21,27 +21,24 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
-
-	"github.com/onsi/ginkgo/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/test/e2e/framework"
-	e2epod "k8s.io/kubernetes/test/e2e/framework/pod"
+	"k8s.io/klog/v2"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/fixture"
 	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
+	e2ewait "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/wait"
 )
 
 const (
-	CentosImage  = "quay.io/centos/centos:8"
-	RTELabelName = "resource-topology"
+	CentosImage = "quay.io/centos/centos:8"
 )
 
 func MakeGuaranteedSleeperPod(cpuLimit string) *corev1.Pod {
@@ -92,49 +89,35 @@ func MakeBestEffortSleeperPod() *corev1.Pod {
 	}
 }
 
-func DeletePodsAsync(f *framework.Framework, podList ...types.NamespacedName) {
-	var wg sync.WaitGroup
-	for _, pod := range podList {
-		wg.Add(1)
-		go func(podNS, podName string) {
-			defer ginkgo.GinkgoRecover()
-			defer wg.Done()
-
-			DeletePodSyncByName(f.ClientSet, podNS, podName)
-		}(pod.Namespace, pod.Name)
-	}
-	wg.Wait()
-}
-
-func DeletePodSyncByName(cs clientset.Interface, podNamespace, podName string) error {
+func DeletePodSyncByName(f *fixture.Fixture, podNamespace, podName string) error {
 	gp := int64(0)
 	delOpts := metav1.DeleteOptions{
 		GracePeriodSeconds: &gp,
 	}
-	framework.Logf("Deleting pod %s/%s", podNamespace, podName)
-	err := cs.CoreV1().Pods(podNamespace).Delete(context.TODO(), podName, delOpts)
+	klog.Infof("Deleting pod %s/%s", podNamespace, podName)
+	err := f.K8SCli.CoreV1().Pods(podNamespace).Delete(f.Ctx, podName, delOpts)
 	if err != nil && !apierrors.IsNotFound(err) {
-		framework.Failf("Failed to delete pod %q: %v", podName, err)
+		return fmt.Errorf("failed to delete pod %q: %w", podName, err)
 	}
-	return e2epod.WaitForPodToDisappear(cs, podNamespace, podName, labels.Everything(), 2*time.Second, e2epod.DefaultPodDeletionTimeout)
+	return e2ewait.ForPodToBeDeleted(f.Ctx, f.Cli, client.ObjectKey{Namespace: podNamespace, Name: podName})
 }
 
-func GetPodsByLabel(f *framework.Framework, ns, label string) ([]corev1.Pod, error) {
+func GetPodsByLabel(cs clientset.Interface, ns, label string) ([]corev1.Pod, error) {
 	sel, err := labels.Parse(label)
 	if err != nil {
 		return nil, err
 	}
 
-	pods, err := f.ClientSet.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
+	pods, err := cs.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 	if err != nil {
 		return nil, err
 	}
 	return pods.Items, nil
 }
 
-func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string) (*corev1.Pod, error) {
-	framework.Logf("searching for RTE pod in namespace %q with label %q", namespace, labelName)
-	pods, err := GetPodsByLabel(f, namespace, fmt.Sprintf("name=%s", labelName))
+func GetPodOnNode(cs clientset.Interface, nodeName, namespace, labelName string) (*corev1.Pod, error) {
+	klog.Infof("searching for RTE pod in namespace %q with label %q", namespace, labelName)
+	pods, err := GetPodsByLabel(cs, namespace, fmt.Sprintf("name=%s", labelName))
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +125,7 @@ func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string)
 		return nil, fmt.Errorf("found no node in %q matching label %q", namespace, labelName)
 	}
 	for idx := 0; idx < len(pods); idx++ {
-		framework.Logf("checking pod %s/%s - is it running on %q?", pods[idx].Namespace, pods[idx].Name, nodeName)
+		klog.Infof("checking pod %s/%s - is it running on %q?", pods[idx].Namespace, pods[idx].Name, nodeName)
 		if pods[idx].Spec.NodeName == nodeName {
 			return &pods[idx], nil
 		}
@@ -150,9 +133,9 @@ func GetPodOnNode(f *framework.Framework, nodeName, namespace, labelName string)
 	return nil, fmt.Errorf("no pod found running on %q", nodeName)
 }
 
-func GetLogsForPod(f *framework.Framework, podNamespace, podName, containerName string) (string, error) {
+func GetLogsForPod(cs clientset.Interface, podNamespace, podName, containerName string) (string, error) {
 	previous := false
-	request := f.ClientSet.CoreV1().RESTClient().Get().Resource("pods").Namespace(podNamespace).Name(podName).SubResource("log").Param("container", containerName).Param("previous", strconv.FormatBool(previous))
+	request := cs.CoreV1().RESTClient().Get().Resource("pods").Namespace(podNamespace).Name(podName).SubResource("log").Param("container", containerName).Param("previous", strconv.FormatBool(previous))
 	logs, err := request.Do(context.TODO()).Raw()
 	if err != nil {
 		return "", err
@@ -161,4 +144,21 @@ func GetLogsForPod(f *framework.Framework, podNamespace, podName, containerName 
 		return "", fmt.Errorf("Fetched log contains \"Internal Error\": %q", string(logs))
 	}
 	return string(logs), err
+}
+
+// CreateSync creates a new pod according to the fixture specifications,
+// and wait for it to start and be running and ready.
+func CreateSync(f *fixture.Fixture, pod *corev1.Pod) (*corev1.Pod, error) {
+	if pod.Namespace == "" {
+		pod.Namespace = f.NS.Name
+	}
+	err := f.Cli.Create(f.Ctx, pod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pod %q; %w", client.ObjectKeyFromObject(pod).String(), err)
+	}
+	err = e2ewait.ForPodToBeRunning(f.Ctx, f.Cli, pod)
+	if err != nil {
+		return nil, err
+	}
+	return pod, nil
 }
