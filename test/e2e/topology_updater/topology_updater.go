@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/test/e2e/framework"
 	admissionapi "k8s.io/pod-security-admission/api"
 	"sigs.k8s.io/yaml"
@@ -130,7 +131,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 				ginkgo.Fail(fmt.Sprintf("failed to find allocatable resources from node topology initial=%v final=%v", initialAvailRes, finalAvailRes))
 			}
 			zoneName, resName, cmp, ok := e2enodetopology.CmpAvailableResources(initialAvailRes, finalAvailRes)
-			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
+			klog.Infof("zone=%q resource=%q cmp=%v ok=%v", zoneName, resName, cmp, ok)
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare allocatable resources from node topology initial=%v final=%v", initialAvailRes, finalAvailRes))
 			}
@@ -170,7 +171,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
 			zoneName, cmp, ok := e2enodetopology.CmpAvailableCPUs(initialAllocRes, finalAllocRes)
-			framework.Logf("zone=%q resource=%q cmp=%v ok=%v", zoneName, corev1.ResourceCPU, cmp, ok)
+			klog.Infof("zone=%q resource=%q cmp=%v ok=%v", zoneName, corev1.ResourceCPU, cmp, ok)
 			if !ok {
 				ginkgo.Fail(fmt.Sprintf("failed to compare available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
@@ -195,7 +196,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			ginkgo.By("getting the initial topology information")
 			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
-			framework.Logf("initial topology information: %#v", initialNodeTopo)
+			klog.Infof("initial topology information: %#v", initialNodeTopo)
 
 			ginkgo.By("creating a pod consuming exclusive CPUs")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
@@ -210,12 +211,12 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			gomega.Eventually(func() bool {
 				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
-					framework.Logf("failed to get the node topology resource: %v", err)
+					klog.Infof("failed to get the node topology resource: %v", err)
 					return false
 				}
 				return finalNodeTopo.ObjectMeta.Generation != initialNodeTopo.ObjectMeta.Generation
 			}, 5*timeout, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
-			framework.Logf("final topology information: %#v", initialNodeTopo)
+			klog.Infof("final topology information: %#v", initialNodeTopo)
 
 			ginkgo.By("checking the changes in the updated topology")
 			initialAllocRes := e2enodetopology.AvailableResourceListFromNodeResourceTopology(initialNodeTopo)
@@ -224,7 +225,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 				ginkgo.Fail(fmt.Sprintf("failed to find available resources from node topology initial=%v final=%v", initialAllocRes, finalAllocRes))
 			}
 			zoneName, resName, isLess := e2enodetopology.LessAvailableResources(initialAllocRes, finalAllocRes)
-			framework.Logf("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
+			klog.Infof("zone=%q resource=%q isLess=%v", zoneName, resName, isLess)
 			gomega.Expect(isLess).To(gomega.BeTrue(), fmt.Sprintf("final available resources not decreased - initial=%v final=%v", initialAllocRes, finalAllocRes))
 		})
 
