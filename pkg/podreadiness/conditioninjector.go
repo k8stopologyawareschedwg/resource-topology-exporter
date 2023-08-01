@@ -9,17 +9,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 )
 
 type ConditionInjector struct {
-	cs      *kubernetes.Clientset
+	cs      kubernetes.Interface
 	ns      string
 	podName string
 }
 
-func NewConditionInjector() (*ConditionInjector, error) {
+func NewConditionInjector(cs kubernetes.Interface) (*ConditionInjector, error) {
 	nsVal, ok := os.LookupEnv("REFERENCE_NAMESPACE")
 	if !ok {
 		return nil, fmt.Errorf("the env REFERENCE_NAMESPACE doesn't exist")
@@ -28,11 +26,6 @@ func NewConditionInjector() (*ConditionInjector, error) {
 	podVal, ok := os.LookupEnv("REFERENCE_POD_NAME")
 	if !ok {
 		return nil, fmt.Errorf("the env REFERENCE_POD_NAME doesn't exist")
-	}
-
-	cs, err := k8shelpers.GetK8sClient("")
-	if err != nil {
-		return nil, err
 	}
 
 	return &ConditionInjector{
