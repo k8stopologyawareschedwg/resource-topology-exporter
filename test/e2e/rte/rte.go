@@ -33,22 +33,20 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/test/e2e/framework"
-	k8se2epod "k8s.io/kubernetes/test/e2e/framework/pod"
-	admissionapi "k8s.io/pod-security-admission/api"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
-
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
-
-	e2etestns "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/namespace"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/fixture"
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
 	e2epods "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods"
 	e2ertepod "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/pods/rtepod"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/remoteexec"
 	e2econsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 	e2etestenv "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testenv"
 )
@@ -60,26 +58,20 @@ const (
 var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func() {
 	var (
 		initialized         bool
-		topologyClient      *topologyclientset.Clientset
 		topologyUpdaterNode *corev1.Node
 		workerNodes         []corev1.Node
 	)
 
-	f := framework.NewDefaultFramework("rte")
-	f.NamespacePodSecurityEnforceLevel = admissionapi.LevelPrivileged
-	f.SkipNamespaceCreation = true
+	f := &fixture.F
 
 	ginkgo.BeforeEach(func() {
 		var err error
 
-		err = e2etestns.Setup(f)
+		nsCleanup, err := f.CreateNamespace("rte")
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
+		ginkgo.DeferCleanup(nsCleanup)
 		if !initialized {
-			topologyClient, err = topologyclientset.NewForConfig(f.ClientConfig())
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-			workerNodes, err = e2enodes.GetWorkerNodes(f)
+			workerNodes, err = e2enodes.GetWorkerNodes(f.K8SCli)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Expect(workerNodes).ToNot(gomega.BeEmpty())
 
@@ -93,7 +85,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				// but in an environment with multiple worker nodes, we might be looking at the wrong node.
 				// thus, we assign a unique label to the picked worker node
 				// and making sure to deploy the pod on it during the test using nodeSelector
-				err = e2enodes.LabelNode(f, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
+				err = e2enodes.LabelNode(f.K8SCli, topologyUpdaterNode, map[string]string{e2econsts.TestNodeLabel: ""})
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 
@@ -109,7 +101,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				ginkgo.Skip("not enough allocatable cores for this test")
 			}
 
-			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			initialNodeTopo := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 			ginkgo.By("creating a pod consuming the shared pool")
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
 
@@ -126,18 +118,19 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			doneChan := make(chan struct{})
 			started := false
 
-			go func(cs clientset.Interface, podCli *k8se2epod.PodClient, refPod *corev1.Pod) {
+			go func(f *fixture.Fixture, refPod *corev1.Pod) {
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
 
-				pod := podCli.CreateSync(refPod)
+				pod, err := e2epods.CreateSync(f, refPod)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				ginkgo.By("waiting for at least poll interval seconds with the test pod running...")
 				time.Sleep(updateInterval * 3)
-				e2epods.DeletePodSyncByName(cs, pod.Namespace, pod.Name)
+				gomega.Expect(e2epods.DeletePodSyncByName(f, pod.Namespace, pod.Name)).ToNot(gomega.HaveOccurred())
 
 				doneChan <- struct{}{}
-			}(f.ClientSet, k8se2epod.NewPodClient(f), sleeperPod)
+			}(f, sleeperPod)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha2.NodeResourceTopology
@@ -147,7 +140,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = f.TopoCli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					klog.Infof("failed to get the node topology resource: %v", err)
 					return false
@@ -176,7 +169,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		})
 
 		ginkgo.It("[NotificationFile] it should react to pod changes using the smart poller with notification file", func() {
-			initialNodeTopo := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			initialNodeTopo := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 
 			stopChan := make(chan struct{})
 			doneChan := make(chan struct{})
@@ -186,8 +179,8 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				defer ginkgo.GinkgoRecover()
 
 				<-stopChan
-				rtePod, err := e2epods.GetPodOnNode(f, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
-				framework.ExpectNoError(err)
+				rtePod, err := e2epods.GetPodOnNode(f.K8SCli, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 				rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -195,7 +188,9 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				rteNotifyFilePath, err := e2ertepod.FindNotificationFilePath(rtePod)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-				execCommandInContainer(f, rtePod.Namespace, rtePod.Name, rteContainerName, "/bin/touch", rteNotifyFilePath)
+				cmd := []string{"/bin/touch", rteNotifyFilePath}
+				_, _, err = remoteexec.CommandOnPod(f.Ctx, f.K8SCli, rtePod, rteContainerName, cmd...)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command %v on pod %q", cmd, client.ObjectKeyFromObject(rtePod).String())
 				klog.Infof("notification triggered, exiting")
 				doneChan <- struct{}{}
 			}()
@@ -209,7 +204,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					started = true
 				}
 
-				finalNodeTopo, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
+				finalNodeTopo, err = f.TopoCli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
 				if err != nil {
 					klog.Infof("failed to get the node topology resource: %v", err)
 					return false
@@ -240,7 +235,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 	ginkgo.Context("with pod fingerprinting enabled", func() {
 		ginkgo.It("[PodFingerprint] it should report the computation method in the attributes", func() {
-			nrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			nrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 			klog.Infof("Initial NRT: %q generation=%v resourceVersion=%v", nrt.Name, nrt.Generation, nrt.ResourceVersion)
 
 			if _, ok := findAttribute(nrt.Attributes, podfingerprint.Attribute); !ok {
@@ -257,7 +252,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		})
 
 		ginkgo.It("[PodFingerprint] it should report stable value if the pods do not change", func() {
-			prevNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			prevNrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 			klog.Infof("Initial NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
 
 			if _, ok := prevNrt.Annotations[podfingerprint.Annotation]; !ok {
@@ -267,7 +262,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
 			}
 
-			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
+			dumpPods(f.K8SCli, topologyUpdaterNode.Name, "reference pods")
 
 			updateInterval, method, err := estimateUpdateInterval(*prevNrt)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -281,16 +276,16 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				time.Sleep(updateInterval)
 			}
 
-			currNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			currNrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 			klog.Infof("Control NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
 
 			// note we don't test no pods have been added/deleted. This is because the suite is supposed to own the cluster while it runs
 			// IOW, if we don't create/delete pods explicitely, noone else is supposed to do
 			pfpStable := expectPodFingerprint(*prevNrt, "==", *currNrt)
 			if !pfpStable {
-				dumpPods(f, topologyUpdaterNode.Name, "after PFP mismatch")
+				dumpPods(f.K8SCli, topologyUpdaterNode.Name, "after PFP mismatch")
 				// ignore errors and carry on. We don't want to fail the test because of missing debug info.
-				dumpRTELogs(f, topologyUpdaterNode.Name)
+				dumpRTELogs(f.K8SCli, topologyUpdaterNode.Name)
 
 			}
 			gomega.Expect(pfpStable).To(gomega.BeTrue(), "PFP changed unexpectedly")
@@ -304,7 +299,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			}
 
 			var currNrt *v1alpha2.NodeResourceTopology
-			prevNrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+			prevNrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 
 			if _, ok := prevNrt.Annotations[podfingerprint.Annotation]; !ok {
 				ginkgo.Skip("pod fingerprinting not found - assuming disabled")
@@ -313,38 +308,39 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
 			}
 
-			dumpPods(f, topologyUpdaterNode.Name, "reference pods")
+			dumpPods(f.K8SCli, topologyUpdaterNode.Name, "reference pods")
 
 			updateInterval, method, err := estimateUpdateInterval(*prevNrt)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			klog.Infof("%s update interval: %s", method, updateInterval)
 
 			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-			pod := k8se2epod.NewPodClient(f).CreateSync(sleeperPod)
+			pod, err := e2epods.CreateSync(f, sleeperPod)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// (try to) delete the pod twice is no bother
-			cs := f.ClientSet
 			podNamespace, podName := pod.Namespace, pod.Name
-			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, cs, podNamespace, podName)
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f.K8SCli, podNamespace, podName)
 
-			currNrt = getUpdatedNRT(topologyClient, topologyUpdaterNode.Name, *prevNrt, updateInterval)
+			currNrt = getUpdatedNRT(f.TopoCli, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
 			pfpChanged := expectPodFingerprint(*prevNrt, "!=", *currNrt)
 			errMessage := "PFP did not change after pod creation"
 			if !pfpChanged {
-				dumpPods(f, topologyUpdaterNode.Name, errMessage)
+				dumpPods(f.K8SCli, topologyUpdaterNode.Name, errMessage)
 			}
 			gomega.Expect(pfpChanged).To(gomega.BeTrue(), errMessage)
 
 			// since we need to delete the pod anyway, let's use this to run another check
 			prevNrt = currNrt
-			e2epods.DeletePodSyncByName(cs, podNamespace, podName)
+			err = e2epods.DeletePodSyncByName(f, podNamespace, podName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			currNrt = getUpdatedNRT(topologyClient, topologyUpdaterNode.Name, *prevNrt, updateInterval)
+			currNrt = getUpdatedNRT(f.TopoCli, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
 			pfpChanged = expectPodFingerprint(*prevNrt, "!=", *currNrt)
 			errMessage = "PFP did not change after pod deletion"
 			if !pfpChanged {
-				dumpPods(f, topologyUpdaterNode.Name, errMessage)
+				dumpPods(f.K8SCli, topologyUpdaterNode.Name, errMessage)
 			}
 			gomega.Expect(pfpChanged).To(gomega.BeTrue(), errMessage)
 		})
@@ -352,7 +348,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	ginkgo.Context("with refresh-node-resources enabled", func() {
 		ginkgo.It("[NodeRefresh] should be able to detect devices", func() {
 			gomega.Eventually(func() bool {
-				nrt := e2enodetopology.GetNodeTopology(topologyClient, topologyUpdaterNode.Name)
+				nrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 				devName := e2etestenv.GetDeviceName()
 				for _, zone := range nrt.Zones {
 					for _, res := range zone.Resources {
@@ -366,14 +362,14 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		})
 
 		ginkgo.It("[NodeRefresh] should log the refresh message", func() {
-			rtePod, err := e2epods.GetPodOnNode(f, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
-			framework.ExpectNoError(err)
+			rtePod, err := e2epods.GetPodOnNode(f.K8SCli, topologyUpdaterNode.Name, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Eventually(func() bool {
-				logs, err := e2epods.GetLogsForPod(f, rtePod.Namespace, rtePod.Name, rteContainerName)
+				logs, err := e2epods.GetLogsForPod(f.K8SCli, rtePod.Namespace, rtePod.Name, rteContainerName)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 				return strings.Contains(logs, "update node resources")
@@ -400,12 +396,12 @@ func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string,
 	return currNrt
 }
 
-func dumpPods(f *framework.Framework, nodeName, message string) {
+func dumpPods(cs clientset.Interface, nodeName, message string) {
 	nodeSelector := fields.Set{
 		"spec.nodeName": nodeName,
 	}.AsSelector().String()
 
-	pods, err := f.ClientSet.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{FieldSelector: nodeSelector})
+	pods, err := cs.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{FieldSelector: nodeSelector})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	klog.Infof("BEGIN pods running on %q: %s", nodeName, message)
@@ -489,24 +485,8 @@ func estimateUpdateInterval(nrt v1alpha2.NodeResourceTopology) (time.Duration, s
 	return updateInterval, "computed", nil
 }
 
-func execCommandInContainer(f *framework.Framework, namespace, podName, containerName string, cmd ...string) string {
-	stdout, stderr, err := k8se2epod.ExecWithOptions(f, k8se2epod.ExecOptions{
-		Command:            cmd,
-		Namespace:          namespace,
-		PodName:            podName,
-		ContainerName:      containerName,
-		Stdin:              nil,
-		CaptureStdout:      true,
-		CaptureStderr:      true,
-		PreserveWhitespace: false,
-	})
-	klog.Infof("Exec stderr: %q", stderr)
-	framework.ExpectNoError(err, "failed to execute command in namespace %v pod %v, container %v: %v", namespace, podName, containerName, err)
-	return stdout
-}
-
-func dumpRTELogs(f *framework.Framework, nodeName string) error {
-	rtePod, err := e2epods.GetPodOnNode(f, nodeName, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
+func dumpRTELogs(cs clientset.Interface, nodeName string) error {
+	rtePod, err := e2epods.GetPodOnNode(cs, nodeName, e2etestenv.GetNamespaceName(), e2etestenv.RTELabelName)
 	if err != nil {
 		return err
 	}
@@ -516,7 +496,7 @@ func dumpRTELogs(f *framework.Framework, nodeName string) error {
 		return err
 	}
 
-	logs, err := e2epods.GetLogsForPod(f, rtePod.Namespace, rtePod.Name, rteContainerName)
+	logs, err := e2epods.GetLogsForPod(cs, rtePod.Namespace, rtePod.Name, rteContainerName)
 	if err != nil {
 		return err
 	}
