@@ -23,6 +23,9 @@ package rte
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
+	"strings"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -114,12 +117,17 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			cmd := []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
-			stdout, stderr, err := remoteexec.CommandOnPod(f.Ctx, f.K8SCli, rtePod, rteContainerName, cmd...)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command on pod. pod=%q; cmd=%q; err=%v; stderr=%q", client.ObjectKeyFromObject(rtePod), cmd, err, stderr)
-			gomega.Expect(stdout).To(gomega.ContainSubstring("operation_delay"))
-			gomega.Expect(stdout).To(gomega.ContainSubstring("wakeup_delay"))
+			key := client.ObjectKeyFromObject(rtePod)
+			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
+			var stdout, stderr []byte
+			gomega.Eventually(func() bool {
+				var err error
+				stdout, stderr, err = remoteexec.CommandOnPod(f.Ctx, f.K8SCli, rtePod, rteContainerName, cmd...)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command on pod. pod=%q; cmd=%q; err=%v; stderr=%q", key.String(), cmd, err, stderr)
+				return strings.Contains(string(stdout), "operation_delay") &&
+					strings.Contains(string(stdout), "wakeup_delay")
+			}).WithPolling(10*time.Second).WithTimeout(2*time.Minute).Should(gomega.BeTrue(), "failed to get metrics from pod\nstdout=%q\nstderr=%q\n", stdout, stderr)
 		})
-
 		ginkgo.It("[release] it should report noderesourcetopology writes", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -142,10 +150,16 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			cmd := []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
-			stdout, stderr, err := remoteexec.CommandOnPod(f.Ctx, f.K8SCli, rtePod, rteContainerName, cmd...)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command on pod. pod=%q; cmd=%q; err=%v; stderr=%q", client.ObjectKeyFromObject(rtePod), cmd, err, stderr)
-			gomega.Expect(stdout).To(gomega.ContainSubstring("noderesourcetopology_writes_total"))
-		})
+			key := client.ObjectKeyFromObject(rtePod)
+			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
+			var stdout, stderr []byte
+			gomega.Eventually(func() bool {
+				var err error
+				stdout, stderr, err = remoteexec.CommandOnPod(f.Ctx, f.K8SCli, rtePod, rteContainerName, cmd...)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command on pod. pod=%q; cmd=%q; err=%v; stderr=%q", key.String(), cmd, err, stderr)
 
+				return strings.Contains(string(stdout), "noderesourcetopology_writes_total")
+			}).WithPolling(10*time.Second).WithTimeout(2*time.Minute).Should(gomega.BeTrue(), "failed to get metrics from pod\nstdout=%q\nstderr=%q\n", stdout, stderr)
+		})
 	})
 })
