@@ -456,7 +456,7 @@ func TestResourcesScan(t *testing.T) {
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
-		resMon, err := NewResourceMonitor(mockPodResClient, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
@@ -553,7 +553,7 @@ func TestResourcesScan(t *testing.T) {
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
-		resMon, err := NewResourceMonitor(mockPodResClient, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
@@ -706,7 +706,7 @@ func TestResourcesScan(t *testing.T) {
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(mockPodResClient, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
@@ -877,7 +877,7 @@ func TestResourcesScan(t *testing.T) {
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(mockPodResClient, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
@@ -1100,7 +1100,7 @@ func TestResourcesScan(t *testing.T) {
 		}
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(mockPodResClient, Args{RefreshNodeResources: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{RefreshNodeResources: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {
@@ -1270,7 +1270,7 @@ func TestResourcesScan(t *testing.T) {
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
-		resMon, err := NewResourceMonitor(mockPodResClient, Args{PodSetFingerprint: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{PodSetFingerprint: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
 		Convey("When aggregating resources", func() {

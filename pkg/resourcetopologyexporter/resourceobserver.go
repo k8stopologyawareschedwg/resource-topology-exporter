@@ -6,7 +6,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
@@ -25,8 +24,8 @@ type ResourceObserver struct {
 	exposeTiming    bool
 }
 
-func NewResourceObserver(cli podresourcesapi.PodResourcesListerClient, args resourcemonitor.Args) (*ResourceObserver, error) {
-	resMon, err := resourcemonitor.NewResourceMonitor(cli, args)
+func NewResourceObserver(hnd resourcemonitor.Handle, args resourcemonitor.Args) (*ResourceObserver, error) {
+	resMon, err := resourcemonitor.NewResourceMonitor(hnd, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ResourceMonitor: %w", err)
 	}
