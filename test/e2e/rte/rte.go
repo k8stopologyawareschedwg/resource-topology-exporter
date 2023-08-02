@@ -319,7 +319,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// (try to) delete the pod twice is no bother
 			podNamespace, podName := pod.Namespace, pod.Name
-			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f.K8SCli, podNamespace, podName)
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, podNamespace, podName)
 
 			currNrt = getUpdatedNRT(f.TopoCli, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
