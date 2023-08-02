@@ -29,7 +29,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 		crd         *apiextv1.CustomResourceDefinition
 	)
 
-	f := &fixture.F
+	f := fixture.New()
 
 	ginkgo.BeforeEach(func() {
 		if !initialized {

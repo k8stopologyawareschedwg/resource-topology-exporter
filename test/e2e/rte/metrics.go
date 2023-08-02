@@ -55,7 +55,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		topologyUpdaterNode *corev1.Node
 	)
 
-	f := &fixture.F
+	f := fixture.New()
 
 	ginkgo.BeforeEach(func() {
 		var err error
