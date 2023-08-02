@@ -31,7 +31,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/yaml"
@@ -108,9 +107,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			pod, err := e2epods.CreateSync(f, sleeperPod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
-				return e2epods.DeletePodSyncByName(f, podNamespace, podName)
-			}, f.K8SCli, pod.Namespace, pod.Name)
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, pod.Namespace, pod.Name)
 
 			cooldown := 3 * timeout
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
@@ -149,9 +146,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			pod, err := e2epods.CreateSync(f, sleeperPod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
-				return e2epods.DeletePodSyncByName(f, podNamespace, podName)
-			}, f.K8SCli, pod.Namespace, pod.Name)
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, pod.Namespace, pod.Name)
 
 			cooldown := 3 * timeout
 			ginkgo.By(fmt.Sprintf("getting the updated topology - sleeping for %v", cooldown))
@@ -198,9 +193,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			pod, err := e2epods.CreateSync(f, sleeperPod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			ginkgo.DeferCleanup(func(cs clientset.Interface, podNamespace, podName string) error {
-				return e2epods.DeletePodSyncByName(f, podNamespace, podName)
-			}, f.K8SCli, pod.Namespace, pod.Name)
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, pod.Namespace, pod.Name)
 
 			ginkgo.By("getting the updated topology")
 			var finalNodeTopo *v1alpha2.NodeResourceTopology

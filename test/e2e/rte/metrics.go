@@ -127,9 +127,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			pod, err := e2epods.CreateSync(f, sleeperPod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			ginkgo.DeferCleanup(func(f *fixture.Fixture, podNamespace, podName string) error {
-				return e2epods.DeletePodSyncByName(f, podNamespace, podName)
-			}, f, pod.Namespace, pod.Name)
+			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, pod.Namespace, pod.Name)
 
 			// now we are sure we have at least a write to be reported
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
