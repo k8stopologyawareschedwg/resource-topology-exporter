@@ -17,7 +17,7 @@ import (
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 )
 
-var F Fixture
+var fxt Fixture
 var initialized bool
 
 type Fixture struct {
@@ -29,12 +29,12 @@ type Fixture struct {
 	NS      *corev1.Namespace
 }
 
-func init() {
+func New() *Fixture {
 	// important so we keep the same context across the suite run
 	if initialized {
-		return
+		return &fxt
 	}
-	F.Ctx = context.Background()
+	fxt.Ctx = context.Background()
 	cfg, err := config.GetConfig()
 	if err != nil {
 		klog.Exit(err.Error())
@@ -52,39 +52,40 @@ func init() {
 		klog.Exit(err.Error())
 	}
 	initialized = true
+	return &fxt
 }
 
 func initClient(cfg *rest.Config) error {
 	var err error
 
-	F.Cli, err = client.New(cfg, client.Options{})
+	fxt.Cli, err = client.New(cfg, client.Options{})
 	return err
 }
 
 func initK8SClient(cfg *rest.Config) error {
 	var err error
 
-	F.K8SCli, err = kubernetes.NewForConfig(cfg)
+	fxt.K8SCli, err = kubernetes.NewForConfig(cfg)
 	return err
 }
 
 func initTopologyClient(cfg *rest.Config) error {
 	var err error
 
-	F.TopoCli, err = topologyclientset.NewForConfig(cfg)
+	fxt.TopoCli, err = topologyclientset.NewForConfig(cfg)
 	return err
 }
 
 func initApiExtensionClient(cfg *rest.Config) error {
 	var err error
 
-	F.ApiExt, err = apiextension.NewForConfig(cfg)
+	fxt.ApiExt, err = apiextension.NewForConfig(cfg)
 	return err
 }
 
 // CreateNamespace creates a namespace with the given prefix
 // and return a cleanup function for the newly created namespace
-func (f *Fixture) CreateNamespace(prefix string) (func() error, error) {
+func (fxt *Fixture) CreateNamespace(prefix string) (func() error, error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "rte-e2e-testing-" + prefix + "-",
@@ -96,13 +97,13 @@ func (f *Fixture) CreateNamespace(prefix string) (func() error, error) {
 			},
 		},
 	}
-	err := f.Cli.Create(f.Ctx, ns)
+	err := fxt.Cli.Create(fxt.Ctx, ns)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create namespace %s; %w", ns.Name, err)
 	}
-	f.NS = ns
+	fxt.NS = ns
 	cleanFunc := func() error {
-		err = f.Cli.Delete(f.Ctx, ns)
+		err = fxt.Cli.Delete(fxt.Ctx, ns)
 		if err != nil {
 			return fmt.Errorf("failed to delete namespace %s; %w", ns.Name, err)
 		}
