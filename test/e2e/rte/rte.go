@@ -62,7 +62,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 		workerNodes         []corev1.Node
 	)
 
-	f := &fixture.F
+	f := fixture.New()
 
 	ginkgo.BeforeEach(func() {
 		var err error
