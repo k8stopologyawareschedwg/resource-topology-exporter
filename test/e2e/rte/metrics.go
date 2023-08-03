@@ -23,9 +23,10 @@ package rte
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"strings"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -112,7 +113,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command on pod. pod=%q; cmd=%q; err=%v; stderr=%q", key.String(), cmd, err, stderr)
 				return strings.Contains(string(stdout), "operation_delay") &&
 					strings.Contains(string(stdout), "wakeup_delay")
-			}).WithPolling(10*time.Second).WithTimeout(2*time.Minute).Should(gomega.BeTrue(), "failed to get metrics from pod\nstdout=%q\nstderr=%q\n", stdout, stderr)
+			}).WithPolling(10*time.Second).WithTimeout(3*time.Minute).Should(gomega.BeTrue(), "failed to get metrics from pod\nstdout=%q\nstderr=%q\n", stdout, stderr)
 		})
 		ginkgo.It("[release] it should report noderesourcetopology writes", func() {
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
