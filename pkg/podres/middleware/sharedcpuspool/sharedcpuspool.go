@@ -83,8 +83,8 @@ func (fc *filteringClient) FilterListResponse(resp *podresourcesapi.ListPodResou
 		for _, cntRes := range podRes.GetContainers() {
 			cpuIds := removeCPUs(cntRes.CpuIds, sharedPoolCPUs)
 			if fc.debug && !reflect.DeepEqual(cpuIds, cntRes.CpuIds) {
-				curCpus := cpuset.NewCPUSetInt64(cntRes.CpuIds...)
-				newCpus := cpuset.NewCPUSetInt64(cpuIds...)
+				curCpus := newCPUSetInt64(cntRes.CpuIds...)
+				newCpus := newCPUSetInt64(cpuIds...)
 				klog.Infof("performed pool change for %s/%s: %q -> %q", podRes.Name, cntRes.Name, curCpus.String(), newCpus.String())
 			}
 			cntRes.CpuIds = cpuIds
@@ -149,14 +149,30 @@ func findSharedPoolCPUsInListResponse(refCnt *ContainerIdent, podResources []*po
 			if cntRes.Name != refCnt.ContainerName {
 				continue
 			}
-			return cpuset.NewCPUSetInt64(cntRes.CpuIds...)
+			return newCPUSetInt64(cntRes.CpuIds...)
 		}
 	}
 	return cpuset.CPUSet{}
 }
 
 func removeCPUs(cpuIDs []int64, toRemove cpuset.CPUSet) []int64 {
-	cs := cpuset.NewCPUSetInt64(cpuIDs...)
+	cs := newCPUSetInt64(cpuIDs...)
 	res := cs.Difference(toRemove)
-	return res.ToSliceInt64()
+	return cpuSetListInt64(&res)
+}
+
+func newCPUSetInt64(cpus ...int64) cpuset.CPUSet {
+	cpuIdsInt := make([]int, len(cpus))
+	for _, id := range cpus {
+		cpuIdsInt = append(cpuIdsInt, int(id))
+	}
+	return cpuset.New(cpuIdsInt...)
+}
+
+func cpuSetListInt64(set *cpuset.CPUSet) []int64 {
+	cpuIdsInt64 := make([]int64, set.Size())
+	for _, id := range set.List() {
+		cpuIdsInt64 = append(cpuIdsInt64, int64(id))
+	}
+	return cpuIdsInt64
 }
