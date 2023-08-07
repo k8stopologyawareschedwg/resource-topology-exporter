@@ -83,6 +83,19 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 	return fc.FilterAllocatableResponse(resp), nil
 }
 
+func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodResourcesRequest, opts ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+	resp, err := fc.cli.Get(ctx, in, opts...)
+	if err != nil {
+		return resp, err
+	}
+	return fc.FilterGetResponse(resp)
+}
+
+func (fc *filteringClient) FilterGetResponse(resp *podresourcesapi.GetPodResourcesResponse) (*podresourcesapi.GetPodResourcesResponse, error) {
+	// nothing to do here
+	return resp, nil
+}
+
 func NewFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, podExcludes List) podresourcesapi.PodResourcesListerClient {
 	klog.Infof("> POD excludes:\n%s", podExcludes.String())
 	return &filteringClient{

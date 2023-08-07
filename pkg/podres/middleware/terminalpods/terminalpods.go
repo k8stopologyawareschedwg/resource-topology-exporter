@@ -61,6 +61,19 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 	return fc.cli.GetAllocatableResources(ctx, in, opts...)
 }
 
+func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodResourcesRequest, opts ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+	resp, err := fc.cli.Get(ctx, in, opts...)
+	if err != nil {
+		return resp, err
+	}
+	return fc.FilterGetResponse(resp)
+}
+
+func (fc *filteringClient) FilterGetResponse(resp *podresourcesapi.GetPodResourcesResponse) (*podresourcesapi.GetPodResourcesResponse, error) {
+	// nothing to do here
+	return resp, nil
+}
+
 func NewFromLister(ctx context.Context, cli podresourcesapi.PodResourcesListerClient, kcli kubernetes.Interface, resyncPeriod time.Duration, debug bool) (podresourcesapi.PodResourcesListerClient, error) {
 	tweakFunc := func(opts *metav1.ListOptions) {
 		// A pod is in a terminal state if .status.phase in (Failed, Succeeded) is true.

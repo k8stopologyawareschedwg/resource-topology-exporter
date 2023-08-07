@@ -61,8 +61,9 @@ func ContainerIdentFromString(ident string) (*ContainerIdent, error) {
 }
 
 type PodResourcesFilter interface {
-	FilterListResponse(resp *podresourcesapi.ListPodResourcesResponse) *podresourcesapi.ListPodResourcesResponse
-	FilterAllocatableResponse(resp *podresourcesapi.AllocatableResourcesResponse) *podresourcesapi.AllocatableResourcesResponse
+	FilterListResponse(resp *podresourcesapi.ListPodResourcesResponse) (*podresourcesapi.ListPodResourcesResponse, error)
+	FilterAllocatableResponse(resp *podresourcesapi.AllocatableResourcesResponse) (*podresourcesapi.AllocatableResourcesResponse, error)
+	FilterGetResponse(resp *podresourcesapi.GetPodResourcesResponse) (*podresourcesapi.GetPodResourcesResponse, error)
 }
 
 type filteringClient struct {
@@ -110,6 +111,19 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 		return resp, err
 	}
 	return fc.FilterAllocatableResponse(resp), nil
+}
+
+func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodResourcesRequest, opts ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+	resp, err := fc.cli.Get(ctx, in, opts...)
+	if err != nil {
+		return resp, err
+	}
+	return fc.FilterGetResponse(resp)
+}
+
+func (fc *filteringClient) FilterGetResponse(resp *podresourcesapi.GetPodResourcesResponse) (*podresourcesapi.GetPodResourcesResponse, error) {
+	// nothing to do here
+	return resp, nil
 }
 
 func NewFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, referenceContainer *ContainerIdent) podresourcesapi.PodResourcesListerClient {
