@@ -83,7 +83,7 @@ jobs:
     - name: run E2E tests
       run: |
         export KUBECONFIG=${HOME}/.kube/config 
-        _out/rte-e2e.test -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
+        _out/rte-e2e.test -ginkgo.v -ginkgo.focus='\[(RTE|TopologyUpdater)\].*\[(Local|InfraConsuming|Monitoring)\]'
 
     - name: show RTE logs
       if: ${{ failure() }}

@@ -74,7 +74,7 @@ func GetNodesBySelector(cs kubernetes.Interface, selector labels.Selector) ([]co
 // FilterNodesWithEnoughCores returns all nodes with at least the amount of given CPU allocatable
 func FilterNodesWithEnoughCores(nodes []corev1.Node, cpuAmount string) ([]corev1.Node, error) {
 	requestCpu := resource.MustParse(cpuAmount)
-	klog.Infof("checking request %v on %d nodes", requestCpu, len(nodes))
+	klog.Infof("checking request %v on %d nodes", requestCpu.String(), len(nodes))
 
 	resNodes := []corev1.Node{}
 	for _, node := range nodes {
@@ -84,7 +84,7 @@ func FilterNodesWithEnoughCores(nodes []corev1.Node, cpuAmount string) ([]corev1
 		}
 
 		if availCpu.Cmp(requestCpu) < 1 {
-			klog.Infof("node %q available cpu %v requested cpu %v", node.Name, availCpu, requestCpu)
+			klog.Infof("node %q available cpu %v requested cpu %v", node.Name, availCpu.String(), requestCpu.String())
 			continue
 		}
 
