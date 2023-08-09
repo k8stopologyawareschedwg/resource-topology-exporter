@@ -51,10 +51,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	cli, err := podres.GetClient(parsedArgs.RTE.PodResourcesSocketPath)
+	k8scli, err := k8shelpers.GetK8sClient("")
+	if err != nil {
+		klog.Fatalf("failed to get k8s client: %w", err)
+	}
+
+	cli, cleanup, err := podres.WaitForReady(podres.GetClient(parsedArgs.RTE.PodResourcesSocketPath))
 	if err != nil {
 		klog.Fatalf("failed to get podresources client: %v", err)
 	}
+	defer cleanup()
 
 	cli = sharedcpuspool.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
 
