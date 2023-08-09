@@ -31,7 +31,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -54,7 +54,7 @@ func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, no
 	gomega.EventuallyWithOffset(1, func() bool {
 		nodeTopology, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
 		if err != nil {
-			framework.Logf("failed to get the node topology resource: %v", err)
+			klog.Infof("failed to get the node topology resource: %v", err)
 			return false
 		}
 		if resName == "" {
@@ -69,11 +69,11 @@ func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, no
 func isValidAttribute(attrs v1alpha2.AttributeList, name, value string) bool {
 	val, ok := nrtv1alpha2attr.Get(attrs, name)
 	if !ok {
-		framework.Logf("missing expected attribute %q", name)
+		klog.Infof("missing expected attribute %q", name)
 		return false
 	}
 	if value != "" && value != val.Value {
-		framework.Logf("value mismatch for attribute %q got %q expected %q", name, val.Value, value)
+		klog.Infof("value mismatch for attribute %q got %q expected %q", name, val.Value, value)
 		return false
 	}
 	return true
@@ -81,12 +81,12 @@ func isValidAttribute(attrs v1alpha2.AttributeList, name, value string) bool {
 
 func IsValidNodeTopology(nodeTopology *v1alpha2.NodeResourceTopology, tmPolicy, tmScope string) bool {
 	if nodeTopology == nil {
-		framework.Logf("failed to get topology policy from the node topology resource")
+		klog.Infof("failed to get topology policy from the node topology resource")
 		return false
 	}
 
 	if len(nodeTopology.TopologyPolicies) > 0 {
-		framework.Logf("topologyPolicies is deprecated and should not be populated anymore")
+		klog.Infof("topologyPolicies is deprecated and should not be populated anymore")
 		return false
 	}
 
@@ -96,7 +96,7 @@ func IsValidNodeTopology(nodeTopology *v1alpha2.NodeResourceTopology, tmPolicy, 
 	}
 
 	if nodeTopology.Zones == nil || len(nodeTopology.Zones) == 0 {
-		framework.Logf("failed to get topology zones from the node topology resource")
+		klog.Infof("failed to get topology zones from the node topology resource")
 		return false
 	}
 
@@ -109,32 +109,32 @@ func IsValidNodeTopology(nodeTopology *v1alpha2.NodeResourceTopology, tmPolicy, 
 		foundNodes++
 
 		if !IsValidCostList(zone.Name, zone.Costs) {
-			framework.Logf("invalid cost list for %q %q", nodeTopology.Name, zone.Name)
+			klog.Infof("invalid cost list for %q %q", nodeTopology.Name, zone.Name)
 			return false
 		}
 
 		if !IsValidResourceList(zone.Name, zone.Resources) {
-			framework.Logf("invalid resource list for %q %q", nodeTopology.Name, zone.Name)
+			klog.Infof("invalid resource list for %q %q", nodeTopology.Name, zone.Name)
 			return false
 		}
 	}
 	ret := foundNodes > 0
 	if !ret {
-		framework.Logf("found no Zone with 'node' kind for %q", nodeTopology.Name)
+		klog.Infof("found no Zone with 'node' kind for %q", nodeTopology.Name)
 	}
 	return ret
 }
 
 func IsValidCostList(zoneName string, costs v1alpha2.CostList) bool {
 	if len(costs) == 0 {
-		framework.Logf("failed to get topology costs for zone %q from the node topology resource", zoneName)
+		klog.Infof("failed to get topology costs for zone %q from the node topology resource", zoneName)
 		return false
 	}
 
 	// TODO cross-validate zone names
 	for _, cost := range costs {
 		if cost.Name == "" || cost.Value < 0 {
-			framework.Logf("malformed cost %v for zone %q", cost, zoneName)
+			klog.Infof("malformed cost %v for zone %q", cost, zoneName)
 		}
 	}
 	return true
@@ -142,7 +142,7 @@ func IsValidCostList(zoneName string, costs v1alpha2.CostList) bool {
 
 func IsValidResourceList(zoneName string, resources v1alpha2.ResourceInfoList) bool {
 	if len(resources) == 0 {
-		framework.Logf("failed to get topology resources for zone %q from the node topology resource", zoneName)
+		klog.Infof("failed to get topology resources for zone %q from the node topology resource", zoneName)
 		return false
 	}
 	foundCpu := false
@@ -154,7 +154,7 @@ func IsValidResourceList(zoneName string, resources v1alpha2.ResourceInfoList) b
 		allocatable := resource.Capacity.Value()
 		capacity := resource.Capacity.Value()
 		if (available < 0 || allocatable < 0 || capacity < 0) || (capacity < available) || (capacity < allocatable) {
-			framework.Logf("malformed resource %v for zone %q", resource, zoneName)
+			klog.Infof("malformed resource %v for zone %q", resource, zoneName)
 			return false
 		}
 	}
@@ -182,19 +182,19 @@ func AvailableResourceListFromNodeResourceTopology(nodeTopo *v1alpha2.NodeResour
 func LessAvailableResources(expected, got map[string]corev1.ResourceList) (string, string, bool) {
 	zoneName, resName, cmp, ok := CmpAvailableResources(expected, got)
 	if !ok {
-		framework.Logf("-> cmp failed (not ok)")
+		klog.Infof("-> cmp failed (not ok)")
 		return "", "", false
 	}
 	if cmp < 0 {
 		return zoneName, resName, true
 	}
-	framework.Logf("-> cmp failed (value=%d)", cmp)
+	klog.Infof("-> cmp failed (value=%d)", cmp)
 	return "", "", false
 }
 
 func CmpAvailableResources(expected, got map[string]corev1.ResourceList) (string, string, int, bool) {
 	if len(got) != len(expected) {
-		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
+		klog.Infof("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", "", 0, false
 	}
 	for expZoneName, expResList := range expected {
@@ -211,7 +211,7 @@ func CmpAvailableResources(expected, got map[string]corev1.ResourceList) (string
 
 func CmpResourceList(expected, got corev1.ResourceList) (string, int, bool) {
 	if len(got) != len(expected) {
-		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
+		klog.Infof("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", 0, false
 	}
 	for expResName, expResQty := range expected {
@@ -220,7 +220,7 @@ func CmpResourceList(expected, got corev1.ResourceList) (string, int, bool) {
 			return string(expResName), 0, false
 		}
 		if cmp := gotResQty.Cmp(expResQty); cmp != 0 {
-			framework.Logf("-> resource=%q cmp=%d expected=%v got=%v", expResName, cmp, expResQty, gotResQty)
+			klog.Infof("-> resource=%q cmp=%d expected=%v got=%v", expResName, cmp, expResQty, gotResQty)
 			return string(expResName), cmp, true
 		}
 	}
@@ -229,7 +229,7 @@ func CmpResourceList(expected, got corev1.ResourceList) (string, int, bool) {
 
 func CmpAvailableCPUs(expected, got map[string]corev1.ResourceList) (string, int, bool) {
 	if len(got) != len(expected) {
-		framework.Logf("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
+		klog.Infof("-> expected=%v (len=%d) got=%v (len=%d)", expected, len(expected), got, len(got))
 		return "", 0, false
 	}
 
@@ -239,12 +239,12 @@ func CmpAvailableCPUs(expected, got map[string]corev1.ResourceList) (string, int
 			return expZoneName, 0, false
 		}
 		if _, ok := expResList[corev1.ResourceCPU]; !ok {
-			framework.Logf("resource=%q does not exist in expected list; expected=%v", corev1.ResourceCPU, expResList)
+			klog.Infof("resource=%q does not exist in expected list; expected=%v", corev1.ResourceCPU, expResList)
 			return expZoneName, 0, false
 		}
 
 		if _, ok := gotResList[corev1.ResourceCPU]; !ok {
-			framework.Logf("resource=%q does not exist in got list; got=%v", corev1.ResourceCPU, gotResList)
+			klog.Infof("resource=%q does not exist in got list; got=%v", corev1.ResourceCPU, gotResList)
 			return expZoneName, 0, false
 		}
 		quan := gotResList[corev1.ResourceCPU]
@@ -255,7 +255,7 @@ func CmpAvailableCPUs(expected, got map[string]corev1.ResourceList) (string, int
 
 func containsResource(nrt *v1alpha2.NodeResourceTopology, resName string) bool {
 	if nrt.Zones == nil || len(nrt.Zones) == 0 {
-		framework.Logf("failed to get topology zones from the node topology resource")
+		klog.Infof("failed to get topology zones from the node topology resource")
 		return false
 	}
 
@@ -268,7 +268,7 @@ func containsResource(nrt *v1alpha2.NodeResourceTopology, resName string) bool {
 
 		for _, res := range zone.Resources {
 			if res.Name == resName {
-				framework.Logf("found resource %q in zone %q node %q", resName, zone.Name, nrt.Name)
+				klog.Infof("found resource %q in zone %q node %q", resName, zone.Name, nrt.Name)
 				foundNodes++
 			}
 		}
