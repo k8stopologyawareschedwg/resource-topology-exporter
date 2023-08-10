@@ -443,7 +443,6 @@ gopkg.in/yaml.v3
 howett.net/plist
 # k8s.io/api v0.27.2 => k8s.io/api v0.26.4
 ## explicit; go 1.19
-k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1alpha1
 k8s.io/api/admissionregistration/v1beta1
@@ -545,7 +544,6 @@ k8s.io/apimachinery/pkg/util/remotecommand
 k8s.io/apimachinery/pkg/util/runtime
 k8s.io/apimachinery/pkg/util/sets
 k8s.io/apimachinery/pkg/util/strategicpatch
-k8s.io/apimachinery/pkg/util/uuid
 k8s.io/apimachinery/pkg/util/validation
 k8s.io/apimachinery/pkg/util/validation/field
 k8s.io/apimachinery/pkg/util/wait
@@ -609,7 +607,6 @@ k8s.io/client-go/applyconfigurations/storage/v1
 k8s.io/client-go/applyconfigurations/storage/v1alpha1
 k8s.io/client-go/applyconfigurations/storage/v1beta1
 k8s.io/client-go/discovery
-k8s.io/client-go/discovery/cached/memory
 k8s.io/client-go/discovery/fake
 k8s.io/client-go/dynamic
 k8s.io/client-go/informers
@@ -828,7 +825,6 @@ k8s.io/client-go/listers/storage/v1alpha1
 k8s.io/client-go/listers/storage/v1beta1
 k8s.io/client-go/metadata
 k8s.io/client-go/openapi
-k8s.io/client-go/openapi/cached
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/install
 k8s.io/client-go/pkg/apis/clientauthentication/v1
@@ -839,14 +835,6 @@ k8s.io/client-go/rest
 k8s.io/client-go/rest/fake
 k8s.io/client-go/rest/watch
 k8s.io/client-go/restmapper
-k8s.io/client-go/scale
-k8s.io/client-go/scale/scheme
-k8s.io/client-go/scale/scheme/appsint
-k8s.io/client-go/scale/scheme/appsv1beta1
-k8s.io/client-go/scale/scheme/appsv1beta2
-k8s.io/client-go/scale/scheme/autoscalingv1
-k8s.io/client-go/scale/scheme/extensionsint
-k8s.io/client-go/scale/scheme/extensionsv1beta1
 k8s.io/client-go/testing
 k8s.io/client-go/tools/auth
 k8s.io/client-go/tools/cache
@@ -858,7 +846,6 @@ k8s.io/client-go/tools/metrics
 k8s.io/client-go/tools/pager
 k8s.io/client-go/tools/reference
 k8s.io/client-go/tools/remotecommand
-k8s.io/client-go/tools/watch
 k8s.io/client-go/transport
 k8s.io/client-go/transport/spdy
 k8s.io/client-go/util/cert
@@ -910,19 +897,10 @@ k8s.io/kubelet/pkg/apis/podresources/v1alpha1
 # k8s.io/kubernetes v1.26.4
 ## explicit; go 1.19
 k8s.io/kubernetes/pkg/features
-k8s.io/kubernetes/pkg/kubelet/apis/config
 k8s.io/kubernetes/pkg/kubelet/apis/podresources
 k8s.io/kubernetes/pkg/kubelet/cm/cpuset
 k8s.io/kubernetes/pkg/kubelet/metrics
 k8s.io/kubernetes/pkg/kubelet/util
-k8s.io/kubernetes/test/e2e/framework
-k8s.io/kubernetes/test/e2e/framework/testfiles
-k8s.io/kubernetes/test/e2e/testing-manifests
-k8s.io/kubernetes/test/utils/image
-k8s.io/kubernetes/test/utils/kubeconfig
-# k8s.io/pod-security-admission v0.0.0 => k8s.io/pod-security-admission v0.26.4
-## explicit; go 1.19
-k8s.io/pod-security-admission/api
 # k8s.io/utils v0.0.0-20230209194617-a36077c30491
 ## explicit; go 1.18
 k8s.io/utils/buffer
