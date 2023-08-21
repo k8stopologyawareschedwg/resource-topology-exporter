@@ -22,7 +22,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -113,7 +112,6 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	flags.StringVar(&pArgs.RTE.PodResourcesSocketPath, "podresources-socket", "unix:///podresources/kubelet.sock", "Pod Resource Socket path to use.")
 	flags.BoolVar(&pArgs.RTE.PodReadinessEnable, "podreadiness", true, "Custom condition injection using Podreadiness.")
 
-	kubeletStateDirs := flags.String("kubelet-state-dir", "", "Kubelet state directory (RO access needed), for smart polling. **DEPRECATED** please use notify-file")
 	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
 	flags.StringVar(&pArgs.RTE.NotifyFilePath, "notify-file", "", "Notification file path.")
@@ -138,11 +136,6 @@ Special targets:
 	}
 
 	if pArgs.Version {
-		return pArgs, err
-	}
-
-	pArgs.RTE.KubeletStateDirs, err = setKubeletStateDirs(*kubeletStateDirs)
-	if err != nil {
 		return pArgs, err
 	}
 
@@ -189,14 +182,6 @@ func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
 	}
 
 	return nil
-}
-
-func setKubeletStateDirs(value string) ([]string, error) {
-	ksd := make([]string, 0)
-	for _, s := range strings.Split(value, " ") {
-		ksd = append(ksd, s)
-	}
-	return ksd, nil
 }
 
 func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {

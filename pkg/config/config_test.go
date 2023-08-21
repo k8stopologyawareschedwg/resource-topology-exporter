@@ -64,14 +64,9 @@ func TestReferenceContainer(t *testing.T) {
 	closer := setupTest(t)
 	t.Cleanup(closer)
 
-	pArgs, err := LoadArgs("--kubelet-state-dir=dir1 dir2 dir3", "--reference-container=ns/pod/cont")
+	pArgs, err := LoadArgs("--reference-container=ns/pod/cont")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	expectedDirs := []string{"dir1", "dir2", "dir3"}
-	if !reflect.DeepEqual(pArgs.RTE.KubeletStateDirs, expectedDirs) {
-		t.Errorf("invalid data, got %v expected %v", pArgs.RTE.KubeletStateDirs, expectedDirs)
 	}
 
 	expectedRefCnt := sharedcpuspool.ContainerIdent{Namespace: "ns", PodName: "pod", ContainerName: "cont"}

@@ -94,80 +94,6 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 	})
 
 	ginkgo.Context("with cluster configured", func() {
-		ginkgo.It("[DEPRECATED][StateDirectories] it should react to pod changes using the smart poller", func() {
-			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			if len(nodes) < 1 {
-				ginkgo.Skip("not enough allocatable cores for this test")
-			}
-
-			initialNodeTopo := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
-			ginkgo.By("creating a pod consuming the shared pool")
-			sleeperPod := e2epods.MakeGuaranteedSleeperPod("1000m")
-
-			updateInterval, method, err := estimateUpdateInterval(*initialNodeTopo)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			klog.Infof("%s update interval: %s", method, updateInterval)
-
-			// wait interval exactly multiple of the poll interval makes the test racier and less robust, so
-			// add a little skew. We pick 1 second randomly, but the idea is that small (2, 3, 5) multipliers
-			// should again not cause a total multiple of the poll interval.
-			pollingInterval := updateInterval + time.Second
-
-			stopChan := make(chan struct{})
-			doneChan := make(chan struct{})
-			started := false
-
-			go func(f *fixture.Fixture, refPod *corev1.Pod) {
-				defer ginkgo.GinkgoRecover()
-
-				<-stopChan
-
-				pod, err := e2epods.CreateSync(f, refPod)
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
-				ginkgo.By("waiting for at least poll interval seconds with the test pod running...")
-				time.Sleep(updateInterval * 3)
-				gomega.Expect(e2epods.DeletePodSyncByName(f, pod.Namespace, pod.Name)).ToNot(gomega.HaveOccurred())
-
-				doneChan <- struct{}{}
-			}(f, sleeperPod)
-
-			ginkgo.By("getting the updated topology")
-			var finalNodeTopo *v1alpha2.NodeResourceTopology
-			gomega.Eventually(func() bool {
-				if !started {
-					stopChan <- struct{}{}
-					started = true
-				}
-
-				finalNodeTopo, err = f.TopoCli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), topologyUpdaterNode.Name, metav1.GetOptions{})
-				if err != nil {
-					klog.Infof("failed to get the node topology resource: %v", err)
-					return false
-				}
-				if finalNodeTopo.ObjectMeta.ResourceVersion == initialNodeTopo.ObjectMeta.ResourceVersion {
-					klog.Infof("resource %s not yet updated - resource version not bumped (old %v new %v)", topologyUpdaterNode.Name, initialNodeTopo.ObjectMeta.ResourceVersion, finalNodeTopo.ObjectMeta.ResourceVersion)
-					return false
-				}
-				klog.Infof("resource %s updated! - resource version bumped (old %v new %v)", topologyUpdaterNode.Name, initialNodeTopo.ObjectMeta.ResourceVersion, finalNodeTopo.ObjectMeta.ResourceVersion)
-
-				reason, ok := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
-				if !ok {
-					klog.Infof("resource %s missing annotation!", topologyUpdaterNode.Name)
-					return false
-				}
-				klog.Infof("resource %s reason %v expected %v", topologyUpdaterNode.Name, reason, nrtupdater.RTEUpdateReactive)
-				return reason == nrtupdater.RTEUpdateReactive
-			}).WithTimeout(updateInterval*9).WithPolling(pollingInterval).Should(gomega.BeTrue(), "didn't get updated node topology info") // 5x timeout is a random "long enough" period
-			ginkgo.By("checking the topology was updated for the right reason")
-
-			<-doneChan
-
-			gomega.Expect(finalNodeTopo.Annotations).ToNot(gomega.BeNil(), "missing annotations entirely")
-			reason := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
-			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
-		})
-
 		ginkgo.It("[NotificationFile] it should react to pod changes using the smart poller with notification file", func() {
 			initialNodeTopo := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
 
@@ -233,6 +159,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
 		})
 	})
+
 	ginkgo.Context("with pod fingerprinting enabled", func() {
 		ginkgo.It("[PodFingerprint] it should report the computation method in the attributes", func() {
 			nrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
