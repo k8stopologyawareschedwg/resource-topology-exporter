@@ -76,7 +76,6 @@ spec:
           - -v=${RTE_VERBOSE}
           - --sleep-interval=${RTE_POLL_INTERVAL}
           - --sysfs=/host-sys
-          - --kubelet-state-dir=/host-var/lib/kubelet
           - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
           - --notify-file=/host-run/rte/notify

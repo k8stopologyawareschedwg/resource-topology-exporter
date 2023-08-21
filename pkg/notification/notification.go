@@ -157,49 +157,6 @@ func (es *UnlimitedEventSource) AddFile(notifyFilePath string) error {
 	return nil
 }
 
-func (es *UnlimitedEventSource) AddDirs(kubeletStateDirs []string) error {
-	if len(kubeletStateDirs) == 0 {
-		return nil
-	}
-
-	klog.Infof("**DEPRECATED** watching state directories is insecure and has known issues")
-	klog.Infof("**DEPRECATED** watching state directories will be removed in a future version")
-	klog.Infof("**DEPRECATED** please use notification file instead")
-
-	dirCount := 0
-	for _, stateDir := range kubeletStateDirs {
-		klog.Infof("kubelet state dir: [%s]", stateDir)
-		if stateDir == "" {
-			continue
-		}
-
-		tryToWatch(es.watcher, stateDir)
-		dirCount++
-	}
-
-	if dirCount == 0 {
-		// well, still legal
-		klog.Infof("no valid directory to monitor given")
-		return nil
-	}
-
-	es.filters = append(es.filters, func(event fsnotify.Event) bool {
-		filename := filepath.Base(event.Name)
-		if filename != stateCPUManager &&
-			filename != stateMemoryManager &&
-			filename != stateDeviceManager {
-			return false
-		}
-		// turns out rename is reported as
-		// 1. RENAME (old) <- unpredictable
-		// 2. CREATE (new) <- we trigger here
-		// admittedly we can get some false positives, but that
-		// is expected to be not that big of a deal.
-		return (event.Op & fsnotify.Create) == fsnotify.Create
-	})
-	return nil
-}
-
 // AnyFilter is a cumulative filter which returns true (hence passes)
 // only ifat least one of the provided filters pass.
 func AnyFilter(filters []FilterEvent, event fsnotify.Event) bool {
