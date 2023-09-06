@@ -1,6 +1,6 @@
 module github.com/k8stopologyawareschedwg/resource-topology-exporter
 
-go 1.19
+go 1.20
 
 require (
 	github.com/aquasecurity/go-version v0.0.0-20210121072130-637058cfe492
