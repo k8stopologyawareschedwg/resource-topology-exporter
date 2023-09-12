@@ -2,11 +2,12 @@ package nrtupdater
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
@@ -42,9 +43,10 @@ func (conf TMConfig) IsValid() bool {
 }
 
 type NRTUpdater struct {
-	args     Args
-	tmConfig TMConfig
-	stopChan chan struct{}
+	args       Args
+	tmConfig   TMConfig
+	stopChan   chan struct{}
+	nodeGetter NodeGetter
 }
 
 type MonitorInfo struct {
@@ -61,11 +63,12 @@ func (mi MonitorInfo) UpdateReason() string {
 	return RTEUpdateReactive
 }
 
-func NewNRTUpdater(args Args, tmconf TMConfig) *NRTUpdater {
+func NewNRTUpdater(nodeGetter NodeGetter, args Args, tmconf TMConfig) *NRTUpdater {
 	return &NRTUpdater{
-		args:     args,
-		tmConfig: tmconf,
-		stopChan: make(chan struct{}),
+		args:       args,
+		tmConfig:   tmconf,
+		stopChan:   make(chan struct{}),
+		nodeGetter: nodeGetter,
 	}
 }
 
@@ -89,7 +92,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	}
 
 	nrt, err := cli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		nrtNew := v1alpha2.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        te.args.Hostname,
@@ -130,6 +133,31 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 	nrt.Attributes = info.Attributes.DeepCopy()
 	nrt.Attributes = append(nrt.Attributes, te.makeAttributes()...)
 	// TODO: check for duplicate attributes?
+
+	te.updateOwnerReferences(nrt)
+}
+
+// updateOwnerReferences ensure nrt.OwnerReferences include a reference to the Node with the same name as the NRT
+//
+// Check nrt.OwnerReferences for Node references and update it so it has only one Node reference,
+// the one to the Node with the same name as the NRT.
+func (te *NRTUpdater) updateOwnerReferences(nrt *v1alpha2.NodeResourceTopology) {
+	node, err := te.nodeGetter.Get(context.TODO(), nrt.Name, metav1.GetOptions{})
+	if err != nil {
+		if errors.Is(err, NotConfigured) {
+			return
+		}
+		klog.V(7).Infof("nrtupdater unable to get Node %s. Can't add Owner reference. error: %v", nrt.Name, err)
+		return
+	}
+	nodeReference := metav1.OwnerReference{
+		APIVersion: "v1",
+		Kind:       "Node",
+		Name:       node.Name,
+		UID:        node.UID,
+	}
+
+	nrt.OwnerReferences = []metav1.OwnerReference{nodeReference}
 }
 
 func (te *NRTUpdater) makeAttributes() v1alpha2.AttributeList {

@@ -1,6 +1,7 @@
 package resourcetopologyexporter
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -28,6 +29,7 @@ type Args struct {
 	NotifyFilePath         string
 	MaxEventsPerTimeUnit   int64
 	TimeUnitToLimitEvents  time.Duration
+	AddNRTOwnerEnable      bool
 }
 
 type tmSettings struct {
@@ -38,6 +40,17 @@ func Execute(hnd resourcemonitor.Handle, nrtupdaterArgs nrtupdater.Args, resourc
 	tmConf, err := getTopologyManagerSettings(rteArgs)
 	if err != nil {
 		return err
+	}
+
+	var nodeGetter nrtupdater.NodeGetter
+	if rteArgs.AddNRTOwnerEnable {
+		nodeGetter, err = nrtupdater.NewCachedNodeGetter(hnd.K8SCli, context.Background())
+		if err != nil {
+			klog.V(2).Info("Cannot enable 'add-nrt-owner'. Unable to get node info")
+			return fmt.Errorf("Cannot enable 'add-nrt-owner'. %w", err)
+		}
+	} else {
+		nodeGetter = &nrtupdater.DisabledNodeGetter{}
 	}
 
 	var condChan chan v1.PodCondition
@@ -61,7 +74,7 @@ func Execute(hnd resourcemonitor.Handle, nrtupdaterArgs nrtupdater.Args, resourc
 	}
 	go resObs.Run(eventSource.Events(), condChan)
 
-	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmConf.config)
+	upd := nrtupdater.NewNRTUpdater(nodeGetter, nrtupdaterArgs, tmConf.config)
 	go upd.Run(resObs.Infos, condChan)
 
 	go eventSource.Run()
