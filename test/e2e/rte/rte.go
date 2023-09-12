@@ -285,7 +285,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					}
 				}
 				return false
-			}, time.Second*30, time.Second*10).Should(gomega.BeTrue(), "device: %q was not found in NRT: %q", e2etestenv.GetDeviceName(), topologyUpdaterNode.Name)
+			}).WithTimeout(30*time.Second).WithPolling(10*time.Second).Should(gomega.BeTrue(), "device: %q was not found in NRT: %q", e2etestenv.GetDeviceName(), topologyUpdaterNode.Name)
 		})
 
 		ginkgo.It("[NodeRefresh] should log the refresh message", func() {
@@ -300,7 +300,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 				return strings.Contains(logs, "update node resources")
-			}, time.Second*30, time.Second*10).Should(gomega.BeTrue(), "container: %q in pod: %q doesn't contains the refresh log message", rteContainerName, rtePod.Name)
+			}).WithTimeout(30*time.Second).WithPolling(10*time.Second).Should(gomega.BeTrue(), "container: %q in pod: %q doesn't contains the refresh log message", rteContainerName, rtePod.Name)
 		})
 	})
 })
@@ -319,7 +319,7 @@ func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string,
 			return false
 		}
 		return true
-	}, timeout+updateIntervalExtraSafety, 1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+	}).WithTimeout(timeout+updateIntervalExtraSafety).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 	return currNrt
 }
 

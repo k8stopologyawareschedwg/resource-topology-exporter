@@ -80,12 +80,12 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.PodresourcesFetched, corev1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
-			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
+			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionTrue)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
-			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
+			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
 
 		// EventChain means that the test can be flaky in some specific cases, for example deleted CRD can be re-installed
@@ -99,7 +99,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
-			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
+			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
 			ginkgo.By("recreating the crd")
 			crd.ResourceVersion = ""
@@ -108,7 +108,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 
 			gomega.Eventually(func() bool {
 				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
-			}, 2*timeout, 1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
+			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
 	})
 })
