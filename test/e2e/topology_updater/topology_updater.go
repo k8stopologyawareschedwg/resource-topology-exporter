@@ -204,7 +204,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 					return false
 				}
 				return finalNodeTopo.ObjectMeta.Generation != initialNodeTopo.ObjectMeta.Generation
-			}, 5*timeout, 5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+			}).WithTimeout(5*timeout).WithPolling(5*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			klog.Infof("final topology information: %#v", initialNodeTopo)
 
 			ginkgo.By("checking the changes in the updated topology")

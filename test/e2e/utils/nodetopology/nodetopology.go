@@ -61,7 +61,7 @@ func GetNodeTopologyWithResource(topologyClient *topologyclientset.Clientset, no
 			return true
 		}
 		return containsResource(nodeTopology, resName)
-	}, time.Minute, 5*time.Second).Should(gomega.BeTrue())
+	}).WithTimeout(time.Minute).WithPolling(5 * time.Second).Should(gomega.BeTrue())
 
 	return nodeTopology
 }
