@@ -51,6 +51,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 		timeout             time.Duration
 		tmPolicy            string
 		tmScope             string
+		hasNodeRef          bool
 		topologyUpdaterNode *corev1.Node
 		workerNodes         []corev1.Node
 	)
@@ -91,6 +92,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 			tmPolicy = e2etestenv.GetTopologyManagerPolicy()
 			tmScope = e2etestenv.GetTopologyManagerScope()
+			hasNodeRef = e2etestenv.GetNodeReferenceEnabled()
 
 			initialized = true
 		}
@@ -98,6 +100,10 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 
 	ginkgo.Context("[release] with cluster configured", func() {
 		ginkgo.It("should have Node as Owner Reference", func() {
+			if !hasNodeRef {
+				ginkgo.Skip("node reference disabled")
+			}
+
 			ginkgo.By("getting the initial topology information")
 			expectedOwnerReference := metav1.OwnerReference{
 				Name:       topologyUpdaterNode.Name,
