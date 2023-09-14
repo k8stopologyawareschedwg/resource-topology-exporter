@@ -146,6 +146,10 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 		opt(rm)
 	}
 
+	if rm.nodeName == "" {
+		rm.nodeName = os.Getenv("NODE_NAME")
+	}
+
 	klog.Infof("resource monitor for %q starting", rm.nodeName)
 
 	if rm.topo == nil {
@@ -161,10 +165,6 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 	klog.V(3).Infof("machine topology: %s", toJSON(rm.topo))
 
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
-
-	if rm.nodeName == "" {
-		rm.nodeName = os.Getenv("NODE_NAME")
-	}
 
 	if !rm.args.RefreshNodeResources {
 		klog.Infof("getting node resources once")
