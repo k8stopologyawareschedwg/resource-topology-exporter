@@ -146,6 +146,8 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 		opt(rm)
 	}
 
+	klog.Infof("resource monitor for %q starting", rm.nodeName)
+
 	if rm.topo == nil {
 		topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
 			"/sys": args.SysfsRoot,
@@ -155,13 +157,14 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 		}
 		rm.topo = topo
 	}
+
+	klog.V(3).Infof("machine topology: %s", toJSON(rm.topo))
+
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
 
 	if rm.nodeName == "" {
 		rm.nodeName = os.Getenv("NODE_NAME")
 	}
-
-	klog.Infof("resource monitor for %q starting", rm.nodeName)
 
 	if !rm.args.RefreshNodeResources {
 		klog.Infof("getting node resources once")
@@ -519,6 +522,7 @@ func MakeCoreIDToNodeIDMap(topo *ghw.TopologyInfo) map[int]int {
 			}
 		}
 	}
+	klog.V(5).Infof("CPU mapping: %s", mapIntIntToString(coreToNode))
 	return coreToNode
 }
 
@@ -628,4 +632,20 @@ func PFPMethodIsSupported(value string) (string, error) {
 		return val, nil
 	}
 	return val, fmt.Errorf("unsupported method  %q", value)
+}
+
+func mapIntIntToString(mii map[int]int) string {
+	var sb strings.Builder
+	for key, val := range mii {
+		fmt.Fprintf(&sb, "%d:%d ", key, val)
+	}
+	return sb.String()
+}
+
+func toJSON(obj interface{}) string {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return "<ERROR>"
+	}
+	return string(data)
 }
