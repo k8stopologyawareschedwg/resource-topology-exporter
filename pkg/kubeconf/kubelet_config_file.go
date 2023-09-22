@@ -1,7 +1,7 @@
 package kubeconf
 
 import (
-	"io/ioutil"
+	"os"
 
 	"sigs.k8s.io/yaml"
 
@@ -10,7 +10,7 @@ import (
 
 // GetKubeletConfigFromLocalFile returns KubeletConfiguration loaded from the node local config
 func GetKubeletConfigFromLocalFile(kubeletConfigPath string) (*kubeletconfigv1beta1.KubeletConfiguration, error) {
-	kubeletBytes, err := ioutil.ReadFile(kubeletConfigPath)
+	kubeletBytes, err := os.ReadFile(kubeletConfigPath)
 	if err != nil {
 		return nil, err
 	}

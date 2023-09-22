@@ -14,7 +14,7 @@ package sysinfo
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,7 +23,7 @@ import (
 )
 
 func GetMemory(hnd Handle) (map[int]int64, error) {
-	entries, err := ioutil.ReadDir(hnd.SysDevicesNodes())
+	entries, err := os.ReadDir(hnd.SysDevicesNodes())
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func MemoryForNode(hnd Handle, nodeID int) (int64, error) {
 }
 
 func readTotalMemoryFromMeminfo(path string) (int64, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return -1, err
 	}
