@@ -1,6 +1,7 @@
 COMMONENVVAR=GOOS=linux GOARCH=amd64
 BUILDENVVAR=CGO_ENABLED=0
 TOPOLOGYAPI_MANIFESTS=https://raw.githubusercontent.com/k8stopologyawareschedwg/noderesourcetopology-api/master/manifests
+BINDIR=_out
 
 KUBECLI ?= kubectl
 RUNTIME ?= podman
@@ -9,6 +10,9 @@ IMAGENAME ?= resource-topology-exporter
 IMAGETAG ?= latest
 RTE_CONTAINER_IMAGE ?= quay.io/$(REPOOWNER)/$(IMAGENAME):$(IMAGETAG)
 
+GOLANGCI_LINT_VERSION=1.54.2
+GOLANGCI_LINT_BIN=$(BINDIR)/golangci-lint
+GOLANGCI_LINT_VERSION_TAG=v${GOLANGCI_LINT_VERSION}
 
 .PHONY: all
 all: build extra-tools
@@ -72,6 +76,12 @@ test-unit:
 	@go test ./cmd/...
 	@go test ./pkg/...
 
+# this is meant for developers only.
+# DO NOT WIRE THIS IN CI! Let's use https://golangci-lint.run/usage/install/#github-actions instead
+.PHONY: dev-lint
+dev-lint: _out/golangci-lint
+	$(GOLANGCI_LINT_BIN) run
+
 .PHONY: build-e2e
 build-e2e: _out/rte-e2e.test
 
@@ -114,6 +124,16 @@ _out/nrtstress: outdir
 	-o _out/nrtstress tools/nrtstress/main.go
 
 # build tools:
-#
+_out/golangci-lint: outdir
+	@if [ ! -x "$(GOLANGCI_LINT_BIN)" ]; then\
+		echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)";\
+		curl -JL https://github.com/golangci/golangci-lint/releases/download/$(GOLANGCI_LINT_VERSION_TAG)/golangci-lint-$(GOLANGCI_LINT_VERSION)-linux-amd64.tar.gz -o _out/golangci-lint-$(GOLANGCI_LINT_VERSION)-linux-amd64.tar.gz;\
+		tar xz -C _out -f _out/golangci-lint-$(GOLANGCI_LINT_VERSION)-linux-amd64.tar.gz;\
+		ln -sf golangci-lint-1.54.2-linux-amd64/golangci-lint _out/golangci-lint;\
+	else\
+		echo "Using golangci-lint cached at $(GOLANGCI_LINT_BIN)";\
+	fi
+
+
 _out/git-semver: outdir
 	@go build -o _out/git-semver vendor/github.com/mdomke/git-semver/main.go
