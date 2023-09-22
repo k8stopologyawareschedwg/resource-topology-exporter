@@ -103,10 +103,10 @@ type ResourceMonitor interface {
 }
 
 // ToMapSet keeps the original keys, but replaces values with set.String types
-func (rel ResourceExclude) ToMapSet() map[string]sets.String {
-	asSet := make(map[string]sets.String)
+func (rel ResourceExclude) ToMapSet() map[string]sets.Set[string] {
+	asSet := make(map[string]sets.Set[string])
 	for k, v := range rel {
-		asSet[k] = sets.NewString(v...)
+		asSet[k] = sets.New[string](v...)
 	}
 	return asSet
 }
@@ -424,7 +424,6 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 		for _, cnt := range pr.GetContainers() {
 			allCntRes = append(allCntRes, NormalizeContainerDevices(cnt.GetDevices(), cnt.GetMemory(), cnt.GetCpuIds(), coreIDToNodeIDMap)...)
 		}
-
 	}
 	return allCntRes
 }
@@ -557,7 +556,7 @@ func findNodeByID(nodes []*ghw.TopologyNode, nodeID int) *ghw.TopologyNode {
 	return nil
 }
 
-func inExcludeSet(excludeSet map[string]sets.String, resName v1.ResourceName, nodeName string) bool {
+func inExcludeSet(excludeSet map[string]sets.Set[string], resName v1.ResourceName, nodeName string) bool {
 	if set, ok := excludeSet["*"]; ok && set.Has(string(resName)) {
 		return true
 	}

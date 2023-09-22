@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"math/rand"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -38,13 +37,9 @@ func main() {
 		randSeed = int64(seed)
 	}
 
-	klog.Infof("seed: %v", randSeed)
+	klog.Infof("generating fake periodic updates every %v with random seed %v", interval, randSeed)
 
-	rand.Seed(randSeed)
-
-	klog.Infof("generating fake periodic updates every %v", interval)
-
-	gen := fake.NewGenerator(interval)
+	gen := fake.NewGenerator(interval, randSeed)
 	go gen.Run()
 
 	klog.Infof("using NRT Updater args: %+#v", nrtupdaterArgs)

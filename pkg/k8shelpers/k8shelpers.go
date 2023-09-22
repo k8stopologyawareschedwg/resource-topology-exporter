@@ -44,5 +44,4 @@ func GetK8sClient(kubeConfig string) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(config)
-
 }

@@ -16,7 +16,7 @@ package sysinfo
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,7 +35,7 @@ type Hugepages struct {
 type PerNUMACounters map[int]int64
 
 func GetHugepages(hnd Handle) ([]*Hugepages, error) {
-	entries, err := ioutil.ReadDir(hnd.SysDevicesNodes())
+	entries, err := os.ReadDir(hnd.SysDevicesNodes())
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func HugepagesForNode(hnd Handle, nodeID int) ([]*Hugepages, error) {
 	)
 	hugepages := []*Hugepages{}
 
-	entries, err := ioutil.ReadDir(path)
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func HugepagesForNode(hnd Handle, nodeID int) ([]*Hugepages, error) {
 }
 
 func readIntFromFile(path string) (int, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return -1, err
 	}

@@ -27,7 +27,7 @@ const bufferSize uint16 = 5
 
 // The ratelimiter is a kind of man-in-the-middle.
 // It provides an input interface with a channel for a writter to send events at any rate
-// and an ouput interface with another channel where a reader will receive events at a configured rate
+// and an output interface with another channel where a reader will receive events at a configured rate
 // At the input interface the main goals are:
 // - writer should not block at all or tha minimum time possible.
 // - If there is no more room for events in the "bucket" the write should not block at all but "fail" silently.
@@ -46,7 +46,6 @@ type RateLimitedEventSource struct {
 }
 
 func NewRateLimitedEventSource(es notification.EventSource, maxEventsPerTimeUnit uint64, timeUnit time.Duration) (*RateLimitedEventSource, error) {
-
 	rles := RateLimitedEventSource{
 		es:       es,
 		inCh:     es.Events(),
@@ -93,7 +92,7 @@ func (rles *RateLimitedEventSource) Close() {
 }
 
 // run launch two different goroutines to avoid decorated event source
-// to block on writting an event while the other one delivers events
+// to block on writing an event while the other one delivers events
 // at the configured rate.
 // see: receiver and sender functions for more info
 func (rles *RateLimitedEventSource) run() {
@@ -133,7 +132,6 @@ func (rles *RateLimitedEventSource) sender() {
 			return
 		}
 	}
-
 }
 
 // wait stops the caller until the EventSource is exhausted

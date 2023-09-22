@@ -10,12 +10,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	stateCPUManager    string = "cpu_manager_state"
-	stateMemoryManager string = "memory_manager_state"
-	stateDeviceManager string = "kubelet_internal_checkpoint"
-)
-
 // FilterEvent returns true if the given event is relevant and should be handled
 type FilterEvent func(event fsnotify.Event) bool
 
