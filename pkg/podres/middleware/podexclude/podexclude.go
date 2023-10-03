@@ -67,6 +67,10 @@ func (fc *filteringClient) FilterAllocatableResponse(resp *podresourcesapi.Alloc
 	return resp // nothing to do here
 }
 
+func (fc *filteringClient) FilterGetResponse(resp *podresourcesapi.GetPodResourcesResponse) *podresourcesapi.GetPodResourcesResponse {
+	return resp // TODO: not needed, but implement actual filtering for consistency
+}
+
 func (fc *filteringClient) List(ctx context.Context, in *podresourcesapi.ListPodResourcesRequest, opts ...grpc.CallOption) (*podresourcesapi.ListPodResourcesResponse, error) {
 	resp, err := fc.cli.List(ctx, in, opts...)
 	if err != nil {
@@ -81,6 +85,14 @@ func (fc *filteringClient) GetAllocatableResources(ctx context.Context, in *podr
 		return resp, err
 	}
 	return fc.FilterAllocatableResponse(resp), nil
+}
+
+func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodResourcesRequest, opts ...grpc.CallOption) (*podresourcesapi.GetPodResourcesResponse, error) {
+	resp, err := fc.cli.Get(ctx, in, opts...)
+	if err != nil {
+		return resp, err
+	}
+	return fc.FilterGetResponse(resp), nil
 }
 
 func NewFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, podExcludes List) podresourcesapi.PodResourcesListerClient {
