@@ -137,3 +137,12 @@ _out/golangci-lint: outdir
 
 _out/git-semver: outdir
 	@go build -o _out/git-semver vendor/github.com/mdomke/git-semver/main.go
+
+gen-mocks:
+	mockery \
+		--dir=vendor/k8s.io/kubelet/pkg/apis/podresources/v1 \
+		--name=PodResourcesListerClient \
+		--structname=MockPodResourcesListerClient \
+		--filename=mock_PodResourcesListerClient.go \
+		--output=pkg/podres \
+		--outpkg=podres
