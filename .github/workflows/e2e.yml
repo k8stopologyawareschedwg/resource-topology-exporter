@@ -52,8 +52,8 @@ jobs:
     - name: create K8S kind cluster
       run: |
         # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
-        # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.19.0
-        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b
+        # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.20.0
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.27.3@sha256:3966ac761ae0136263ffdb6cfd4db23ef8a83cba8a463690e98317add2c9ba72
         kind load docker-image ${RTE_CONTAINER_IMAGE}
 
     - name: deploy RTE
