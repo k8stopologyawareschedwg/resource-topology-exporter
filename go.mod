@@ -23,7 +23,7 @@ require (
 	k8s.io/client-go v0.27.6
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kubelet v0.27.6
-	sigs.k8s.io/controller-runtime v0.15.0
+	sigs.k8s.io/controller-runtime v0.15.2
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -74,11 +74,11 @@ require (
 	github.com/spf13/cobra v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
@@ -99,13 +99,10 @@ require (
 // The k8s "sub-"packages do not have 'semver' compatible versions. Thus, we
 // need to override with commits (corresponding their kubernetes-* tags)
 replace (
-	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	golang.org/x/text => golang.org/x/text v0.3.5
-	google.golang.org/grpc => google.golang.org/grpc v1.38.0
 	k8s.io/api => k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.27.6
-	k8s.io/apimachinery => k8s.io/apimachinery v0.27.6
-	k8s.io/apiserver => k8s.io/apiserver v0.27.6
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.0-alpha.0.0.20231013002001-194b6f8ddf62
+	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20231013035634-f41beb3c1c70
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.27.6
 	k8s.io/client-go => k8s.io/client-go v0.27.6
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.27.6
