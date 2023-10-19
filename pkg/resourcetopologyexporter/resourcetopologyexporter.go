@@ -30,6 +30,7 @@ type Args struct {
 	NotifyFilePath         string
 	MaxEventsPerTimeUnit   int64
 	TimeUnitToLimitEvents  time.Duration
+	PrometheusMode         string
 }
 
 type tmSettings struct {
