@@ -32,6 +32,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
@@ -85,6 +86,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 
 	var configPath string
 	var pfpMethod string
+	var promMode string
 	flags := flag.NewFlagSet(version.ProgramName, flag.ExitOnError)
 
 	klog.InitFlags(flags)
@@ -112,6 +114,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	flags.StringVar(&pArgs.RTE.PodResourcesSocketPath, "podresources-socket", "unix:///podresources/kubelet.sock", "Pod Resource Socket path to use.")
 	flags.BoolVar(&pArgs.RTE.PodReadinessEnable, "podreadiness", true, "Custom condition injection using Podreadiness.")
 	flags.BoolVar(&pArgs.RTE.AddNRTOwnerEnable, "add-nrt-owner", true, "RTE will inject NRT's related node as OwnerReference to ensure cleanup if the node is deleted.")
+	flags.StringVar(&promMode, "metrics-mode", prometheus.ServingDisabled, fmt.Sprintf("Select the mode to expose metrics endpoint. Valid options: %s", prometheus.ServingModeSupported()))
 
 	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
@@ -146,6 +149,11 @@ Special targets:
 	}
 	if pArgs.RTE.ReferenceContainer.IsEmpty() {
 		pArgs.RTE.ReferenceContainer = sharedcpuspool.ContainerIdentFromEnv()
+	}
+
+	pArgs.RTE.PrometheusMode, err = prometheus.ServingModeIsSupported(promMode)
+	if err != nil {
+		return pArgs, err
 	}
 
 	pArgs.Resourcemonitor.PodSetFingerprintMethod, err = resourcemonitor.PFPMethodIsSupported(pfpMethod)
