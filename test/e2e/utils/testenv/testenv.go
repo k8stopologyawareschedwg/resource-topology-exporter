@@ -18,6 +18,7 @@ package testenv
 
 import (
 	"os"
+	"strconv"
 )
 
 const (
@@ -29,6 +30,7 @@ const (
 	RTELabelName                = "resource-topology"
 	RTEContainerName            = "resource-topology-exporter-container"
 	DefaultDeviceName           = "example.com/deviceA"
+	DefaultMetricsEnabled       = false
 )
 
 var (
@@ -78,6 +80,15 @@ func GetDeviceName() string {
 		return devName
 	}
 	return DefaultDeviceName
+}
+
+func GetMetricsEnabled() bool {
+	if metricsEnabled, ok := os.LookupEnv("E2E_METRICS"); ok {
+		if val, err := strconv.ParseBool(metricsEnabled); err == nil {
+			return val
+		}
+	}
+	return DefaultMetricsEnabled
 }
 
 func SetNodeName(nodeName string) {
