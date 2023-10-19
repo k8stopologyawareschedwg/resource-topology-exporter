@@ -49,6 +49,7 @@ import (
 var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	var (
 		initialized         bool
+		hasMetrics          bool
 		rtePod              *corev1.Pod
 		metricsPort         int
 		workerNodes         []corev1.Node
@@ -65,17 +66,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		ginkgo.DeferCleanup(nsCleanup)
 
 		if !initialized {
-			var pods *corev1.PodList
-			sel, err := labels.Parse(fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-			pods, err = f.K8SCli.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-			gomega.Expect(len(pods.Items)).ToNot(gomega.BeZero())
-			rtePod = &pods.Items[0]
-			metricsPort, err = e2ertepod.FindMetricsPort(rtePod)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			hasMetrics = e2etestenv.GetMetricsEnabled()
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f.K8SCli)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -86,6 +77,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			var hasLabel bool
 			topologyUpdaterNode, hasLabel = e2enodes.PickTargetNode(workerNodes)
 			gomega.Expect(topologyUpdaterNode).ToNot(gomega.BeNil())
+
 			if !hasLabel {
 				// during the e2e tests we expect changes on the node topology.
 				// but in an environment with multiple worker nodes, we might be looking at the wrong node.
@@ -95,11 +87,32 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 
+			var pods *corev1.PodList
+			sel, err := labels.Parse(fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			pods, err = f.K8SCli.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			gomega.Expect(len(pods.Items)).ToNot(gomega.BeZero())
+			rtePod = &pods.Items[0]
+
+			if hasMetrics {
+				metricsPort, err = e2ertepod.FindMetricsPort(rtePod)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+
 			initialized = true
 		}
 	})
 
 	ginkgo.Context("With prometheus endpoint configured", func() {
+		ginkgo.BeforeEach(func() {
+			if !hasMetrics {
+				ginkgo.Skip("metrics disabled")
+			}
+		})
+
 		ginkgo.It("[EventChain] should have some metrics exported", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
