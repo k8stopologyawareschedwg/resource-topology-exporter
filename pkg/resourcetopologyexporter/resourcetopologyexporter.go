@@ -30,6 +30,7 @@ type Args struct {
 	MaxEventsPerTimeUnit   int64
 	TimeUnitToLimitEvents  time.Duration
 	AddNRTOwnerEnable      bool
+	PrometheusMode         string
 }
 
 type tmSettings struct {
