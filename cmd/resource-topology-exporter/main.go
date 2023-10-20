@@ -77,7 +77,7 @@ func main() {
 		}
 	}
 
-	err = prometheus.InitPrometheus()
+	err = prometheus.InitPrometheus(parsedArgs.RTE.PrometheusMode)
 	if err != nil {
 		klog.Fatalf("failed to start prometheus server: %v", err)
 	}
