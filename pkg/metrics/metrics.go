@@ -1,45 +1,27 @@
-package prometheus
+/*
+Copyright 2021 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package metrics
 
 import (
-	"fmt"
-	"net/http"
 	"os"
-	"strconv"
-	"strings"
-
-	"k8s.io/klog/v2"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-const prometheusDefaultPort = "2112"
-
-const (
-	ServingDisabled = "disabled"
-	ServingHTTP     = "http" // plaintext
-)
-
-func ServingModeIsSupported(value string) (string, error) {
-	val := strings.ToLower(value)
-	switch val {
-	case ServingDisabled:
-		return val, nil
-	case ServingHTTP:
-		return val, nil
-	default:
-		return val, fmt.Errorf("unsupported method  %q", value)
-	}
-}
-
-func ServingModeSupported() string {
-	modes := []string{
-		ServingDisabled,
-		ServingHTTP,
-	}
-	return strings.Join(modes, ",")
-}
 
 var nodeName string
 
@@ -64,19 +46,6 @@ var (
 		Help: "The wakeup delay of the monitor code, milliseconds",
 	}, []string{"node", "trigger"})
 )
-
-func getNodeName() (string, error) {
-	var err error
-
-	val, ok := os.LookupEnv("NODE_NAME")
-	if !ok {
-		val, err = os.Hostname()
-		if err != nil {
-			return "", err
-		}
-	}
-	return val, nil
-}
 
 func UpdateNodeResourceTopologyWritesMetric(operation, trigger string) {
 	NodeResourceTopologyWrites.With(prometheus.Labels{
@@ -108,35 +77,24 @@ func UpdateWakeupDelayMetric(trigger string, wakeupDelay float64) {
 	}).Set(wakeupDelay)
 }
 
-func InitPrometheus(mode string) error {
-	if mode == ServingDisabled {
-		klog.Infof("prometheus endpoint disabled")
-		return nil
-	}
-
+func Setup(nname string) error {
 	var err error
-	var port = prometheusDefaultPort
-
-	if envValue, ok := os.LookupEnv("METRICS_PORT"); ok {
-		if _, err = strconv.Atoi(envValue); err != nil {
-			return fmt.Errorf("the env variable PROMETHEUS_PORT has inccorrect value %q: %w", envValue, err)
+	var ok bool
+	var val string = nname
+	if val == "" {
+		val, ok = os.LookupEnv("NODE_NAME")
+		if !ok {
+			val, err = os.Hostname()
 		}
-		port = envValue
 	}
-
-	nodeName, err = getNodeName()
 	if err != nil {
 		return err
 	}
-
-	http.Handle("/metrics", promhttp.Handler())
-	addr := fmt.Sprintf("0.0.0.0:%s", port)
-
-	go func() {
-		if err = http.ListenAndServe(addr, nil); err != nil {
-			klog.Fatalf("failed to run prometheus server; %v", err)
-		}
-	}()
-
+	nodeName = val
 	return nil
+}
+
+// GetNodeName is meant for testing purposes
+func GetNodeName() string {
+	return nodeName
 }

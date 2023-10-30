@@ -17,8 +17,8 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dump"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 )
 
 const (
@@ -105,7 +105,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 		if err != nil {
 			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
-		prometheus.UpdateNodeResourceTopologyWritesMetric("create", info.UpdateReason())
+		metrics.UpdateNodeResourceTopologyWritesMetric("create", info.UpdateReason())
 		klog.V(2).Infof("nrtupdater created NRT instance: %v", dump.Object(nrtCreated))
 		return nil
 	}
@@ -121,7 +121,7 @@ func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info Mon
 	if err != nil {
 		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
-	prometheus.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
+	metrics.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
 	klog.V(7).Infof("nrtupdater changed CRD instance: %v", dump.Object(nrtUpdated))
 	return nil
 }
@@ -190,7 +190,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 			tsEnd := time.Now()
 
 			tsDiff := tsEnd.Sub(tsBegin)
-			prometheus.UpdateOperationDelayMetric("node_resource_object_update", RTEUpdateReactive, float64(tsDiff.Milliseconds()))
+			metrics.UpdateOperationDelayMetric("node_resource_object_update", RTEUpdateReactive, float64(tsDiff.Milliseconds()))
 			if te.args.Oneshot {
 				break
 			}

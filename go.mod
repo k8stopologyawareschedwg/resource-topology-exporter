@@ -17,6 +17,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/ratelimit v0.2.0
 	google.golang.org/grpc v1.58.3
+	gopkg.in/fsnotify.v1 v1.4.7
 	k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver v0.27.6
 	k8s.io/apimachinery v0.27.6
