@@ -42,10 +42,10 @@ import (
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter/numalocality"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/sysinfo"
 )
 
@@ -212,7 +212,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
 	if err != nil {
-		prometheus.UpdatePodResourceApiCallsFailureMetric("list")
+		metrics.UpdatePodResourceApiCallsFailureMetric("list")
 		return ScanResponse{}, err
 	}
 
@@ -380,7 +380,7 @@ func (rm *resourceMonitor) updateNodeAllocatable() error {
 	defer cancel()
 	allocRes, err := rm.podResCli.GetAllocatableResources(ctx, &podresourcesapi.AllocatableResourcesRequest{})
 	if err != nil {
-		prometheus.UpdatePodResourceApiCallsFailureMetric("get_allocatable_resources")
+		metrics.UpdatePodResourceApiCallsFailureMetric("get_allocatable_resources")
 		return err
 	}
 
