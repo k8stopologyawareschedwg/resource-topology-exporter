@@ -10,11 +10,12 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/config"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
+	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/terminalpods"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
@@ -77,9 +78,13 @@ func main() {
 		}
 	}
 
-	err = prometheus.InitPrometheus(parsedArgs.RTE.PrometheusMode)
+	err = metrics.Setup("")
 	if err != nil {
-		klog.Fatalf("failed to start prometheus server: %v", err)
+		klog.Fatalf("failed to setup metrics: %v", err)
+	}
+	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewDefaultConfig())
+	if err != nil {
+		klog.Fatalf("failed to setup metrics server: %v", err)
 	}
 
 	hnd := resourcemonitor.Handle{

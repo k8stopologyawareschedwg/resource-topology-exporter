@@ -8,10 +8,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/prometheus"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
@@ -56,7 +56,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 
 			tsWakeupDiff := ev.Timestamp.Sub(lastWakeup)
 			lastWakeup = ev.Timestamp
-			prometheus.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
+			metrics.UpdateWakeupDelayMetric(monInfo.UpdateReason(), float64(tsWakeupDiff.Milliseconds()))
 
 			tsBegin := time.Now()
 			scanRes, err := rm.resMon.Scan(rm.resourceExclude)
@@ -81,7 +81,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 			rm.infoChan <- monInfo
 
 			tsDiff := tsEnd.Sub(tsBegin)
-			prometheus.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
+			metrics.UpdateOperationDelayMetric("podresources_scan", monInfo.UpdateReason(), float64(tsDiff.Milliseconds()))
 			podreadiness.SetCondition(condChan, podreadiness.PodresourcesFetched, condStatus)
 		case <-rm.stopChan:
 			klog.Infof("read stop at %v", time.Now())
