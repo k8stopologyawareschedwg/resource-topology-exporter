@@ -52,9 +52,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	k8scli, err := k8shelpers.GetK8sClient("")
+	k8scli, err := k8shelpers.GetK8sClient(parsedArgs.KubeConfig)
 	if err != nil {
-		klog.Fatalf("failed to get k8s client: %w", err)
+		klog.Fatalf("failed to get k8s client: %v", err)
 	}
 
 	cli, cleanup, err := podres.WaitForReady(podres.GetClient(parsedArgs.RTE.PodResourcesSocketPath))

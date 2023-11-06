@@ -44,6 +44,7 @@ type ProgArgs struct {
 	RTE             resourcetopologyexporter.Args
 	Version         bool
 	DumpConfig      string
+	KubeConfig      string
 }
 
 func (pa *ProgArgs) ToJson() ([]byte, error) {
@@ -133,6 +134,7 @@ Special targets:
 . ".andexit" stdout and exit right after.
 . ".log" to dump in the log".`,
 	)
+	flags.StringVar(&pArgs.KubeConfig, "kubeconfig", "", "path to kubeconfig file.")
 
 	err := flags.Parse(args)
 	if err != nil {
