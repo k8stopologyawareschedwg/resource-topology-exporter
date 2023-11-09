@@ -23,9 +23,10 @@ package rte
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"strings"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -65,7 +66,6 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		ginkgo.DeferCleanup(nsCleanup)
 
 		if !initialized {
-			var err error
 			hasMetrics = e2etestenv.GetMetricsEnabled()
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f.K8SCli)
@@ -91,7 +91,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			sel, err := labels.Parse(fmt.Sprintf("name=%s", e2etestenv.RTELabelName))
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			pods, err = f.ClientSet.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
+			pods, err = f.K8SCli.CoreV1().Pods(e2etestenv.GetNamespaceName()).List(context.TODO(), metav1.ListOptions{LabelSelector: sel.String()})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			gomega.Expect(len(pods.Items)).ToNot(gomega.BeZero())
