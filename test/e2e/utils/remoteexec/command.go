@@ -64,7 +64,7 @@ func CommandOnPodByNames(ctx context.Context, c kubernetes.Interface, podNamespa
 		return nil, nil, err
 	}
 
-	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:  os.Stdin,
 		Stdout: &outputBuf,
 		Stderr: &errorBuf,
