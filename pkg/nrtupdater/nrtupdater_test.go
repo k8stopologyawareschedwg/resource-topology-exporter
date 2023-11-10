@@ -38,9 +38,6 @@ func TestUpdateTMPolicy(t *testing.T) {
 	var nrtUpd *NRTUpdater
 	cli := fake.NewSimpleClientset()
 
-	policyInitial := "policy-initial"
-	policyUpdated := "policy-updated"
-
 	tmConfInitial := TMConfig{
 		Scope:  "scope-initial",
 		Policy: "policy-initial",
@@ -51,7 +48,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 	}
 
 	var err error
-	nrtUpd = NewNRTUpdater(args, policyInitial, tmConfInitial)
+	nrtUpd = NewNRTUpdater(args, tmConfInitial)
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
@@ -86,9 +83,9 @@ func TestUpdateTMPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkTMPolicy(t, obj, policyInitial, tmConfInitial)
+	checkTMConfig(t, obj, tmConfInitial)
 
-	nrtUpd = NewNRTUpdater(args, policyUpdated, tmConfUpdated)
+	nrtUpd = NewNRTUpdater(args, tmConfUpdated)
 	err = nrtUpd.UpdateWithClient(
 		cli,
 		MonitorInfo{
@@ -122,21 +119,18 @@ func TestUpdateTMPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkTMPolicy(t, obj, policyUpdated, tmConfUpdated)
+	checkTMConfig(t, obj, tmConfUpdated)
 }
 
-func checkTMPolicy(t *testing.T, obj runtime.Object, expectedPolicy string, expectedConf TMConfig) {
+func checkTMConfig(t *testing.T, obj runtime.Object, expectedConf TMConfig) {
 	t.Helper()
 
 	nrtObj, ok := obj.(*v1alpha2.NodeResourceTopology)
 	if !ok {
 		t.Fatalf("provided object is not a NodeResourceTopology")
 	}
-	if len(nrtObj.TopologyPolicies) != 1 {
+	if len(nrtObj.TopologyPolicies) > 01 {
 		t.Fatalf("unexpected topology policies: %#v", nrtObj.TopologyPolicies)
-	}
-	if nrtObj.TopologyPolicies[0] != expectedPolicy {
-		t.Fatalf("topology policy mismatch: expected %q got %q", expectedPolicy, nrtObj.TopologyPolicies[0])
 	}
 	gotConf := tmConfigFromAttributes(nrtObj.Attributes)
 	if !reflect.DeepEqual(gotConf, expectedConf) {

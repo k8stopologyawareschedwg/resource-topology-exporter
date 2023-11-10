@@ -26,7 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 
 	e2etestconsts "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/testconsts"
 )
@@ -34,15 +35,11 @@ import (
 const (
 	// RoleWorker contains the worker role
 	RoleWorker = "worker"
-	// DefaultNodeName we rely on kind for our CI
-	DefaultNodeName = "kind-worker"
 )
 
 const (
 	// LabelRole contains the key for the role label
 	LabelRole = "node-role.kubernetes.io"
-	// LabelHostname contains the key for the hostname label
-	LabelHostname = "kubernetes.io/hostname"
 )
 
 type patchMapStringStringValue struct {
@@ -52,22 +49,22 @@ type patchMapStringStringValue struct {
 }
 
 // GetWorkerNodes returns all nodes labeled as worker
-func GetWorkerNodes(f *framework.Framework) ([]corev1.Node, error) {
-	return GetNodesByRole(f, RoleWorker)
+func GetWorkerNodes(cs kubernetes.Interface) ([]corev1.Node, error) {
+	return GetNodesByRole(cs, RoleWorker)
 }
 
-// GetByRole returns all nodes with the specified role
-func GetNodesByRole(f *framework.Framework, role string) ([]corev1.Node, error) {
+// GetNodesByRole GetByRole returns all nodes with the specified role
+func GetNodesByRole(cs kubernetes.Interface, role string) ([]corev1.Node, error) {
 	selector, err := labels.Parse(fmt.Sprintf("%s/%s=", LabelRole, role))
 	if err != nil {
 		return nil, err
 	}
-	return GetNodesBySelector(f, selector)
+	return GetNodesBySelector(cs, selector)
 }
 
-// GetBySelector returns all nodes with the specified selector
-func GetNodesBySelector(f *framework.Framework, selector labels.Selector) ([]corev1.Node, error) {
-	nodes, err := f.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+// GetNodesBySelector GetBySelector returns all nodes with the specified selector
+func GetNodesBySelector(cs kubernetes.Interface, selector labels.Selector) ([]corev1.Node, error) {
+	nodes, err := cs.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +74,7 @@ func GetNodesBySelector(f *framework.Framework, selector labels.Selector) ([]cor
 // FilterNodesWithEnoughCores returns all nodes with at least the amount of given CPU allocatable
 func FilterNodesWithEnoughCores(nodes []corev1.Node, cpuAmount string) ([]corev1.Node, error) {
 	requestCpu := resource.MustParse(cpuAmount)
-	framework.Logf("checking request %v on %d nodes", requestCpu, len(nodes))
+	klog.Infof("checking request %v on %d nodes", requestCpu, len(nodes))
 
 	resNodes := []corev1.Node{}
 	for _, node := range nodes {
@@ -87,11 +84,11 @@ func FilterNodesWithEnoughCores(nodes []corev1.Node, cpuAmount string) ([]corev1
 		}
 
 		if availCpu.Cmp(requestCpu) < 1 {
-			framework.Logf("node %q available cpu %v requested cpu %v", node.Name, availCpu, requestCpu)
+			klog.Infof("node %q available cpu %v requested cpu %v", node.Name, availCpu, requestCpu)
 			continue
 		}
 
-		framework.Logf("node %q has enough resources, cluster OK", node.Name)
+		klog.Infof("node %q has enough resources, cluster OK", node.Name)
 		resNodes = append(resNodes, node)
 	}
 
@@ -99,7 +96,7 @@ func FilterNodesWithEnoughCores(nodes []corev1.Node, cpuAmount string) ([]corev1
 }
 
 // LabelNode will add new set of labels to a given node
-func LabelNode(f *framework.Framework, node *corev1.Node, newLabels map[string]string) error {
+func LabelNode(cs kubernetes.Interface, node *corev1.Node, newLabels map[string]string) error {
 	labelsMap := make(map[string]string)
 	labelsMap = node.Labels
 
@@ -117,7 +114,7 @@ func LabelNode(f *framework.Framework, node *corev1.Node, newLabels map[string]s
 		return err
 	}
 
-	_, err = f.ClientSet.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+	_, err = cs.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 	return err
 }
 

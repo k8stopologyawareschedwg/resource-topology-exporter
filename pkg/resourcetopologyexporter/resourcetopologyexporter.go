@@ -6,9 +6,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
-
-	v1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
@@ -17,7 +14,6 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/ratelimiter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/topologypolicy"
 )
 
 type Args struct {
@@ -37,12 +33,11 @@ type Args struct {
 }
 
 type tmSettings struct {
-	config  nrtupdater.TMConfig
-	summary v1alpha2.TopologyManagerPolicy
+	config nrtupdater.TMConfig
 }
 
-func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
-	tmData, err := getTopologyManagerPolicy(rteArgs)
+func Execute(hnd resourcemonitor.Handle, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
+	tmConf, err := getTopologyManagerSettings(rteArgs)
 	if err != nil {
 		return err
 	}
@@ -50,7 +45,7 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 	var condChan chan v1.PodCondition
 	if rteArgs.PodReadinessEnable {
 		condChan = make(chan v1.PodCondition)
-		condIn, err := podreadiness.NewConditionInjector()
+		condIn, err := podreadiness.NewConditionInjector(hnd.K8SCli)
 		if err != nil {
 			return err
 		}
@@ -62,13 +57,13 @@ func Execute(cli podresourcesapi.PodResourcesListerClient, nrtupdaterArgs nrtupd
 		return err
 	}
 
-	resObs, err := NewResourceObserver(cli, resourcemonitorArgs)
+	resObs, err := NewResourceObserver(hnd, resourcemonitorArgs)
 	if err != nil {
 		return err
 	}
 	go resObs.Run(eventSource.Events(), condChan)
 
-	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, string(tmData.summary), tmData.config)
+	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmConf.config)
 	go upd.Run(resObs.Infos, condChan)
 
 	go eventSource.Run()
@@ -114,32 +109,30 @@ func createEventSource(rteArgs *Args) (notification.EventSource, error) {
 	return es, nil
 }
 
-func getTopologyManagerPolicy(rteArgs Args) (tmSettings, error) {
+func getTopologyManagerSettings(rteArgs Args) (tmSettings, error) {
 	if rteArgs.TopologyManagerPolicy != "" && rteArgs.TopologyManagerScope != "" {
-		tmData := tmSettings{
+		tmConf := tmSettings{
 			config: nrtupdater.TMConfig{
 				Policy: rteArgs.TopologyManagerPolicy,
 				Scope:  rteArgs.TopologyManagerScope,
 			},
 		}
-		tmData.summary = topologypolicy.DetectTopologyPolicy(tmData.config.Policy, tmData.config.Scope)
-		klog.Infof("using given Topology Manager policy %q scope %q (%s)", tmData.config.Policy, tmData.config.Scope, tmData.summary)
-		return tmData, nil
+		klog.Infof("using given Topology Manager policy %q scope %q", tmConf.config.Policy, tmConf.config.Scope)
+		return tmConf, nil
 	}
 	if rteArgs.KubeletConfigFile != "" {
 		klConfig, err := kubeconf.GetKubeletConfigFromLocalFile(rteArgs.KubeletConfigFile)
 		if err != nil {
 			return tmSettings{}, fmt.Errorf("error getting topology Manager Policy: %w", err)
 		}
-		tmData := tmSettings{
+		tmConf := tmSettings{
 			config: nrtupdater.TMConfig{
 				Policy: klConfig.TopologyManagerPolicy,
 				Scope:  klConfig.TopologyManagerScope,
 			},
 		}
-		tmData.summary = topologypolicy.DetectTopologyPolicy(tmData.config.Policy, tmData.config.Scope)
-		klog.Infof("using detected Topology Manager policy %q scope %q (%s)", tmData.config.Policy, tmData.config.Scope, tmData.summary)
-		return tmData, nil
+		klog.Infof("using detected Topology Manager policy %q scope %q", tmConf.config.Policy, tmConf.config.Scope)
+		return tmConf, nil
 	}
 	return tmSettings{}, fmt.Errorf("cannot find the kubelet Topology Manager policy")
 }

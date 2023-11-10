@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'release-0.11'
 
 defaults:
   run:
@@ -15,7 +16,8 @@ jobs:
     env:
       # TODO
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
-      E2E_TOPOLOGY_MANAGER_POLICY: SingleNUMANodeContainerLevel
+      E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
+      E2E_TOPOLOGY_MANAGER_SCOPE: container
       RTE_POLL_INTERVAL: 10s
       RTE_VERBOSE: 6
     steps:
@@ -51,7 +53,7 @@ jobs:
       run: |
         # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
         # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.11.1
-        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.25.11@sha256:227fa11ce74ea76a0474eeefb84cb75d8dad1b08638371ecf0e86259b35be0c8
         kind load docker-image ${RTE_CONTAINER_IMAGE}
 
     - name: deploy RTE

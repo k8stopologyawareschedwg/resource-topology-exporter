@@ -53,6 +53,6 @@ func main() {
 		Policy: tmPolicy,
 		Scope:  tmScope,
 	}
-	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmPolicy, tmConf)
+	upd := nrtupdater.NewNRTUpdater(nrtupdaterArgs, tmConf)
 	upd.Run(gen.Infos, nil)
 }
