@@ -22,7 +22,6 @@ type Args struct {
 	TopologyManagerPolicy  string
 	TopologyManagerScope   string
 	KubeletConfigFile      string
-	KubeletStateDirs       []string
 	PodResourcesSocketPath string
 	SleepInterval          time.Duration
 	PodReadinessEnable     bool
@@ -87,11 +86,6 @@ func createEventSource(rteArgs *Args) (notification.EventSource, error) {
 	}
 
 	err = eventSource.AddFile(rteArgs.NotifyFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	err = eventSource.AddDirs(rteArgs.KubeletStateDirs)
 	if err != nil {
 		return nil, err
 	}
