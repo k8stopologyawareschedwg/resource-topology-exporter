@@ -13,6 +13,7 @@ limitations under the License.
 package sysinfo
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -91,6 +92,19 @@ func makeMemoryTree(root string, numNodes int) error {
 			return err
 		}
 
+		for _, size := range []int{HugepageSize2Mi, HugepageSize1Gi} {
+			hpPath := filepath.Join(
+				hnd.SysDevicesNodesNodeNth(idx),
+				"hugepages",
+				fmt.Sprintf("hugepages-%dkB", size),
+			)
+			if err := os.MkdirAll(hpPath, 0755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(hpPath, "nr_hugepages"), []byte("16"), 0644); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

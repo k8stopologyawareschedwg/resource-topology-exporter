@@ -65,7 +65,7 @@ func TestHugepagesForNode(t *testing.T) {
 	}
 	defer os.RemoveAll(rootDir) // clean up
 
-	if err := makeTree(rootDir, 2); err != nil {
+	if err := makeMemoryTree(rootDir, 2); err != nil {
 		t.Errorf("failed to setup the fake tree on %q: %v", rootDir, err)
 	}
 	if err := setHPCount(rootDir, 0, HugepageSize2Mi, 6); err != nil {
@@ -92,32 +92,12 @@ func TestHugepagesForNode(t *testing.T) {
 	if len(hpCounters["hugepages-1Gi"]) != 2 {
 		t.Errorf("found unexpected 1Gi hugepages")
 	}
-	if hpCounters["hugepages-1Gi"][0] != 0 {
+	if hpCounters["hugepages-1Gi"][0] != 17179869184 { // from makeMemoryTree builtin
 		t.Errorf("found unexpected 1Gi hugepages for node 0: %v", hpCounters["hugepages-1Gi"][0])
 	}
-	if hpCounters["hugepages-1Gi"][1] != 0 {
+	if hpCounters["hugepages-1Gi"][1] != 17179869184 { // from makeMemoryTree builtin
 		t.Errorf("found unexpected 1Gi hugepages for node 1: %v", hpCounters["hugepages-1Gi"][1])
 	}
-}
-
-func makeTree(root string, numNodes int) error {
-	hnd := Handle{root}
-	for idx := 0; idx < numNodes; idx++ {
-		for _, size := range []int{HugepageSize2Mi, HugepageSize1Gi} {
-			path := filepath.Join(
-				hnd.SysDevicesNodesNodeNth(idx),
-				"hugepages",
-				fmt.Sprintf("hugepages-%dkB", size),
-			)
-			if err := os.MkdirAll(path, 0755); err != nil {
-				return err
-			}
-			if err := setHPCount(root, idx, size, 0); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func setHPCount(root string, nodeID, pageSize, numPages int) error {
