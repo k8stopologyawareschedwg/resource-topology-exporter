@@ -18,8 +18,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"k8s.io/klog/v2"
 )
 
 func GetMemory(hnd Handle) (map[int]int64, error) {
@@ -34,13 +32,11 @@ func GetMemory(hnd Handle) (map[int]int64, error) {
 		if entry.IsDir() && strings.HasPrefix(entryName, "node") {
 			nodeID, err := strconv.Atoi(entryName[4:])
 			if err != nil {
-				klog.Warningf("cannot detect the node ID for %q", entryName)
-				continue
+				return memory, fmt.Errorf("cannot detect the node ID for %q", entryName)
 			}
 			nodeMemory, err := MemoryForNode(hnd, nodeID)
 			if err != nil {
-				klog.Warningf("cannot find the memory on NUMA node %d: %v", nodeID, err)
-				continue
+				return memory, fmt.Errorf("cannot find the memory on NUMA node %d: %w", nodeID, err)
 			}
 			memory[nodeID] = nodeMemory
 		}
