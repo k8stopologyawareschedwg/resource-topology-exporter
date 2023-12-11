@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/klog/v2"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -70,14 +72,18 @@ func HugepagesForNode(hnd Handle, nodeID int) ([]Hugepages, error) {
 	}
 	for _, entry := range entries {
 		entryName := entry.Name()
-		entryPath := filepath.Join(hpPath, entryName)
+		if !entry.IsDir() {
+			klog.Warningf("unexpected entry in %q: %q - skipped", hpPath, entryName)
+			continue
+		}
 
 		var hugepageSizeKB int
 		if n, err := fmt.Sscanf(entryName, "hugepages-%dkB", &hugepageSizeKB); n != 1 || err != nil {
 			return hugepages, fmt.Errorf("malformed hugepages entry %q", entryName)
 		}
 
-		totalCount, err := readIntFromFile(filepath.Join(entryPath, "nr_hugepages"))
+		entryPath := filepath.Join(hpPath, entryName)
+		hpCountPath, err := filepath.EvalSymlinks(filepath.Join(entryPath, "nr_hugepages"))
 		if err != nil {
 			return hugepages, fmt.Errorf("cannot clean %q: %w", entryPath, err)
 		}
