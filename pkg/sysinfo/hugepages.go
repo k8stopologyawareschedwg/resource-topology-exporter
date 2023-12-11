@@ -34,13 +34,13 @@ type Hugepages struct {
 
 type PerNUMACounters map[int]int64
 
-func GetHugepages(hnd Handle) ([]*Hugepages, error) {
+func GetHugepages(hnd Handle) ([]Hugepages, error) {
 	entries, err := os.ReadDir(hnd.SysDevicesNodes())
 	if err != nil {
 		return nil, err
 	}
 
-	hugepages := []*Hugepages{}
+	hugepages := []Hugepages{}
 	for _, entry := range entries {
 		entryName := entry.Name()
 		if entry.IsDir() && strings.HasPrefix(entryName, "node") {
@@ -60,20 +60,21 @@ func GetHugepages(hnd Handle) ([]*Hugepages, error) {
 	return hugepages, nil
 }
 
-func HugepagesForNode(hnd Handle, nodeID int) ([]*Hugepages, error) {
-	path := filepath.Join(
+func HugepagesForNode(hnd Handle, nodeID int) ([]Hugepages, error) {
+	hpPath := filepath.Join(
 		hnd.SysDevicesNodesNodeNth(nodeID),
 		"hugepages",
 	)
-	hugepages := []*Hugepages{}
+	hugepages := []Hugepages{}
 
-	entries, err := os.ReadDir(path)
+	entries, err := os.ReadDir(hpPath)
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range entries {
 		entryName := entry.Name()
-		entryPath := filepath.Join(path, entryName)
+		entryPath := filepath.Join(hpPath, entryName)
+
 		var hugepageSizeKB int
 		if n, err := fmt.Sscanf(entryName, "hugepages-%dkB", &hugepageSizeKB); n != 1 || err != nil {
 			klog.Warningf("malformed hugepages entry %q", entryName)
@@ -86,7 +87,7 @@ func HugepagesForNode(hnd Handle, nodeID int) ([]*Hugepages, error) {
 			continue
 		}
 
-		hugepages = append(hugepages, &Hugepages{
+		hugepages = append(hugepages, Hugepages{
 			NodeID: nodeID,
 			SizeKB: hugepageSizeKB,
 			Total:  totalCount,
