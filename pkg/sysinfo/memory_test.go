@@ -91,6 +91,20 @@ func makeMemoryTree(root string, numNodes int) error {
 			return err
 		}
 
+		hpPathSizes := []string{"hugepages-1048576kB", "hugepages-2048kB"}
+		for _, hpPathSize := range hpPathSizes {
+			hpPath := filepath.Join(
+				hnd.SysDevicesNodesNodeNth(idx),
+				"hugepages",
+				hpPathSize,
+			)
+			if err := os.MkdirAll(hpPath, 0755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(hpPath, "nr_hugepages"), []byte("16"), 0644); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
