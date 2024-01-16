@@ -21,8 +21,9 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // TODO review
@@ -34,25 +35,23 @@ type Hugepages struct {
 
 type PerNUMACounters map[int]int64
 
-func GetHugepages(hnd Handle) ([]*Hugepages, error) {
+func GetHugepages(hnd Handle) ([]Hugepages, error) {
 	entries, err := os.ReadDir(hnd.SysDevicesNodes())
 	if err != nil {
 		return nil, err
 	}
 
-	hugepages := []*Hugepages{}
+	hugepages := []Hugepages{}
 	for _, entry := range entries {
 		entryName := entry.Name()
 		if entry.IsDir() && strings.HasPrefix(entryName, "node") {
 			nodeID, err := strconv.Atoi(entryName[4:])
 			if err != nil {
-				klog.Warningf("cannot detect the node ID for %q", entryName)
-				continue
+				return hugepages, fmt.Errorf("cannot detect the node ID for %q", entryName)
 			}
 			nodeHugepages, err := HugepagesForNode(hnd, nodeID)
 			if err != nil {
-				klog.Warningf("cannot find the hugepages on NUMA node %d: %v", nodeID, err)
-				continue
+				return hugepages, fmt.Errorf("cannot find the hugepages on NUMA node %d: %w", nodeID, err)
 			}
 			hugepages = append(hugepages, nodeHugepages...)
 		}
@@ -60,33 +59,46 @@ func GetHugepages(hnd Handle) ([]*Hugepages, error) {
 	return hugepages, nil
 }
 
-func HugepagesForNode(hnd Handle, nodeID int) ([]*Hugepages, error) {
-	path := filepath.Join(
+func HugepagesForNode(hnd Handle, nodeID int) ([]Hugepages, error) {
+	hpPath := filepath.Join(
 		hnd.SysDevicesNodesNodeNth(nodeID),
 		"hugepages",
 	)
-	hugepages := []*Hugepages{}
+	hugepages := []Hugepages{}
 
-	entries, err := os.ReadDir(path)
+	entries, err := os.ReadDir(hpPath)
 	if err != nil {
 		return nil, err
 	}
 	for _, entry := range entries {
 		entryName := entry.Name()
-		entryPath := filepath.Join(path, entryName)
+		if !entry.IsDir() {
+			klog.Warningf("unexpected entry in %q: %q - skipped", hpPath, entryName)
+			continue
+		}
+
 		var hugepageSizeKB int
 		if n, err := fmt.Sscanf(entryName, "hugepages-%dkB", &hugepageSizeKB); n != 1 || err != nil {
-			klog.Warningf("malformed hugepages entry %q", entryName)
-			continue
+			return hugepages, fmt.Errorf("malformed hugepages entry %q", entryName)
 		}
 
-		totalCount, err := readIntFromFile(filepath.Join(entryPath, "nr_hugepages"))
+		entryPath := filepath.Join(hpPath, entryName)
+		hpCountPath, err := filepath.EvalSymlinks(filepath.Join(entryPath, "nr_hugepages"))
 		if err != nil {
-			klog.Warningf("cannot read from %q: %v", entryPath, err)
-			continue
+			return hugepages, fmt.Errorf("cannot clean %q: %w", entryPath, err)
 		}
 
-		hugepages = append(hugepages, &Hugepages{
+		// TODO: use filepath.Rel?
+		if !strings.HasPrefix(hpCountPath, hpPath) {
+			return hugepages, fmt.Errorf("unexpected path resolution: %q not subpath of %q", hpCountPath, hpPath)
+		}
+
+		totalCount, err := readIntFromFile(hpCountPath)
+		if err != nil {
+			return hugepages, fmt.Errorf("cannot read from %q: %w", hpCountPath, err)
+		}
+
+		hugepages = append(hugepages, Hugepages{
 			NodeID: nodeID,
 			SizeKB: hugepageSizeKB,
 			Total:  totalCount,
