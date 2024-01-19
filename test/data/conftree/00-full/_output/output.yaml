@@ -1,0 +1,32 @@
+global:
+  verbose: 5
+nrtUpdater:
+  hostname: node.kubelab.io
+resourceMonitor:
+  podSetFingerprint: true
+  podSetFingerprintMethod: with-exclusive-resources
+  resourceExclude:
+    '*':
+    - device/exampleC
+    masternode:
+    - memory
+    - device/exampleA
+    workernode1:
+    - memory
+    - device/exampleB
+    workernode2:
+    - cpu
+  sysfsRoot: /sys
+topologyExporter:
+  kubeletConfigFile: /podresources/config.yaml
+  maxEventPerTimeUnit: 1
+  metricsMode: disabled
+  podReadinessEnable: true
+  podResourcesSocketPath: unix:///podresources/kubelet.sock
+  referenceContainer:
+    ContainerName: ""
+    Namespace: ""
+    PodName: ""
+  sleepInterval: 60000000000
+  timeUnitToLimitEvents: 1000000000
+

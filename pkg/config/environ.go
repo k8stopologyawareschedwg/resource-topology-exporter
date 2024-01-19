@@ -45,7 +45,7 @@ func TopologyManagerScopeFromEnv() string {
 	return ""
 }
 
-func FromEnv(pArgs *ProgArgs) error {
+func FromEnv(pArgs *ProgArgs) {
 	if pArgs.NRTupdater.Hostname == "" {
 		pArgs.NRTupdater.Hostname = HostNameFromEnv()
 	}
@@ -58,5 +58,4 @@ func FromEnv(pArgs *ProgArgs) error {
 	if pArgs.RTE.ReferenceContainer.IsEmpty() {
 		pArgs.RTE.ReferenceContainer = sharedcpuspool.ContainerIdentFromEnv()
 	}
-	return nil
 }

@@ -1,0 +1,17 @@
+global:
+  verbose: 4
+nrtUpdater:
+  hostname: node.kubelab.io
+resourceMonitor:
+  podSetFingerprint: true
+  podSetFingerprintMethod: with-exclusive-resources
+  sysfsRoot: /sys
+topologyExporter:
+  addNRTOwnerEnable: true
+  kubeletConfigFile: /podresources/config.yaml
+  maxEventPerTimeUnit: 1
+  metricsMode: disabled
+  podReadinessEnable: true
+  podResourcesSocketPath: unix:///podresources/kubelet.sock
+  sleepInterval: 60000000000
+  timeUnitToLimitEvents: 1000000000

@@ -79,6 +79,12 @@ The Makefile provides other targets:
 * push: To push the docker image to a registry
 * images: To build the docker image
 
+## Configuration
+RTE grew quite a lot of options to address different usecases and flows, accruing features while assisting the evolution of the NUMA aware scheduler.
+Up until version 0.16 included, the daemon command line flags where the main/only way to configure the behavior.
+
+Started version 0.17, the daemon gained support for configuration file, including configlets (config directory).
+Please check [the issue 111](https://github.com/k8stopologyawareschedwg/resource-topology-exporter/issues/111) to learn about the design of the feature.
 
 ## Workload requesting devices
 

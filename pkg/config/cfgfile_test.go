@@ -18,7 +18,9 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
@@ -63,5 +65,42 @@ func TestReadResourceExclude(t *testing.T) {
 
 	if !reflect.DeepEqual(pArgs.Resourcemonitor.ResourceExclude, expectedResourceExclude) {
 		t.Errorf("ResourceExclude is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ResourceExclude, expectedResourceExclude)
+	}
+}
+
+func TestFromFiles(t *testing.T) {
+	type testCase struct {
+		name string
+	}
+
+	for _, tcase := range []testCase{
+		{
+			name: "00-full",
+		},
+	} {
+		t.Run(tcase.name, func(t *testing.T) {
+			confRoot := filepath.Join(testDataDir, "conftree", tcase.name)
+			extraPath := FixExtraConfigPath(confRoot)
+
+			var pArgs ProgArgs
+			SetDefaults(&pArgs)
+			err := FromFiles(&pArgs, confRoot, extraPath)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			golden := filepath.Join(confRoot, "_output", "output.yaml")
+
+			expectedRaw, err := os.ReadFile(golden)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got := strings.TrimSpace(string(pArgs.ToYAMLString()))
+			expected := strings.TrimSpace(string(expectedRaw))
+			if got != expected {
+				t.Errorf("invalid defaults.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
+			}
+		})
 	}
 }

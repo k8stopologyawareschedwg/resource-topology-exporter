@@ -29,6 +29,12 @@ build: build-tools
 	-ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
 	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
 
+.PHONY: build-dbg
+build-dbg: build-tools
+	$(COMMONENVVAR) $(BUILDENVVAR) go build \
+	-ldflags "-X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
+	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
+
 .PHONY: gofmt
 gofmt:
 	@echo "Running gofmt"

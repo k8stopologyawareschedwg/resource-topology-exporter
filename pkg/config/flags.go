@@ -71,8 +71,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	flags.Int64Var(&pArgs.RTE.MaxEventsPerTimeUnit, "max-events-per-second", pArgs.RTE.MaxEventsPerTimeUnit, "Max times per second resources will be scanned and updated")
 
 	flags.BoolVar(&pArgs.Version, "version", pArgs.Version, "Output version and exit")
-	flags.StringVar(&pArgs.DumpConfig, "dump-config", pArgs.DumpConfig,
-		`dump the current configuration to the given file path. Empty string (default) disable the dumping.
+	flags.StringVar(&pArgs.DumpConfig, "dump-config", pArgs.DumpConfig, `dump the current configuration to the given file path. Empty string (default) disable the dumping.
 Special targets:
 . "-" for stdout.
 . ".andexit" stdout and exit right after.
@@ -92,8 +91,11 @@ Special targets:
 	if err != nil {
 		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
+	if pArgs.Global.Debug {
+		klog.Infof("reference container: %+v", pArgs.RTE.ReferenceContainer)
+	}
 
-	params := flag.Args()
+	params := flags.Args()
 	if len(params) > 1 {
 		return DefaultConfigRoot, configPath, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
 	}
