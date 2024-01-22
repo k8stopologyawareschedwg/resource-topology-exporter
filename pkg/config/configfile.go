@@ -18,7 +18,9 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -26,6 +28,26 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
+
+const (
+	DefaultconfigRoot     = "/etc/rte"
+	LegacyExtraConfigPath = "/etc/resource-topology-exporter/config.yaml"
+
+	configDirDaemon = "daemon"
+	configDirExtra  = "extra"
+)
+
+func FixExtraConfigPath(configRoot string) string {
+	return filepath.Join(configRoot, configDirExtra, "config.yaml")
+}
+
+func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
+	conf, err := readExtraConfig(extraConfigPath)
+	if err != nil {
+		return fmt.Errorf("error getting exclude list from the configuration: %w", err)
+	}
+	return setupArgsFromConfig(pArgs, conf)
+}
 
 type kubeletParams struct {
 	TopologyManagerPolicy string `json:"topologyManagerPolicy,omitempty"`
@@ -51,4 +73,27 @@ func readExtraConfig(configPath string) (config, error) {
 	}
 	err = yaml.Unmarshal(data, &conf)
 	return conf, err
+}
+
+func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
+	if len(conf.ResourceExclude) > 0 {
+		pArgs.Resourcemonitor.ResourceExclude = conf.ResourceExclude
+		klog.V(2).Infof("using resources exclude:\n%s", pArgs.Resourcemonitor.ResourceExclude.String())
+	}
+
+	if len(conf.PodExclude) > 0 {
+		pArgs.Resourcemonitor.PodExclude = conf.PodExclude
+		klog.V(2).Infof("using pod excludes:\n%s", pArgs.Resourcemonitor.PodExclude.String())
+	}
+
+	if pArgs.RTE.TopologyManagerPolicy == "" {
+		pArgs.RTE.TopologyManagerPolicy = conf.Kubelet.TopologyManagerPolicy
+		klog.V(2).Infof("using kubelet topology manager policy: %q", pArgs.RTE.TopologyManagerPolicy)
+	}
+	if pArgs.RTE.TopologyManagerScope == "" {
+		pArgs.RTE.TopologyManagerScope = conf.Kubelet.TopologyManagerScope
+		klog.V(2).Infof("using kubelet topology manager scope: %q", pArgs.RTE.TopologyManagerScope)
+	}
+
+	return nil
 }

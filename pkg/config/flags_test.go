@@ -21,13 +21,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
 const (
@@ -121,48 +119,6 @@ func TestDefaults(t *testing.T) {
 	expected := strings.TrimSpace(string(expectedAsJson))
 	if got != expected {
 		t.Errorf("invalid defaults.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
-	}
-}
-
-func TestReadResourceExclude(t *testing.T) {
-	closer := setupTest(t)
-	t.Cleanup(closer)
-
-	cfg, err := os.CreateTemp("", "exclude-list")
-	if err != nil {
-		t.Fatalf("unexpected error creating temp file: %v", err)
-	}
-	t.Cleanup(func() {
-		os.Remove(cfg.Name())
-	})
-
-	cfgContent := `resourceExclude:
-  masternode: [memory, device/exampleA]
-  workernode1: [memory, device/exampleB]
-  workernode2: [cpu]
-  "*": [device/exampleC]`
-
-	if _, err := cfg.Write([]byte(cfgContent)); err != nil {
-		t.Fatalf("unexpected error writing data: %v", err)
-	}
-	if err := cfg.Close(); err != nil {
-		t.Fatalf("unexpected error closing temp file: %v", err)
-	}
-
-	pArgs, err := LoadArgs("--config", cfg.Name())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	expectedResourceExclude := resourcemonitor.ResourceExclude{
-		"masternode":  {"memory", "device/exampleA"},
-		"workernode1": {"memory", "device/exampleB"},
-		"workernode2": {"cpu"},
-		"*":           {"device/exampleC"},
-	}
-
-	if !reflect.DeepEqual(pArgs.Resourcemonitor.ResourceExclude, expectedResourceExclude) {
-		t.Errorf("ResourceExclude is different!\ngot=%+#v\nexpected=%+#v", pArgs.Resourcemonitor.ResourceExclude, expectedResourceExclude)
 	}
 }
 

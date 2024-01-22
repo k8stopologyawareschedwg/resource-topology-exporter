@@ -28,18 +28,14 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 )
 
-// The args is passed only for testing purposes.
-func LoadArgs(args ...string) (ProgArgs, error) {
-	var pArgs ProgArgs
-
-	SetDefaults(&pArgs)
-
+func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	var configPath string
+
 	flags := flag.NewFlagSet(version.ProgramName, flag.ExitOnError)
 
 	klog.InitFlags(flags)
 
-	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
+	flags.StringVar(&configPath, "config", LegacyExtraConfigPath, "Configuration file path. Use this to set the exclude list.")
 
 	flags.BoolVar(&pArgs.Global.Debug, "debug", pArgs.Global.Debug, " Enable debug output.")
 	flags.StringVar(&pArgs.Global.KubeConfig, "kubeconfig", pArgs.Global.KubeConfig, "path to kubeconfig file.")
@@ -85,65 +81,26 @@ Special targets:
 
 	err := flags.Parse(args)
 	if err != nil {
-		return pArgs, err
+		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
 	if pArgs.Version {
-		return pArgs, err
+		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
 	pArgs.RTE.ReferenceContainer, err = setContainerIdent(*refCnt)
 	if err != nil {
-		return pArgs, err
+		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
-	FromEnv(&pArgs)
-
-	pArgs.RTE.MetricsMode, err = metricssrv.ServingModeIsSupported(pArgs.RTE.MetricsMode)
-	if err != nil {
-		return pArgs, err
+	params := flag.Args()
+	if len(params) > 1 {
+		return DefaultConfigRoot, configPath, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
 	}
-
-	pArgs.Resourcemonitor.PodSetFingerprintMethod, err = resourcemonitor.PFPMethodIsSupported(pArgs.Resourcemonitor.PodSetFingerprintMethod)
-	if err != nil {
-		return pArgs, err
+	if len(params) == 0 {
+		return DefaultConfigRoot, configPath, nil
 	}
-
-	conf, err := readExtraConfig(configPath)
-	if err != nil {
-		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %w", err)
-	}
-
-	err = setupArgsFromConfig(&pArgs, conf)
-	if err != nil {
-		return pArgs, err
-	}
-
-	err = Finalize(&pArgs)
-	return pArgs, err
-}
-
-func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
-	if len(conf.ResourceExclude) > 0 {
-		pArgs.Resourcemonitor.ResourceExclude = conf.ResourceExclude
-		klog.V(2).Infof("using resources exclude:\n%s", pArgs.Resourcemonitor.ResourceExclude.String())
-	}
-
-	if len(conf.PodExclude) > 0 {
-		pArgs.Resourcemonitor.PodExclude = conf.PodExclude
-		klog.V(2).Infof("using pod excludes:\n%s", pArgs.Resourcemonitor.PodExclude.String())
-	}
-
-	if pArgs.RTE.TopologyManagerPolicy == "" {
-		pArgs.RTE.TopologyManagerPolicy = conf.Kubelet.TopologyManagerPolicy
-		klog.V(2).Infof("using kubelet topology manager policy: %q", pArgs.RTE.TopologyManagerPolicy)
-	}
-	if pArgs.RTE.TopologyManagerScope == "" {
-		pArgs.RTE.TopologyManagerScope = conf.Kubelet.TopologyManagerScope
-		klog.V(2).Infof("using kubelet topology manager scope: %q", pArgs.RTE.TopologyManagerScope)
-	}
-
-	return nil
+	return params[0], FixExtraConfigPath(params[0]), nil
 }
 
 func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {

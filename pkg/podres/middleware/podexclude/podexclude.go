@@ -35,6 +35,10 @@ type Item struct {
 
 type List []Item
 
+func (items List) Clone() List {
+	return append([]Item{}, items...)
+}
+
 func (items List) String() string {
 	var b strings.Builder
 	for _, item := range items {

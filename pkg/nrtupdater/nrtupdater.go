@@ -28,9 +28,17 @@ const (
 
 // Command line arguments
 type Args struct {
-	NoPublish bool
-	Oneshot   bool
-	Hostname  string
+	NoPublish bool   `json:"noPublish,omitempty"`
+	Oneshot   bool   `json:"oneShot,omitempty"`
+	Hostname  string `json:"hostname,omitempty"`
+}
+
+func (args Args) Clone() Args {
+	return Args{
+		NoPublish: args.NoPublish,
+		Oneshot:   args.Oneshot,
+		Hostname:  args.Hostname,
+	}
 }
 
 type TMConfig struct {

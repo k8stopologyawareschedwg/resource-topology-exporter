@@ -56,17 +56,40 @@ const (
 
 type ResourceExclude map[string][]string
 
+func (re ResourceExclude) Clone() map[string][]string {
+	ret := make(map[string][]string)
+	for key, vals := range re {
+		ret[key] = append([]string{}, vals...)
+	}
+	return ret
+}
+
 type Args struct {
-	Namespace                   string
-	SysfsRoot                   string
-	ResourceExclude             ResourceExclude
-	RefreshNodeResources        bool
-	PodSetFingerprint           bool
-	PodSetFingerprintMethod     string
-	ExposeTiming                bool
-	PodSetFingerprintStatusFile string
-	PodExclude                  podexclude.List
-	ExcludeTerminalPods         bool
+	Namespace                   string          `json:"namespace,omitempty"`
+	SysfsRoot                   string          `json:"sysfsRoot,omitempty"`
+	ResourceExclude             ResourceExclude `json:"resourceExclude,omitempty"`
+	RefreshNodeResources        bool            `json:"refreshNodeResources,omitempty"`
+	PodSetFingerprint           bool            `json:"podSetFingerprint,omitempty"`
+	PodSetFingerprintMethod     string          `json:"podSetFingerprintMethod,omitempty"`
+	ExposeTiming                bool            `json:"exposeTiming,omitempty"`
+	PodSetFingerprintStatusFile string          `json:"podSetFingerprintStatusFile,omitempty"`
+	PodExclude                  podexclude.List `json:"podExclude,omitempty"`
+	ExcludeTerminalPods         bool            `json:"excludeTerminalPods,omitempty"`
+}
+
+func (args Args) Clone() Args {
+	return Args{
+		Namespace:                   args.Namespace,
+		SysfsRoot:                   args.SysfsRoot,
+		ResourceExclude:             args.ResourceExclude.Clone(),
+		RefreshNodeResources:        args.RefreshNodeResources,
+		PodSetFingerprint:           args.PodSetFingerprint,
+		PodSetFingerprintMethod:     args.PodSetFingerprintMethod,
+		ExposeTiming:                args.ExposeTiming,
+		PodSetFingerprintStatusFile: args.PodSetFingerprintStatusFile,
+		PodExclude:                  args.PodExclude.Clone(),
+		ExcludeTerminalPods:         args.ExcludeTerminalPods,
+	}
 }
 
 type Handle struct {

@@ -58,6 +58,51 @@ func (pa *ProgArgs) ToYaml() ([]byte, error) {
 	return yaml.Marshal(pa)
 }
 
+func (pa ProgArgs) Clone() ProgArgs {
+	return ProgArgs{
+		Global:          pa.Global.Clone(),
+		NRTupdater:      pa.NRTupdater.Clone(),
+		Resourcemonitor: pa.Resourcemonitor.Clone(),
+		RTE:             pa.RTE.Clone(),
+		Version:         pa.Version,
+		DumpConfig:      pa.DumpConfig,
+	}
+}
+
+// The args is passed only for testing purposes.
+func LoadArgs(args ...string) (ProgArgs, error) {
+	var err error
+	var configRoot string
+	var extraConfigPath string
+	var pArgs ProgArgs
+
+	SetDefaults(&pArgs)
+
+	configRoot, extraConfigPath, err = FromFlags(&pArgs, args...)
+
+	if pArgs.Version {
+		return pArgs, err
+	}
+
+	err = FromFiles(&pArgs, configRoot, extraConfigPath)
+	if err != nil {
+		return pArgs, err
+	}
+
+	err = FromEnv(&pArgs)
+	if err != nil {
+		return pArgs, err
+	}
+
+	err = Validate(&pArgs)
+	if err != nil {
+		return pArgs, err
+	}
+
+	err = Finalize(&pArgs)
+	return pArgs, err
+}
+
 func Finalize(pArgs *ProgArgs) error {
 	var err error
 	if pArgs.NRTupdater.Hostname == "" {

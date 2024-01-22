@@ -18,19 +18,35 @@ import (
 )
 
 type Args struct {
-	Debug                  bool
-	ReferenceContainer     *sharedcpuspool.ContainerIdent
-	TopologyManagerPolicy  string
-	TopologyManagerScope   string
-	KubeletConfigFile      string
-	PodResourcesSocketPath string
-	SleepInterval          time.Duration
-	PodReadinessEnable     bool
-	NotifyFilePath         string
-	MaxEventsPerTimeUnit   int64
-	TimeUnitToLimitEvents  time.Duration
-	AddNRTOwnerEnable      bool
-	MetricsMode            string
+	ReferenceContainer     *sharedcpuspool.ContainerIdent `json:"referenceContainer,omitempty"`
+	TopologyManagerPolicy  string                         `json:"topologyManagerPolicy,omitempty"`
+	TopologyManagerScope   string                         `json:"topologyManagerScope,omitempty"`
+	KubeletConfigFile      string                         `json:"kubeletConfigFile,omitempty"`
+	PodResourcesSocketPath string                         `json:"podResourcesSocketPath,omitempty"`
+	SleepInterval          time.Duration                  `json:"sleepInterval,omitempty"`
+	PodReadinessEnable     bool                           `json:"podReadinessEnable,omitempty"`
+	NotifyFilePath         string                         `json:"notifyFilePath,omitempty"`
+	MaxEventsPerTimeUnit   int64                          `json:"maxEventPerTimeUnit,omitempty"`
+	TimeUnitToLimitEvents  time.Duration                  `json:"timeUnitToLimitEvents,omitempty"`
+	AddNRTOwnerEnable      bool                           `json:"addNRTOwnerEnable,omitempty"`
+	MetricsMode            string                         `json:"metricsMode,omitempty"`
+}
+
+func (args Args) Clone() Args {
+	// TODO: ReferenceContainer
+	return Args{
+		TopologyManagerPolicy:  args.TopologyManagerPolicy,
+		TopologyManagerScope:   args.TopologyManagerScope,
+		KubeletConfigFile:      args.KubeletConfigFile,
+		PodResourcesSocketPath: args.PodResourcesSocketPath,
+		SleepInterval:          args.SleepInterval,
+		PodReadinessEnable:     args.PodReadinessEnable,
+		NotifyFilePath:         args.NotifyFilePath,
+		MaxEventsPerTimeUnit:   args.MaxEventsPerTimeUnit,
+		TimeUnitToLimitEvents:  args.TimeUnitToLimitEvents,
+		AddNRTOwnerEnable:      args.AddNRTOwnerEnable,
+		MetricsMode:            args.MetricsMode,
+	}
 }
 
 type tmSettings struct {
