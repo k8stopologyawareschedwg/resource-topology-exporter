@@ -28,13 +28,14 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 )
 
-func FromFlags(pArgs *ProgArgs, args ...string) (string, error) {
+func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	var configPath string
+
 	flags := flag.NewFlagSet(version.ProgramName, flag.ExitOnError)
 
 	klog.InitFlags(flags)
 
-	flags.StringVar(&configPath, "config", "/etc/resource-topology-exporter/config.yaml", "Configuration file path. Use this to set the exclude list.")
+	flags.StringVar(&configPath, "config", LegacyExtraConfigPath, "Configuration file path. Use this to set the exclude list.")
 
 	flags.BoolVar(&pArgs.Global.Debug, "debug", pArgs.Global.Debug, " Enable debug output.")
 	flags.StringVar(&pArgs.Global.KubeConfig, "kubeconfig", pArgs.Global.KubeConfig, "path to kubeconfig file.")
@@ -80,15 +81,26 @@ Special targets:
 
 	err := flags.Parse(args)
 	if err != nil {
-		return configPath, err
+		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
 	if pArgs.Version {
-		return configPath, err
+		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
 	pArgs.RTE.ReferenceContainer, err = setContainerIdent(*refCnt)
-	return configPath, err
+	if err != nil {
+		return DefaultConfigRoot, LegacyExtraConfigPath, err
+	}
+
+	params := flag.Args()
+	if len(params) > 1 {
+		return DefaultConfigRoot, configPath, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
+	}
+	if len(params) == 0 {
+		return DefaultConfigRoot, configPath, nil
+	}
+	return params[0], FixExtraConfigPath(params[0]), nil
 }
 
 func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {

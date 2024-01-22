@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -28,8 +29,20 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
-func FromFiles(pArgs *ProgArgs, configPath string) error {
-	conf, err := readExtraConfig(configPath)
+const (
+	DefaultconfigRoot     = "/etc/rte"
+	LegacyExtraConfigPath = "/etc/resource-topology-exporter/config.yaml"
+
+	configDirDaemon = "daemon"
+	configDirExtra  = "extra"
+)
+
+func FixExtraConfigPath(configRoot string) string {
+	return filepath.Join(configRoot, configDirExtra, "config.yaml")
+}
+
+func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
+	conf, err := readExtraConfig(extraConfigPath)
 	if err != nil {
 		return fmt.Errorf("error getting exclude list from the configuration: %w", err)
 	}

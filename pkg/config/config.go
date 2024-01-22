@@ -72,18 +72,19 @@ func (pa ProgArgs) Clone() ProgArgs {
 // The args is passed only for testing purposes.
 func LoadArgs(args ...string) (ProgArgs, error) {
 	var err error
-	var configPath string
+	var configRoot string
+	var extraConfigPath string
 	var pArgs ProgArgs
 
 	SetDefaults(&pArgs)
 
-	configPath, err = FromFlags(&pArgs, args...)
+	configRoot, extraConfigPath, err = FromFlags(&pArgs, args...)
 
 	if pArgs.Version {
 		return pArgs, err
 	}
 
-	err = FromFiles(&pArgs, configPath)
+	err = FromFiles(&pArgs, configRoot, extraConfigPath)
 	if err != nil {
 		return pArgs, err
 	}
