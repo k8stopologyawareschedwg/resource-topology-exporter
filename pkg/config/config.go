@@ -58,6 +58,39 @@ func (pa *ProgArgs) ToYaml() ([]byte, error) {
 	return yaml.Marshal(pa)
 }
 
+// The args is passed only for testing purposes.
+func LoadArgs(args ...string) (ProgArgs, error) {
+	var err error
+	var configPath string
+	var pArgs ProgArgs
+
+	SetDefaults(&pArgs)
+
+	configPath, err = FromFlags(&pArgs, args...)
+
+	if pArgs.Version {
+		return pArgs, err
+	}
+
+	err = FromFiles(&pArgs, configPath)
+	if err != nil {
+		return pArgs, err
+	}
+
+	err = FromEnv(&pArgs)
+	if err != nil {
+		return pArgs, err
+	}
+
+	err = Validate(&pArgs)
+	if err != nil {
+		return pArgs, err
+	}
+
+	err = Finalize(&pArgs)
+	return pArgs, err
+}
+
 func Finalize(pArgs *ProgArgs) error {
 	var err error
 	if pArgs.NRTupdater.Hostname == "" {

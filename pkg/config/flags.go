@@ -28,12 +28,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 )
 
-// The args is passed only for testing purposes.
-func LoadArgs(args ...string) (ProgArgs, error) {
-	var pArgs ProgArgs
-
-	SetDefaults(&pArgs)
-
+func FromFlags(pArgs *ProgArgs, args ...string) (string, error) {
 	var configPath string
 	flags := flag.NewFlagSet(version.ProgramName, flag.ExitOnError)
 
@@ -85,65 +80,15 @@ Special targets:
 
 	err := flags.Parse(args)
 	if err != nil {
-		return pArgs, err
+		return configPath, err
 	}
 
 	if pArgs.Version {
-		return pArgs, err
+		return configPath, err
 	}
 
 	pArgs.RTE.ReferenceContainer, err = setContainerIdent(*refCnt)
-	if err != nil {
-		return pArgs, err
-	}
-
-	FromEnv(&pArgs)
-
-	pArgs.RTE.MetricsMode, err = metricssrv.ServingModeIsSupported(pArgs.RTE.MetricsMode)
-	if err != nil {
-		return pArgs, err
-	}
-
-	pArgs.Resourcemonitor.PodSetFingerprintMethod, err = resourcemonitor.PFPMethodIsSupported(pArgs.Resourcemonitor.PodSetFingerprintMethod)
-	if err != nil {
-		return pArgs, err
-	}
-
-	conf, err := readExtraConfig(configPath)
-	if err != nil {
-		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %w", err)
-	}
-
-	err = setupArgsFromConfig(&pArgs, conf)
-	if err != nil {
-		return pArgs, err
-	}
-
-	err = Finalize(&pArgs)
-	return pArgs, err
-}
-
-func setupArgsFromConfig(pArgs *ProgArgs, conf config) error {
-	if len(conf.ResourceExclude) > 0 {
-		pArgs.Resourcemonitor.ResourceExclude = conf.ResourceExclude
-		klog.V(2).Infof("using resources exclude:\n%s", pArgs.Resourcemonitor.ResourceExclude.String())
-	}
-
-	if len(conf.PodExclude) > 0 {
-		pArgs.Resourcemonitor.PodExclude = conf.PodExclude
-		klog.V(2).Infof("using pod excludes:\n%s", pArgs.Resourcemonitor.PodExclude.String())
-	}
-
-	if pArgs.RTE.TopologyManagerPolicy == "" {
-		pArgs.RTE.TopologyManagerPolicy = conf.Kubelet.TopologyManagerPolicy
-		klog.V(2).Infof("using kubelet topology manager policy: %q", pArgs.RTE.TopologyManagerPolicy)
-	}
-	if pArgs.RTE.TopologyManagerScope == "" {
-		pArgs.RTE.TopologyManagerScope = conf.Kubelet.TopologyManagerScope
-		klog.V(2).Infof("using kubelet topology manager scope: %q", pArgs.RTE.TopologyManagerScope)
-	}
-
-	return nil
+	return configPath, err
 }
 
 func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {
