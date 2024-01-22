@@ -18,6 +18,7 @@ package config
 
 import (
 	"encoding/json"
+	"os"
 
 	"sigs.k8s.io/yaml"
 
@@ -55,4 +56,12 @@ func (pa *ProgArgs) ToJson() ([]byte, error) {
 
 func (pa *ProgArgs) ToYaml() ([]byte, error) {
 	return yaml.Marshal(pa)
+}
+
+func Finalize(pArgs *ProgArgs) error {
+	var err error
+	if pArgs.NRTupdater.Hostname == "" {
+		pArgs.NRTupdater.Hostname, err = os.Hostname()
+	}
+	return err
 }
