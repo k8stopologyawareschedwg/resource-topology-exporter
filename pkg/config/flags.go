@@ -17,49 +17,19 @@ limitations under the License.
 package config
 
 import (
-	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 )
-
-type kubeletParams struct {
-	TopologyManagerPolicy string `json:"topologyManagerPolicy,omitempty"`
-	TopologyManagerScope  string `json:"topologyManagerScope,omitempty"`
-}
-
-type config struct {
-	Kubelet         kubeletParams                   `json:"kubelet,omitempty"`
-	ResourceExclude resourcemonitor.ResourceExclude `json:"resourceExclude,omitempty"`
-	PodExclude      podexclude.List                 `json:"podExclude,omitempty"`
-}
-
-func readConfig(configPath string) (config, error) {
-	conf := config{}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		// config is optional
-		if errors.Is(err, os.ErrNotExist) {
-			klog.Infof("couldn't find configuration in %q", configPath)
-			return conf, nil
-		}
-		return conf, err
-	}
-	err = yaml.Unmarshal(data, &conf)
-	return conf, err
-}
 
 // The args is passed only for testing purposes.
 func LoadArgs(args ...string) (ProgArgs, error) {
@@ -144,7 +114,7 @@ Special targets:
 		return pArgs, err
 	}
 
-	conf, err := readConfig(configPath)
+	conf, err := readExtraConfig(configPath)
 	if err != nil {
 		return pArgs, fmt.Errorf("error getting exclude list from the configuration: %w", err)
 	}
