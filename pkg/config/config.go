@@ -58,6 +58,17 @@ func (pa *ProgArgs) ToYaml() ([]byte, error) {
 	return yaml.Marshal(pa)
 }
 
+func (pa ProgArgs) Clone() ProgArgs {
+	return ProgArgs{
+		Global:          pa.Global.Clone(),
+		NRTupdater:      pa.NRTupdater.Clone(),
+		Resourcemonitor: pa.Resourcemonitor.Clone(),
+		RTE:             pa.RTE.Clone(),
+		Version:         pa.Version,
+		DumpConfig:      pa.DumpConfig,
+	}
+}
+
 // The args is passed only for testing purposes.
 func LoadArgs(args ...string) (ProgArgs, error) {
 	var err error
