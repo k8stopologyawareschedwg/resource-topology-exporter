@@ -17,36 +17,27 @@ limitations under the License.
 package config
 
 import (
-	"os"
+	"time"
 
-	"k8s.io/klog/v2"
+	"github.com/k8stopologyawareschedwg/podfingerprint"
+	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
 )
 
-func DefaultHostName() string {
-	var err error
+const (
+	DefaultConfigRoot = "/etc/rte"
+)
 
-	val, ok := os.LookupEnv("NODE_NAME")
-	if !ok || val == "" {
-		val, err = os.Hostname()
-		if err != nil {
-			klog.Fatalf("error getting the host name: %v", err)
-		}
-	}
-	return val
-}
-
-func DefaultTopologyManagerPolicy() string {
-	if val, ok := os.LookupEnv("TOPOLOGY_MANAGER_POLICY"); ok {
-		return val
-	}
-	// empty string is a valid value here, so just keep going
-	return ""
-}
-
-func DefaultTopologyManagerScope() string {
-	if val, ok := os.LookupEnv("TOPOLOGY_MANAGER_SCOPE"); ok {
-		return val
-	}
-	// empty string is a valid value here, so just keep going
-	return ""
+func SetDefaults(pArgs *ProgArgs) {
+	pArgs.Global.Verbose = 2
+	pArgs.Resourcemonitor.SysfsRoot = "/sys"
+	pArgs.Resourcemonitor.PodSetFingerprint = true
+	pArgs.Resourcemonitor.PodSetFingerprintMethod = podfingerprint.MethodWithExclusiveResources
+	pArgs.RTE.SleepInterval = 60 * time.Second
+	pArgs.RTE.KubeletConfigFile = "/podresources/config.yaml"
+	pArgs.RTE.PodResourcesSocketPath = "unix:///podresources/kubelet.sock"
+	pArgs.RTE.PodReadinessEnable = true
+	pArgs.RTE.AddNRTOwnerEnable = true
+	pArgs.RTE.MetricsMode = metricssrv.ServingDisabled
+	pArgs.RTE.MaxEventsPerTimeUnit = 1
+	pArgs.RTE.TimeUnitToLimitEvents = time.Second
 }

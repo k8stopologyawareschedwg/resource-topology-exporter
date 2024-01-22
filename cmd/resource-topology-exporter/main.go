@@ -53,7 +53,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	k8scli, err := k8shelpers.GetK8sClient(parsedArgs.KubeConfig)
+	k8scli, err := k8shelpers.GetK8sClient(parsedArgs.Global.KubeConfig)
 	if err != nil {
 		klog.Fatalf("failed to get k8s client: %v", err)
 	}
@@ -64,15 +64,15 @@ func main() {
 	}
 	defer cleanup()
 
-	cli = sharedcpuspool.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.RTE.ReferenceContainer)
+	cli = sharedcpuspool.NewFromLister(cli, parsedArgs.Global.Debug, parsedArgs.RTE.ReferenceContainer)
 
 	if len(parsedArgs.Resourcemonitor.PodExclude) > 0 {
-		cli = podexclude.NewFromLister(cli, parsedArgs.RTE.Debug, parsedArgs.Resourcemonitor.PodExclude)
+		cli = podexclude.NewFromLister(cli, parsedArgs.Global.Debug, parsedArgs.Resourcemonitor.PodExclude)
 	}
 
 	if parsedArgs.Resourcemonitor.ExcludeTerminalPods {
 		klog.Infof("terminal pods are filtered from the PodResourcesLister client")
-		cli, err = terminalpods.NewFromLister(context.TODO(), cli, k8scli, time.Minute, parsedArgs.RTE.Debug)
+		cli, err = terminalpods.NewFromLister(context.TODO(), cli, k8scli, time.Minute, parsedArgs.Global.Debug)
 		if err != nil {
 			klog.Fatalf("failed to get PodResourceAPI client: %w", err)
 		}
