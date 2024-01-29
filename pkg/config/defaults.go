@@ -21,6 +21,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 )
 
 const (
@@ -40,4 +41,5 @@ func SetDefaults(pArgs *ProgArgs) {
 	pArgs.RTE.MetricsMode = metricssrv.ServingDisabled
 	pArgs.RTE.MaxEventsPerTimeUnit = 1
 	pArgs.RTE.TimeUnitToLimitEvents = time.Second
+	pArgs.RTE.ReferenceContainer = &sharedcpuspool.ContainerIdent{}
 }

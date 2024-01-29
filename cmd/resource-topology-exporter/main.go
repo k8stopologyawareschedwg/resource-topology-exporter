@@ -28,20 +28,17 @@ func main() {
 	}
 
 	if parsedArgs.DumpConfig != "" {
-		data, err := parsedArgs.ToYaml()
-		if err != nil {
-			klog.Fatalf("failed to marshal the config: %v", err)
-		}
+		conf := parsedArgs.ToYAMLString()
 
 		if parsedArgs.DumpConfig == "-" {
-			fmt.Println(string(data))
+			fmt.Println(conf)
 		} else if parsedArgs.DumpConfig == ".andexit" {
-			fmt.Println(string(data))
+			fmt.Println(conf)
 			os.Exit(0)
 		} else if parsedArgs.DumpConfig == ".log" {
-			klog.Infof("current configuration:\n%s", string(data))
+			klog.Infof("current configuration:\n%s", conf)
 		} else {
-			err = os.WriteFile(parsedArgs.DumpConfig, data, 0644)
+			err = os.WriteFile(parsedArgs.DumpConfig, []byte(conf), 0644)
 			if err != nil {
 				klog.Fatalf("failed to write the config to %q: %v", parsedArgs.DumpConfig, err)
 			}

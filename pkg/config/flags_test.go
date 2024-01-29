@@ -86,7 +86,7 @@ func TestRefreshNodeResources(t *testing.T) {
 	}
 }
 
-func TestDefaults(t *testing.T) {
+func TestLoadDefaults(t *testing.T) {
 	closer := setupTest(t)
 	t.Cleanup(closer)
 
@@ -95,14 +95,11 @@ func TestDefaults(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	pArgsAsJson, err := pArgs.ToJson()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	pArgsAsJson := pArgs.ToJSONString()
 
 	golden := filepath.Join(testDataDir, fmt.Sprintf("%s.expected.json", t.Name()))
 	if *update {
-		err = os.WriteFile(golden, pArgsAsJson, 0644)
+		err = os.WriteFile(golden, []byte(pArgsAsJson), 0644)
 
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -123,6 +120,15 @@ func TestDefaults(t *testing.T) {
 }
 
 func setupTest(t *testing.T) func() {
+	return setupTestWithEnv(t, map[string]string{
+		"NODE_NAME":                node,
+		"REFERENCE_NAMESPACE":      namespace,
+		"REFERENCE_POD_NAME":       pod,
+		"REFERENCE_CONTAINER_NAME": container,
+	})
+}
+
+func setupTestWithEnv(t *testing.T, envs map[string]string) func() {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("Cannot retrieve tests directory")
@@ -131,12 +137,7 @@ func setupTest(t *testing.T) func() {
 	baseDir = filepath.Dir(file)
 	testDataDir = filepath.Clean(filepath.Join(baseDir, "..", "..", "test", "data"))
 
-	return envSetter(map[string]string{
-		"NODE_NAME":                node,
-		"REFERENCE_NAMESPACE":      namespace,
-		"REFERENCE_POD_NAME":       pod,
-		"REFERENCE_CONTAINER_NAME": container,
-	})
+	return envSetter(envs)
 }
 
 func envSetter(envs map[string]string) (closer func()) {

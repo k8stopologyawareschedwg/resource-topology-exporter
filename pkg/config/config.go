@@ -18,8 +18,10 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
@@ -50,12 +52,20 @@ type ProgArgs struct {
 	DumpConfig      string                        `json:"-"`
 }
 
-func (pa *ProgArgs) ToJson() ([]byte, error) {
-	return json.Marshal(pa)
+func (pa *ProgArgs) ToJSONString() string {
+	data, err := json.Marshal(pa)
+	if err != nil {
+		return fmt.Sprintf("<ERROR=%q>", err)
+	}
+	return string(data)
 }
 
-func (pa *ProgArgs) ToYaml() ([]byte, error) {
-	return yaml.Marshal(pa)
+func (pa *ProgArgs) ToYAMLString() string {
+	data, err := yaml.Marshal(pa)
+	if err != nil {
+		return fmt.Sprintf("<ERROR=%q>", err)
+	}
+	return string(data)
 }
 
 func (pa ProgArgs) Clone() ProgArgs {
@@ -77,21 +87,51 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	var pArgs ProgArgs
 
 	SetDefaults(&pArgs)
+	tmp := pArgs.Clone()
 
-	configRoot, extraConfigPath, err = FromFlags(&pArgs, args...)
+	// read first the flags, and discard everything. We need to do this
+	// to learn about the config root, and the most robust way (bar only)
+	// to learn about the parameters is using flags.Parse(), so be it.
+	// the action will waste few cycles but is expected to be idempotent.
+	configRoot, extraConfigPath, err = FromFlags(&tmp, args...)
+	if err != nil {
+		return pArgs, err
+	}
+	// this is needed to keep the priority from flags, because otherwise
+	// a default in the config file may surprisingly reset the debug value.
+	pArgs.Global.Debug = tmp.Global.Debug
+	pArgs.Version = tmp.Version
+	pArgs.DumpConfig = tmp.DumpConfig
 
 	if pArgs.Version {
 		return pArgs, err
+	}
+
+	// now the real processing begins. From now on we waste nothing
+	if pArgs.Global.Debug {
+		klog.Infof("configRoot=%q extraConfigPath=%q", configRoot, extraConfigPath)
+		klog.Infof("config defaults:{{\n%s}}", pArgs.ToYAMLString())
 	}
 
 	err = FromFiles(&pArgs, configRoot, extraConfigPath)
 	if err != nil {
 		return pArgs, err
 	}
+	if pArgs.Global.Debug {
+		klog.Infof("config from configuration files:{{\n%s}}", pArgs.ToYAMLString())
+	}
 
-	err = FromEnv(&pArgs)
+	FromEnv(&pArgs)
+	if pArgs.Global.Debug {
+		klog.Infof("config from environment variables:{{\n%s}}", pArgs.ToYAMLString())
+	}
+
+	_, _, err = FromFlags(&pArgs, args...)
 	if err != nil {
 		return pArgs, err
+	}
+	if pArgs.Global.Debug {
+		klog.Infof("config from flags:{{\n%s\n}}", pArgs.ToYAMLString())
 	}
 
 	err = Validate(&pArgs)

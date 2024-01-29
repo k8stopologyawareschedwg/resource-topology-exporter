@@ -134,6 +134,9 @@ github.com/jaypipes/ghw/pkg/util
 # github.com/jaypipes/pcidb v1.0.0
 ## explicit; go 1.17
 github.com/jaypipes/pcidb
+# github.com/jeremywohl/flatten/v2 v2.0.0-20211013061545-07e4a09fb8e4
+## explicit
+github.com/jeremywohl/flatten/v2
 # github.com/josharian/intern v1.0.0
 ## explicit; go 1.5
 github.com/josharian/intern

@@ -1,0 +1,11 @@
+global:
+  verbose: 5
+resourceMonitor:
+  exposeTiming: true
+  podSetFingerprint: true
+  podSetFingerprintMethod: with-exclusive-resources
+  refreshNodeResources: true
+topologyExporter:
+  metricsMode: disabled
+  podReadinessEnable: true
+  sleepInterval: 60000000000
