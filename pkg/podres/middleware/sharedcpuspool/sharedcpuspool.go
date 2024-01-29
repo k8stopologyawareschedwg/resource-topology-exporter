@@ -16,9 +16,20 @@ import (
 )
 
 type ContainerIdent struct {
-	Namespace     string
-	PodName       string
-	ContainerName string
+	Namespace     string `json:"namespace"`
+	PodName       string `json:"podName"`
+	ContainerName string `json:"containerName"`
+}
+
+func (ci *ContainerIdent) Clone() *ContainerIdent {
+	if ci == nil {
+		return &ContainerIdent{}
+	}
+	return &ContainerIdent{
+		Namespace:     ci.Namespace,
+		PodName:       ci.PodName,
+		ContainerName: ci.ContainerName,
+	}
 }
 
 func (ci *ContainerIdent) String() string {
@@ -29,6 +40,9 @@ func (ci *ContainerIdent) String() string {
 }
 
 func (ci *ContainerIdent) IsEmpty() bool {
+	if ci == nil {
+		return true
+	}
 	return ci.Namespace == "" || ci.PodName == "" || ci.ContainerName == ""
 }
 
