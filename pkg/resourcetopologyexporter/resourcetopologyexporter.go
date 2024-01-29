@@ -18,7 +18,7 @@ import (
 )
 
 type Args struct {
-	ReferenceContainer     *sharedcpuspool.ContainerIdent `json:"referenceContainer,omitempty"`
+	ReferenceContainer     *sharedcpuspool.ContainerIdent `json:"referenceContainer"`
 	TopologyManagerPolicy  string                         `json:"topologyManagerPolicy,omitempty"`
 	TopologyManagerScope   string                         `json:"topologyManagerScope,omitempty"`
 	KubeletConfigFile      string                         `json:"kubeletConfigFile,omitempty"`
@@ -33,8 +33,8 @@ type Args struct {
 }
 
 func (args Args) Clone() Args {
-	// TODO: ReferenceContainer
 	return Args{
+		ReferenceContainer:     args.ReferenceContainer.Clone(),
 		TopologyManagerPolicy:  args.TopologyManagerPolicy,
 		TopologyManagerScope:   args.TopologyManagerScope,
 		KubeletConfigFile:      args.KubeletConfigFile,

@@ -24,9 +24,9 @@ topologyExporter:
   podReadinessEnable: true
   podResourcesSocketPath: unix:///podresources/kubelet.sock
   referenceContainer:
-    ContainerName: ""
-    Namespace: ""
-    PodName: ""
+    containerName: ""
+    namespace: ""
+    podName: ""
   sleepInterval: 60000000000
   timeUnitToLimitEvents: 1000000000
 
