@@ -56,9 +56,11 @@ func TestUpdateTMPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create node getter: %v", err)
 	}
-	nrtUpd = NewNRTUpdater(nodeGetter, args, tmConfInitial)
-	err = nrtUpd.UpdateWithClient(
-		cli,
+	nrtUpd, err = NewNRTUpdater(nodeGetter, cli, args, tmConfInitial)
+	if err != nil {
+		t.Fatalf("failed to create NRT updater: %v", err)
+	}
+	err = nrtUpd.Update(
 		MonitorInfo{
 			Zones: v1alpha2.ZoneList{
 				{
@@ -93,9 +95,11 @@ func TestUpdateTMPolicy(t *testing.T) {
 	}
 	checkTMConfig(t, obj, tmConfInitial)
 
-	nrtUpd = NewNRTUpdater(nodeGetter, args, tmConfUpdated)
-	err = nrtUpd.UpdateWithClient(
-		cli,
+	nrtUpd, err = NewNRTUpdater(nodeGetter, cli, args, tmConfUpdated)
+	if err != nil {
+		t.Fatalf("failed to create NRT updater: %v", err)
+	}
+	err = nrtUpd.Update(
 		MonitorInfo{
 			Zones: v1alpha2.ZoneList{
 				{
@@ -185,10 +189,12 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create node getter: %v", err)
 	}
-	nrtUpd = NewNRTUpdater(nodeGetter, args, tmConfig)
+	nrtUpd, err = NewNRTUpdater(nodeGetter, cli, args, tmConfig)
+	if err != nil {
+		t.Fatalf("failed to create node getter: %v", err)
+	}
 
-	err = nrtUpd.UpdateWithClient(
-		cli,
+	err = nrtUpd.Update(
 		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
 	)
 	if err != nil {
@@ -202,8 +208,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	}
 	checkOwnerReferences(t, obj, expected)
 
-	err = nrtUpd.UpdateWithClient(
-		cli,
+	err = nrtUpd.Update(
 		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
 	)
 	if err != nil {
