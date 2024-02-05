@@ -18,7 +18,7 @@ import (
 )
 
 type Args struct {
-	ReferenceContainer     *sharedcpuspool.ContainerIdent `json:"referenceContainer"`
+	ReferenceContainer     *sharedcpuspool.ContainerIdent `json:"referenceContainer,omitempty"`
 	TopologyManagerPolicy  string                         `json:"topologyManagerPolicy,omitempty"`
 	TopologyManagerScope   string                         `json:"topologyManagerScope,omitempty"`
 	KubeletConfigFile      string                         `json:"kubeletConfigFile,omitempty"`

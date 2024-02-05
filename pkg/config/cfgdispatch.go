@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"k8s.io/klog/v2"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 )
 
 type configMap map[string]interface{}
@@ -138,7 +140,7 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 	if err != nil {
 		return err
 	}
-	pArgs.RTE.ReferenceContainer, err = setContainerIdent(refCnt)
+	pArgs.RTE.ReferenceContainer, err = sharedcpuspool.ContainerIdentFromString(refCnt)
 	if err != nil {
 		return err
 	}
