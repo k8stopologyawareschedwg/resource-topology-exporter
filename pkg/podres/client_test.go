@@ -52,7 +52,7 @@ func TestParseEndpoint(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ParseEndpoint(tc.endpoint)
+			_, got, err := ParseEndpoint(tc.endpoint)
 			if !errors.Is(err, tc.expectedError) {
 				t.Fatalf("ParseEndpoint failed err=%v expected=%v", err, tc.expectedError)
 			}
