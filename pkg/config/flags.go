@@ -87,7 +87,7 @@ Special targets:
 		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
-	pArgs.RTE.ReferenceContainer, err = setContainerIdent(*refCnt)
+	pArgs.RTE.ReferenceContainer, err = sharedcpuspool.ContainerIdentFromString(*refCnt)
 	if err != nil {
 		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
@@ -103,17 +103,4 @@ Special targets:
 		return DefaultConfigRoot, configPath, nil
 	}
 	return params[0], FixExtraConfigPath(params[0]), nil
-}
-
-func setContainerIdent(value string) (*sharedcpuspool.ContainerIdent, error) {
-	ci, err := sharedcpuspool.ContainerIdentFromString(value)
-	if err != nil {
-		return nil, err
-	}
-
-	if ci == nil {
-		return &sharedcpuspool.ContainerIdent{}, nil
-	}
-
-	return ci, nil
 }
