@@ -35,13 +35,30 @@ const (
 	DefaultMaxMsgSize = 1024 * 1024 * 16 // 16 MiB
 
 	UnixProtocol = "unix"
+	FakeProtocol = "fake"
 )
 
 type CleanupFunc func() error
 
 func GetClient(endpoint string) (podresourcesapi.PodResourcesListerClient, CleanupFunc, error) {
 	klog.Infof("creating a podresources client for endpoint %q", endpoint)
-	cli, cleanup, err := GetV1Client(endpoint, DefaultTimeout, DefaultMaxMsgSize)
+
+	var cli podresourcesapi.PodResourcesListerClient
+	var cleanup CleanupFunc = nullCleanup
+	var err error
+
+	proto, path, err := ParseEndpoint(endpoint)
+	if err != nil {
+		return cli, cleanup, err
+	}
+
+	switch proto {
+	case UnixProtocol:
+		cli, cleanup, err = GetV1ClientUnix(path, DefaultTimeout, DefaultMaxMsgSize)
+	case FakeProtocol:
+		cli, cleanup, err = GetV1ClientFake(path)
+	}
+
 	if err != nil {
 		return nil, cleanup, fmt.Errorf("failed to create podresource client: %w", err)
 	}
@@ -63,12 +80,7 @@ func WaitForReady(cli podresourcesapi.PodResourcesListerClient, cleanup CleanupF
 	return cli, cleanup, nil
 }
 
-func GetV1Client(endpoint string, connectionTimeout time.Duration, maxMsgSize int) (podresourcesapi.PodResourcesListerClient, CleanupFunc, error) {
-	path, err := ParseEndpoint(endpoint)
-	if err != nil {
-		return nil, nullCleanup, err
-	}
-
+func GetV1ClientUnix(path string, connectionTimeout time.Duration, maxMsgSize int) (podresourcesapi.PodResourcesListerClient, CleanupFunc, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
 	defer cancel()
 
@@ -78,11 +90,26 @@ func GetV1Client(endpoint string, connectionTimeout time.Duration, maxMsgSize in
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
 	)
 	if err != nil {
-		return nil, nullCleanup, fmt.Errorf("error dialing endpoint %q: %w", endpoint, err)
+		return nil, nullCleanup, fmt.Errorf("error dialing unix endpoint at %q: %w", path, err)
 	}
 
 	cleanup := func() error { return conn.Close() }
 	return podresourcesapi.NewPodResourcesListerClient(conn), cleanup, nil
+}
+
+func GetV1ClientFake(path string) (podresourcesapi.PodResourcesListerClient, CleanupFunc, error) {
+	return NewFakePodResourcesLister(path), nullCleanup, nil
+}
+
+func GetV1Client(endpoint string, connectionTimeout time.Duration, maxMsgSize int) (podresourcesapi.PodResourcesListerClient, CleanupFunc, error) {
+	proto, path, err := ParseEndpoint(endpoint)
+	if proto != UnixProtocol {
+		return nil, nullCleanup, UnsupportedProtocolError{proto: proto}
+	}
+	if err != nil {
+		return nil, nullCleanup, err
+	}
+	return GetV1ClientUnix(path, connectionTimeout, maxMsgSize)
 }
 
 type UnsupportedProtocolError struct {
@@ -93,16 +120,16 @@ func (e UnsupportedProtocolError) Error() string {
 	return fmt.Sprintf("protocol %q not supported", e.proto)
 }
 
-func ParseEndpoint(endpoint string) (string, error) {
+func ParseEndpoint(endpoint string) (string, string, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	if u.Scheme != UnixProtocol {
-		return "", UnsupportedProtocolError{proto: u.Scheme}
+	if u.Scheme != UnixProtocol && u.Scheme != FakeProtocol {
+		return "", "", UnsupportedProtocolError{proto: u.Scheme}
 	}
 	klog.Infof("endpoint %q -> protocol=%q path=%q", endpoint, u.Scheme, u.Path)
-	return u.Path, nil
+	return u.Scheme, u.Path, nil
 }
 
 func dialer(ctx context.Context, addr string) (net.Conn, error) {
