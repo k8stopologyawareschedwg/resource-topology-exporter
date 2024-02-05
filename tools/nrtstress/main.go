@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater/fake"
 )
@@ -49,7 +50,15 @@ func main() {
 		Scope:  tmScope,
 	}
 
+	nrtcli, err := k8shelpers.GetTopologyClient("")
+	if err != nil {
+		klog.Fatalf("failed to get a noderesourcetopology client: %v", err)
+	}
+
 	nodeGetter := &nrtupdater.DisabledNodeGetter{}
-	upd := nrtupdater.NewNRTUpdater(nodeGetter, nrtupdaterArgs, tmConf)
+	upd, err := nrtupdater.NewNRTUpdater(nodeGetter, nrtcli, nrtupdaterArgs, tmConf)
+	if err != nil {
+		klog.Fatalf("failed to create a noderesourcetopology updater: %v", err)
+	}
 	upd.Run(gen.Infos, nil)
 }

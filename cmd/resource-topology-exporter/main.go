@@ -52,7 +52,12 @@ func main() {
 
 	k8scli, err := k8shelpers.GetK8sClient(parsedArgs.Global.KubeConfig)
 	if err != nil {
-		klog.Fatalf("failed to get k8s client: %v", err)
+		klog.Fatalf("failed to get a kubernetes core client: %v", err)
+	}
+
+	nrtcli, err := k8shelpers.GetTopologyClient(parsedArgs.Global.KubeConfig)
+	if err != nil {
+		klog.Fatalf("failed to get a noderesourcetopology client: %v", err)
 	}
 
 	cli, cleanup, err := podres.WaitForReady(podres.GetClient(parsedArgs.RTE.PodResourcesSocketPath))
@@ -84,9 +89,12 @@ func main() {
 		klog.Fatalf("failed to setup metrics server: %v", err)
 	}
 
-	hnd := resourcemonitor.Handle{
-		PodResCli: cli,
-		K8SCli:    k8scli,
+	hnd := resourcetopologyexporter.Handle{
+		ResMon: resourcemonitor.Handle{
+			PodResCli: cli,
+			K8SCli:    k8scli,
+		},
+		NRTCli: nrtcli,
 	}
 	err = resourcetopologyexporter.Execute(hnd, parsedArgs.NRTupdater, parsedArgs.Resourcemonitor, parsedArgs.RTE)
 	if err != nil {

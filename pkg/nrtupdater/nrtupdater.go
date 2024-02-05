@@ -28,9 +28,10 @@ const (
 
 // Command line arguments
 type Args struct {
-	NoPublish bool   `json:"noPublish,omitempty"`
-	Oneshot   bool   `json:"oneShot,omitempty"`
-	Hostname  string `json:"hostname,omitempty"`
+	NoPublish  bool   `json:"noPublish,omitempty"`
+	Oneshot    bool   `json:"oneShot,omitempty"`
+	Hostname   string `json:"hostname,omitempty"`
+	KubeConfig string `json:"kubeConfig,omitempty"`
 }
 
 func (args Args) Clone() Args {
@@ -55,6 +56,7 @@ type NRTUpdater struct {
 	tmConfig   TMConfig
 	stopChan   chan struct{}
 	nodeGetter NodeGetter
+	nrtCli     topologyclientset.Interface
 }
 
 type MonitorInfo struct {
@@ -71,25 +73,25 @@ func (mi MonitorInfo) UpdateReason() string {
 	return RTEUpdateReactive
 }
 
-func NewNRTUpdater(nodeGetter NodeGetter, args Args, tmconf TMConfig) *NRTUpdater {
+func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, args Args, tmconf TMConfig) (*NRTUpdater, error) {
+	if nrtCli == nil {
+		cli, err := k8shelpers.GetTopologyClient(args.KubeConfig)
+		if err != nil {
+			return nil, err
+		}
+		nrtCli = cli
+	}
 	return &NRTUpdater{
 		args:       args,
 		tmConfig:   tmconf,
 		stopChan:   make(chan struct{}),
 		nodeGetter: nodeGetter,
-	}
+		nrtCli:     nrtCli,
+	}, nil
 }
 
 func (te *NRTUpdater) Update(info MonitorInfo) error {
-	// early check to avoid creating the client if we can help it
-	if te.args.NoPublish {
-		return nil
-	}
-	cli, err := k8shelpers.GetTopologyClient("")
-	if err != nil {
-		return err
-	}
-	return te.UpdateWithClient(cli, info)
+	return te.UpdateWithClient(te.nrtCli, info)
 }
 
 func (te *NRTUpdater) UpdateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
