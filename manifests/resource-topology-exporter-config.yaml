@@ -6,14 +6,27 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: rte-config
+  name: rte-config-extra
   namespace: default
 data:
   config.yaml: |
-    # key = node name, value = list of resources to be excluded.
-    # use * to exclude from all nodes.
-    # an example for how the exclude list should looks like
-    # excludelist:
-    #   node1: [cpu]
-    #   node2: [memory, example/deviceA]
-    #   *: [cpu]
+    kubelet:
+      topologyManagerPolicy: single-numa-node
+      topologyManagerScope: container
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rte-config-daemon
+  namespace: default
+data:
+  config.yaml: |
+    global:
+      verbose: 6
+      debug: true
+    resourceMonitor:
+      exposeTiming: true
+      refreshNodeResources: true
+    topologyExporter:
+      addNRTOwnerEnable: true
+      podReadinessEnable: true
