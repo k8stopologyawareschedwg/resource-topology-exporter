@@ -15,7 +15,7 @@ GOLANGCI_LINT_BIN=$(BINDIR)/golangci-lint
 GOLANGCI_LINT_VERSION_TAG=v${GOLANGCI_LINT_VERSION}
 
 .PHONY: all
-all: build extra-tools
+all: build
 
 .PHONY: build-tools
 build-tools: outdir _out/git-semver
