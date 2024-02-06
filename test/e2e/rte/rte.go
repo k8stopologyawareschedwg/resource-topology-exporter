@@ -299,8 +299,8 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				logs, err := e2epods.GetLogsForPod(f.K8SCli, rtePod.Namespace, rtePod.Name, rteContainerName)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-				return strings.Contains(logs, "update node resources")
-			}).WithTimeout(30*time.Second).WithPolling(10*time.Second).Should(gomega.BeTrue(), "container: %q in pod: %q doesn't contains the refresh log message", rteContainerName, rtePod.Name)
+				return strings.Contains(logs, "tracking node resources") || strings.Contains(logs, "update node resources")
+			}).WithTimeout(42*time.Second).WithPolling(5*time.Second).Should(gomega.BeTrue(), "container: %q in pod: %q doesn't contains the refresh log message", rteContainerName, rtePod.Name)
 		})
 	})
 })

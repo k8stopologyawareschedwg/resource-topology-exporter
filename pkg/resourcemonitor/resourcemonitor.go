@@ -189,16 +189,13 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
 
+	if err := rm.updateNodeResources(); err != nil {
+		return nil, err
+	}
 	if !rm.args.RefreshNodeResources {
 		klog.Infof("getting node resources once")
-		if err := rm.updateNodeResources(); err != nil {
-			return nil, err
-		}
 	} else {
 		klog.Infof("tracking node resources")
-		if err := rm.updateNodeResources(); err != nil {
-			return nil, err
-		}
 		if err := addNodeInformerEvent(rm.k8sCli, cache.ResourceEventHandlerFuncs{UpdateFunc: rm.resUpdated}); err != nil {
 			return nil, err
 		}
