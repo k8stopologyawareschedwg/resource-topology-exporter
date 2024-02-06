@@ -29,6 +29,7 @@ import (
 )
 
 func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
+	var refCnt string
 	var configPath string
 
 	flags := flag.NewFlagSet(version.ProgramName, flag.ExitOnError)
@@ -62,7 +63,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	flags.BoolVar(&pArgs.RTE.AddNRTOwnerEnable, "add-nrt-owner", pArgs.RTE.AddNRTOwnerEnable, "RTE will inject NRT's related node as OwnerReference to ensure cleanup if the node is deleted.")
 	flags.StringVar(&pArgs.RTE.MetricsMode, "metrics-mode", pArgs.RTE.MetricsMode, fmt.Sprintf("Select the mode to expose metrics endpoint. Valid options: %s", metricssrv.ServingModeSupported()))
 
-	refCnt := flags.String("reference-container", "", "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
+	flags.StringVar(&refCnt, "reference-container", pArgs.RTE.ReferenceContainer.String(), "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
 	flags.StringVar(&pArgs.RTE.NotifyFilePath, "notify-file", pArgs.RTE.NotifyFilePath, "Notification file path.")
 	// Lets keep it simple by now and expose only "events-per-second"
@@ -87,12 +88,17 @@ Special targets:
 		return DefaultConfigRoot, LegacyExtraConfigPath, err
 	}
 
-	pArgs.RTE.ReferenceContainer, err = sharedcpuspool.ContainerIdentFromString(*refCnt)
-	if err != nil {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
+	if pArgs.Global.Debug {
+		klog.Infof("using reference container: %q", refCnt)
+	}
+	if refCnt != "" {
+		pArgs.RTE.ReferenceContainer, err = sharedcpuspool.ContainerIdentFromString(refCnt)
+		if err != nil {
+			return DefaultConfigRoot, LegacyExtraConfigPath, err
+		}
 	}
 	if pArgs.Global.Debug {
-		klog.Infof("reference container: %+v", pArgs.RTE.ReferenceContainer)
+		klog.Infof("reference container: %q", pArgs.RTE.ReferenceContainer.String())
 	}
 
 	params := flags.Args()
