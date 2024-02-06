@@ -19,6 +19,8 @@ package config
 import (
 	"os"
 
+	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
+
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 )
 
@@ -57,5 +59,8 @@ func FromEnv(pArgs *ProgArgs) {
 	}
 	if pArgs.RTE.ReferenceContainer.IsEmpty() {
 		pArgs.RTE.ReferenceContainer = sharedcpuspool.ContainerIdentFromEnv()
+	}
+	if pArgs.RTE.MetricsPort == 0 {
+		pArgs.RTE.MetricsPort = metricssrv.PortFromEnv()
 	}
 }
