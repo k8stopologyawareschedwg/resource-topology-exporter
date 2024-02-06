@@ -1,0 +1,14 @@
+global:
+  verbose: 2
+nrtUpdater:
+  hostname: node.kubelab.io
+resourceMonitor:
+  sysfsRoot: /sys
+topologyExporter:
+  addNRTOwnerEnable: false
+  maxEventPerTimeUnit: 1
+  metricsMode: disabled
+  podReadinessEnable: true
+  podResourcesSocketPath: unix:///podresources/kubelet.sock
+  sleepInterval: 60000000000
+  timeUnitToLimitEvents: 1000000000

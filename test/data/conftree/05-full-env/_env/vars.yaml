@@ -1,0 +1,3 @@
+REFERENCE_NAMESPACE: humble-ns
+REFERENCE_POD_NAME: fancy-pod
+REFERENCE_CONTAINER_NAME: awesome-container

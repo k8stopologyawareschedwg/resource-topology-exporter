@@ -1,0 +1,3 @@
+resourceMonitor:
+  podSetFingerprint: true
+  podSetFingerprintMethod: with-exclusive-resources
