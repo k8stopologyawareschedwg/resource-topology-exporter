@@ -19,7 +19,6 @@ spec:
         command:
         - /bin/resource-topology-exporter
         args:
-          - -v=5
           - --sleep-interval=${RTE_POLL_INTERVAL}
           - --sysfs=/host-sys
           - --notify-file=/host-run/rte/notify
@@ -51,8 +50,8 @@ spec:
             mountPath: "/host-podresources"
           - name: host-rte-notification
             mountPath: "/host-run/rte"
-          - name: rte-config
-            mountPath: "/etc/resource-topology-exporter"
+          - name: rte-config-extra
+            mountPath: "/etc/rte/extra"
         ports:
           - name: metrics-port
             containerPort: ${METRICS_PORT}

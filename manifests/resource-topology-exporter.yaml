@@ -38,17 +38,30 @@ roleRef:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: rte-config
+  name: rte-config-extra
   namespace: default
 data:
   config.yaml: |
-    # key = node name, value = list of resources to be excluded.
-    # use * to exclude from all nodes.
-    # an example for how the exclude list should looks like
-    # excludelist:
-    #   node1: [cpu]
-    #   node2: [memory, example/deviceA]
-    #   *: [cpu]
+    kubelet:
+      topologyManagerPolicy: single-numa-node
+      topologyManagerScope: container
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rte-config-daemon
+  namespace: default
+data:
+  config.yaml: |
+    global:
+      verbose: ${RTE_VERBOSE}
+      debug: true
+    resourceMonitor:
+      exposeTiming: true
+      refreshNodeResources: true
+    topologyExporter:
+      addNRTOwnerEnable: true
+      podReadinessEnable: true
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -73,15 +86,12 @@ spec:
         command:
         - /bin/resource-topology-exporter
         args:
-          - -v=${RTE_VERBOSE}
+          - --dump-config=.log
           - --sleep-interval=${RTE_POLL_INTERVAL}
           - --sysfs=/host-sys
           - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
           - --notify-file=/host-run/rte/notify
-          - --pods-fingerprint
-          - --expose-timing
-          - --refresh-node-resources
         env:
         - name: NODE_NAME
           valueFrom:
@@ -105,8 +115,10 @@ spec:
             readOnly: true
           - name: host-kubelet-state
             mountPath: "/host-var/lib/kubelet"
-          - name: exclude-list-config-vol
-            mountPath: "/etc/resource-topology-exporter"
+          - name: rte-config-daemon
+            mountPath: "/etc/rte/daemon"
+          - name: rte-config-extra
+            mountPath: "/etc/rte/extra"
           - name: host-rte-notification
             mountPath: "/host-run/rte"
         ports:
@@ -121,10 +133,12 @@ spec:
       - name: host-kubelet-state
         hostPath:
           path: "/var/lib/kubelet"
-      - name: exclude-list-config-vol
+      - name: rte-config-daemon
         configMap:
-          name: resource-topology-exporter-config
-          optional: true
+          name: rte-config-daemon
+      - name: rte-config-extra
+        configMap:
+          name: rte-config-extra
       - name: host-rte-notification
         hostPath:
           path: "/run/rte"
