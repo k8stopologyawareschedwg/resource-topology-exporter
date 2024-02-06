@@ -21,6 +21,7 @@ topologyExporter:
   kubeletConfigFile: /podresources/config.yaml
   maxEventPerTimeUnit: 1
   metricsMode: disabled
+  metricsPort: 2112
   podReadinessEnable: true
   podResourcesSocketPath: unix:///podresources/kubelet.sock
   referenceContainer:

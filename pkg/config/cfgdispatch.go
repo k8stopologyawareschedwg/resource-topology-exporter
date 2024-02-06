@@ -125,6 +125,7 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "topologyExporter.timeUnitToLimitEvents", out: &pArgs.RTE.TimeUnitToLimitEvents},
 		{key: "topologyExporter.addNRTOwnerEnable", out: &pArgs.RTE.AddNRTOwnerEnable},
 		{key: "topologyExporter.metricsMode", out: &pArgs.RTE.MetricsMode},
+		{key: "topologyExporter.metricsPort", out: &pArgs.RTE.MetricsPort},
 	}
 
 	for _, cb := range cbs {

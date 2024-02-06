@@ -32,6 +32,7 @@ type Args struct {
 	TimeUnitToLimitEvents  time.Duration                  `json:"timeUnitToLimitEvents,omitempty"`
 	AddNRTOwnerEnable      bool                           `json:"addNRTOwnerEnable,omitempty"`
 	MetricsMode            string                         `json:"metricsMode,omitempty"`
+	MetricsPort            int                            `json:"metricsPort,omitempty"`
 }
 
 func (args Args) Clone() Args {
@@ -48,6 +49,7 @@ func (args Args) Clone() Args {
 		TimeUnitToLimitEvents:  args.TimeUnitToLimitEvents,
 		AddNRTOwnerEnable:      args.AddNRTOwnerEnable,
 		MetricsMode:            args.MetricsMode,
+		MetricsPort:            args.MetricsPort,
 	}
 }
 

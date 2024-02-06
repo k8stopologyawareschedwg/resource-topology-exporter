@@ -37,7 +37,8 @@ func SetDefaults(pArgs *ProgArgs) {
 	pArgs.RTE.PodResourcesSocketPath = "unix:///podresources/kubelet.sock"
 	pArgs.RTE.PodReadinessEnable = true
 	pArgs.RTE.AddNRTOwnerEnable = true
-	pArgs.RTE.MetricsMode = metricssrv.ServingDisabled
+	pArgs.RTE.MetricsMode = metricssrv.ServingDefault
+	pArgs.RTE.MetricsPort = metricssrv.PortDefault
 	pArgs.RTE.MaxEventsPerTimeUnit = 1
 	pArgs.RTE.TimeUnitToLimitEvents = time.Second
 }

@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const prometheusDefaultPort = 2112
+const PortDefault = 2112
 
 type Config struct {
 	Port       int
@@ -36,12 +36,16 @@ type Config struct {
 	Gatherer   prometheus.Gatherer
 }
 
-func NewDefaultConfig() Config {
+func NewConfig(port int) Config {
 	return Config{
-		Port:       prometheusDefaultPort,
+		Port:       port,
 		Registerer: prometheus.DefaultRegisterer,
 		Gatherer:   prometheus.DefaultGatherer,
 	}
+}
+
+func NewDefaultConfig() Config {
+	return NewConfig(PortDefault)
 }
 
 func (conf Config) Address() string {
@@ -56,6 +60,7 @@ func (conf Config) Validate() error {
 }
 
 const (
+	ServingDefault  = ServingDisabled
 	ServingDisabled = "disabled"
 	ServingHTTP     = "http" // plaintext
 )
@@ -80,23 +85,23 @@ func ServingModeSupported() string {
 	return strings.Join(modes, ",")
 }
 
+func PortFromEnv() int {
+	envValue, ok := os.LookupEnv("METRICS_PORT")
+	if !ok {
+		return 0
+	}
+	port, err := strconv.Atoi(envValue)
+	if err != nil {
+		klog.Warningf("the env variable METRICS_PORT has inccorrect value %q: %w", envValue, err)
+		return 0
+	}
+	return port
+}
+
 func Setup(mode string, conf Config) error {
 	if mode == ServingDisabled {
 		klog.Infof("metrics endpoint disabled")
 		return nil
-	}
-
-	if envValue, ok := os.LookupEnv("METRICS_PORT"); ok {
-		if _, err := strconv.Atoi(envValue); err != nil {
-			return fmt.Errorf("the env variable PROMETHEUS_PORT has inccorrect value %q: %w", envValue, err)
-		}
-		port, err := strconv.Atoi(envValue)
-		if err != nil {
-			return err
-		}
-
-		klog.V(2).InfoS("overriding metrics port", "from", conf.Port, "to", port)
-		conf.Port = port
 	}
 
 	if err := conf.Validate(); err != nil {
