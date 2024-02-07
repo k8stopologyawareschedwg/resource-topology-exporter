@@ -50,8 +50,9 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 	var (
 		initialized         bool
 		hasMetrics          bool
-		rtePod              *corev1.Pod
+		metricsMode         string
 		metricsPort         int
+		rtePod              *corev1.Pod
 		workerNodes         []corev1.Node
 		topologyUpdaterNode *corev1.Node
 	)
@@ -66,7 +67,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		ginkgo.DeferCleanup(nsCleanup)
 
 		if !initialized {
-			hasMetrics = e2etestenv.GetMetricsEnabled()
+			hasMetrics, metricsMode = e2etestenv.GetMetricsMode()
 
 			workerNodes, err = e2enodes.GetWorkerNodes(f.K8SCli)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -113,10 +114,32 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			}
 		})
 
-		ginkgo.It("[EventChain] should have some metrics exported", func() {
+		ginkgo.It("[EventChain] should have some metrics exported over https", func() {
+			if metricsMode != "httptls" {
+				ginkgo.Skip("this test requires serving metrics over https")
+			}
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
+			cmd := []string{"curl", "-k", "-L", fmt.Sprintf("https://127.0.0.1:%d/metrics", metricsPort)}
+			key := client.ObjectKeyFromObject(rtePod)
+			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
+			var stdout, stderr []byte
+			gomega.Eventually(func() bool {
+				var err error
+				stdout, stderr, err = remoteexec.CommandOnPod(f.Ctx, f.K8SCli, rtePod, rteContainerName, cmd...)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed exec command on pod. pod=%q; cmd=%q; err=%v; stderr=%q", key.String(), cmd, err, stderr)
+				return strings.Contains(string(stdout), "operation_delay") &&
+					strings.Contains(string(stdout), "wakeup_delay")
+			}).WithPolling(10*time.Second).WithTimeout(3*time.Minute).Should(gomega.BeTrue(), "failed to get metrics from pod\nstdout=%q\nstderr=%q\n", stdout, stderr)
+		})
+
+		ginkgo.It("[EventChain] should have some metrics exported over plain http", func() {
+			if metricsMode != "http" {
+				ginkgo.Skip("this test requires serving metrics over plain http")
+			}
+			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			cmd := []string{"curl", "-L", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -129,6 +152,9 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			}).WithPolling(10*time.Second).WithTimeout(3*time.Minute).Should(gomega.BeTrue(), "failed to get metrics from pod\nstdout=%q\nstderr=%q\n", stdout, stderr)
 		})
 		ginkgo.It("[release] it should report noderesourcetopology writes", func() {
+			if metricsMode != "http" {
+				ginkgo.Skip("this test requires serving metrics over plain http")
+			}
 			nodes, err := e2enodes.FilterNodesWithEnoughCores(workerNodes, "1000m")
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			if len(nodes) < 1 {
@@ -147,7 +173,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			cmd := []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
+			cmd := []string{"curl", "-L", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
