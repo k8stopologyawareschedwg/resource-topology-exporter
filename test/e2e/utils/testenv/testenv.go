@@ -33,6 +33,7 @@ const (
 	DefaultDeviceName           = "example.com/deviceA"
 	DefaultNodeReferenceEnabled = false
 	DefaultMetricsEnabled       = false
+	DefaultMetricsMode          = "disabled"
 )
 
 var (
@@ -102,13 +103,18 @@ func GetNodeReferenceEnabled() bool {
 	return DefaultNodeReferenceEnabled
 }
 
-func GetMetricsEnabled() bool {
-	if metricsEnabled, ok := os.LookupEnv("E2E_METRICS"); ok {
-		if val, err := strconv.ParseBool(metricsEnabled); err == nil {
-			return val
+func GetMetricsMode() (bool, string) {
+	if metricsMode, ok := os.LookupEnv("RTE_METRICS_MODE"); ok {
+		if !validateMetricsMode(metricsMode) {
+			return false, ""
 		}
+		return true, metricsMode
 	}
-	return DefaultMetricsEnabled
+	return DefaultMetricsEnabled, DefaultMetricsMode
+}
+
+func validateMetricsMode(metricsMode string) bool {
+	return metricsMode == "httptls" || metricsMode == "http"
 }
 
 func SetNodeName(nodeName string) {

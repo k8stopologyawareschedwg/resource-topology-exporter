@@ -62,6 +62,11 @@ data:
     topologyExporter:
       addNRTOwnerEnable: true
       podReadinessEnable: true
+      metricsTLS:
+        caCertFile: /etc/secrets/rte/ca/ca.crt
+        certFile: /etc/secrets/rte/tls/tls.crt
+        keyFile: /etc/secrets/rte/tls/tls.key
+        wantCliAuth: true
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -88,6 +93,8 @@ spec:
         args:
           - --dump-config=.log
           - --sleep-interval=${RTE_POLL_INTERVAL}
+          - --metrics-mode=${RTE_METRICS_MODE}
+          - --metrics-want-cli-auth=${RTE_METRICS_CLI_AUTH}
           - --sysfs=/host-sys
           - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
@@ -121,6 +128,12 @@ spec:
             mountPath: "/etc/rte/extra"
           - name: host-rte-notification
             mountPath: "/host-run/rte"
+          - name: rte-tls
+            mountPath: "/etc/secrets/rte/tls"
+            readOnly: true
+          - name: rte-ca
+            mountPath: "/etc/secrets/rte/ca"
+            readOnly: true
         ports:
           - name: metrics-port
             containerPort: ${METRICS_PORT}
@@ -142,3 +155,11 @@ spec:
       - name: host-rte-notification
         hostPath:
           path: "/run/rte"
+      - name: rte-tls
+        secret:
+          secretName: rte-tls-secret
+          optional: true
+      - name: rte-ca
+        configMap:
+          name: rte-tls-ca.crt
+          optional: true

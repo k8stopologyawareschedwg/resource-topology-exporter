@@ -4,7 +4,7 @@ RUN cd /etc/yum.repos.d/ && \
 	sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 RUN yum install -y hwdata && yum clean -y all
 ADD _out/resource-topology-exporter /bin/resource-topology-exporter
-RUN mkdir -p /etc/rte
+RUN mkdir -p /etc/rte /etc/secrets/rte/tls /etc/secrets/rte/ca
 
 ARG GIT_COMMIT
 ARG VERSION

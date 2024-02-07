@@ -22,6 +22,9 @@ import (
 )
 
 func main() {
+	klog.Infof("starting %s version %s", version.ProgramName, version.Get())
+	defer klog.Infof("stopped %s version %s", version.ProgramName, version.Get())
+
 	parsedArgs, err := config.LoadArgs(os.Args[1:]...)
 	if err != nil {
 		klog.Fatalf("failed to parse args: %v", err)
@@ -84,7 +87,7 @@ func main() {
 	if err != nil {
 		klog.Fatalf("failed to setup metrics: %v", err)
 	}
-	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewConfig(parsedArgs.RTE.MetricsPort))
+	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewConfig(parsedArgs.RTE.MetricsPort, parsedArgs.RTE.MetricsTLSCfg))
 	if err != nil {
 		klog.Fatalf("failed to setup metrics server: %v", err)
 	}
