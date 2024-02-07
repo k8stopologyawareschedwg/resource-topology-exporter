@@ -11,6 +11,7 @@ import (
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
+	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
@@ -33,6 +34,7 @@ type Args struct {
 	AddNRTOwnerEnable      bool                           `json:"addNRTOwnerEnable,omitempty"`
 	MetricsMode            string                         `json:"metricsMode,omitempty"`
 	MetricsPort            int                            `json:"metricsPort,omitempty"`
+	MetricsTLSCfg          metricssrv.TLSConfig           `json:"metricsTLS,omitempty"`
 }
 
 func (args Args) Clone() Args {
@@ -50,6 +52,7 @@ func (args Args) Clone() Args {
 		AddNRTOwnerEnable:      args.AddNRTOwnerEnable,
 		MetricsMode:            args.MetricsMode,
 		MetricsPort:            args.MetricsPort,
+		MetricsTLSCfg:          args.MetricsTLSCfg.Clone(),
 	}
 }
 

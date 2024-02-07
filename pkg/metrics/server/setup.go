@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -81,6 +82,7 @@ const (
 	ServingDefault  = ServingDisabled
 	ServingDisabled = "disabled"
 	ServingHTTP     = "http" // plaintext
+	ServingHTTPTLS  = "httptls"
 )
 
 func ServingModeIsSupported(value string) (string, error) {
@@ -89,6 +91,8 @@ func ServingModeIsSupported(value string) (string, error) {
 	case ServingDisabled:
 		return val, nil
 	case ServingHTTP:
+		return val, nil
+	case ServingHTTPTLS:
 		return val, nil
 	default:
 		return val, fmt.Errorf("unsupported method  %q", value)
@@ -99,6 +103,7 @@ func ServingModeSupported() string {
 	modes := []string{
 		ServingDisabled,
 		ServingHTTP,
+		ServingHTTPTLS,
 	}
 	return strings.Join(modes, ",")
 }
@@ -128,6 +133,10 @@ func Setup(mode string, conf Config) error {
 
 	if mode == ServingHTTP {
 		return SetupHTTP(conf)
+	}
+
+	if mode == ServingHTTPTLS {
+		return SetupHTTPTLS(conf, context.Background())
 	}
 
 	return fmt.Errorf("unknown mode: %v", mode)

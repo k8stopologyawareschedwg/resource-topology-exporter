@@ -87,7 +87,7 @@ func main() {
 	if err != nil {
 		klog.Fatalf("failed to setup metrics: %v", err)
 	}
-	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewConfig(parsedArgs.RTE.MetricsPort))
+	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewConfig(parsedArgs.RTE.MetricsPort, parsedArgs.RTE.MetricsTLSCfg))
 	if err != nil {
 		klog.Fatalf("failed to setup metrics server: %v", err)
 	}
