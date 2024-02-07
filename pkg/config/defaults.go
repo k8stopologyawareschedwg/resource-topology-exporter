@@ -39,6 +39,7 @@ func SetDefaults(pArgs *ProgArgs) {
 	pArgs.RTE.AddNRTOwnerEnable = true
 	pArgs.RTE.MetricsMode = metricssrv.ServingDefault
 	pArgs.RTE.MetricsPort = metricssrv.PortDefault
+	pArgs.RTE.MetricsTLSCfg = metricssrv.NewDefaultTLSConfig()
 	pArgs.RTE.MaxEventsPerTimeUnit = 1
 	pArgs.RTE.TimeUnitToLimitEvents = time.Second
 }

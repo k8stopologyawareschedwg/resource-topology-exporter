@@ -30,22 +30,40 @@ import (
 
 const PortDefault = 2112
 
+type TLSConfig struct {
+	CertFile    string `json:"certFile,omitempty"`
+	KeyFile     string `json:"keyFile,omitempty"`
+	CACertFile  string `json:"caCertFile,omitempty"`
+	WantCliAuth bool   `json:"wantCliAuth,omitempty"`
+}
+
 type Config struct {
 	Port       int
+	TLS        TLSConfig
 	Registerer prometheus.Registerer
 	Gatherer   prometheus.Gatherer
 }
 
-func NewConfig(port int) Config {
+func NewConfig(port int, tlsConf TLSConfig) Config {
 	return Config{
 		Port:       port,
+		TLS:        tlsConf,
 		Registerer: prometheus.DefaultRegisterer,
 		Gatherer:   prometheus.DefaultGatherer,
 	}
 }
 
 func NewDefaultConfig() Config {
-	return NewConfig(PortDefault)
+	return NewConfig(PortDefault, NewDefaultTLSConfig())
+}
+
+func (conf TLSConfig) Clone() TLSConfig {
+	return TLSConfig{
+		CertFile:    conf.CertFile,
+		KeyFile:     conf.KeyFile,
+		CACertFile:  conf.CACertFile,
+		WantCliAuth: conf.WantCliAuth,
+	}
 }
 
 func (conf Config) Address() string {
