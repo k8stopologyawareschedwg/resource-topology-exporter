@@ -22,6 +22,9 @@ import (
 )
 
 func main() {
+	klog.Infof("starting %s version %s", version.ProgramName, version.Get())
+	defer klog.Infof("stopped %s version %s", version.ProgramName, version.Get())
+
 	parsedArgs, err := config.LoadArgs(os.Args[1:]...)
 	if err != nil {
 		klog.Fatalf("failed to parse args: %v", err)
