@@ -51,7 +51,7 @@ func CommandOnPodByNames(ctx context.Context, c kubernetes.Interface, podNamespa
 			Stdin:     true,
 			Stdout:    true,
 			Stderr:    true,
-			TTY:       true,
+			TTY:       false,
 		}, scheme.ParameterCodec)
 
 	cfg, err := config.GetConfig()
@@ -68,7 +68,7 @@ func CommandOnPodByNames(ctx context.Context, c kubernetes.Interface, podNamespa
 		Stdin:  os.Stdin,
 		Stdout: &outputBuf,
 		Stderr: &errorBuf,
-		Tty:    true,
+		Tty:    false,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to run command %v: %w", command, err)
