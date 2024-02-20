@@ -63,10 +63,7 @@ data:
       addNRTOwnerEnable: true
       podReadinessEnable: true
       metricsTLS:
-        caCertFile: /etc/secrets/rte/ca/ca.crt
-        certFile: /etc/secrets/rte/tls/tls.crt
-        keyFile: /etc/secrets/rte/tls/tls.key
-        wantCliAuth: true
+        certsDir: /etc/secrets/rte
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -94,7 +91,6 @@ spec:
           - --dump-config=.log
           - --sleep-interval=${RTE_POLL_INTERVAL}
           - --metrics-mode=${RTE_METRICS_MODE}
-          - --metrics-want-cli-auth=${RTE_METRICS_CLI_AUTH}
           - --sysfs=/host-sys
           - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
