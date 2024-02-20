@@ -23,10 +23,9 @@ topologyExporter:
   metricsMode: disabled
   metricsPort: 2112
   metricsTLS:
-    caCertFile: /etc/secrets/rte/ca.crt
-    certFile: /etc/secrets/rte/tls.crt
-    keyFile: /etc/secrets/rte/tls.key
-    wantCliAuth: true
+    certFile: tls.crt
+    certsDir: /etc/secrets/rte
+    keyFile: tls.key
   podReadinessEnable: true
   podResourcesSocketPath: unix:///podresources/kubelet.sock
   sleepInterval: 60000000000

@@ -63,10 +63,9 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	flags.BoolVar(&pArgs.RTE.AddNRTOwnerEnable, "add-nrt-owner", pArgs.RTE.AddNRTOwnerEnable, "RTE will inject NRT's related node as OwnerReference to ensure cleanup if the node is deleted.")
 	flags.StringVar(&pArgs.RTE.MetricsMode, "metrics-mode", pArgs.RTE.MetricsMode, fmt.Sprintf("Select the mode to expose metrics endpoint. Valid options: %s", metricssrv.ServingModeSupported()))
 	flags.IntVar(&pArgs.RTE.MetricsPort, "metrics-port", pArgs.RTE.MetricsPort, "Select the port to listen for the metrics endpoint.")
-	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertFile, "metrics-cert-file", pArgs.RTE.MetricsTLSCfg.CertFile, "certificate file path for TLS metrics serving")
-	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.KeyFile, "metrics-key-file", pArgs.RTE.MetricsTLSCfg.KeyFile, "key file path for TLS metrics serving")
-	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CACertFile, "metrics-ca-cert-file", pArgs.RTE.MetricsTLSCfg.CACertFile, "CA certificate file path for TLS metrics serving")
-	flags.BoolVar(&pArgs.RTE.MetricsTLSCfg.WantCliAuth, "metrics-want-cli-auth", pArgs.RTE.MetricsTLSCfg.WantCliAuth, "Toggle if client certificate and authentication is required")
+	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertsDir, "metrics-certs-dir", pArgs.RTE.MetricsTLSCfg.CertsDir, "certificates directory for TLS metrics serving")
+	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertFile, "metrics-cert-file", pArgs.RTE.MetricsTLSCfg.CertFile, "certificate file name for TLS metrics serving")
+	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.KeyFile, "metrics-key-file", pArgs.RTE.MetricsTLSCfg.KeyFile, "key file name for TLS metrics serving")
 
 	flags.StringVar(&refCnt, "reference-container", pArgs.RTE.ReferenceContainer.String(), "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 

@@ -21,27 +21,28 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var nodeName string
 
 var (
-	PodResourceApiCallsFailure = promauto.NewCounterVec(prometheus.CounterOpts{
+	PodResourceApiCallsFailure = promauto.With(ctrlmetrics.Registry).NewCounterVec(prometheus.CounterOpts{
 		Name: "rte_podresource_api_call_failures_total",
 		Help: "The total number of podresource api calls that failed by the updater",
 	}, []string{"node", "function_name"})
 
-	NodeResourceTopologyWrites = promauto.NewCounterVec(prometheus.CounterOpts{
+	NodeResourceTopologyWrites = promauto.With(ctrlmetrics.Registry).NewCounterVec(prometheus.CounterOpts{
 		Name: "rte_noderesourcetopology_writes_total",
 		Help: "The total number of NodeResourceTopology writes",
 	}, []string{"node", "operation", "trigger"})
 
-	OperationDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	OperationDelay = promauto.With(ctrlmetrics.Registry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "rte_operation_delay_milliseconds",
 		Help: "The latency between exporting stages, milliseconds",
 	}, []string{"node", "operation_name", "trigger"})
 
-	WakeupDelay = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	WakeupDelay = promauto.With(ctrlmetrics.Registry).NewGaugeVec(prometheus.GaugeOpts{
 		Name: "rte_wakeup_delay_milliseconds",
 		Help: "The wakeup delay of the monitor code, milliseconds",
 	}, []string{"node", "trigger"})
