@@ -23,12 +23,12 @@ jobs:
       RTE_VERBOSE: 4
     steps:
     - name: checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: setup golang
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       id: go
       with:
         go-version: 1.20.7
@@ -108,12 +108,12 @@ jobs:
       RTE_VERBOSE: 6
     steps:
     - name: checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: setup golang
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       id: go
       with:
         go-version: 1.20.7
