@@ -112,7 +112,7 @@ func ShouldExclude(podExcludes List, namespace, name string, debug bool) bool {
 	for _, item := range podExcludes {
 		nsMatch, err := filepath.Match(item.NamespacePattern, namespace)
 		if err != nil && debug {
-			klog.Warningf("match error: namespace glob=%q pod=%s/%: %v", item.NamespacePattern, namespace, name, err)
+			klog.Warningf("match error: namespace glob=%q pod=%s/%s: %v", item.NamespacePattern, namespace, name, err)
 			continue
 		}
 		if !nsMatch {
@@ -120,7 +120,7 @@ func ShouldExclude(podExcludes List, namespace, name string, debug bool) bool {
 		}
 		nMatch, err := filepath.Match(item.NamePattern, name)
 		if err != nil && debug {
-			klog.Warningf("match error: name glob=%q pod=%s/%: %v", item.NamePattern, namespace, name, err)
+			klog.Warningf("match error: name glob=%q pod=%s/%s: %v", item.NamePattern, namespace, name, err)
 			continue
 		}
 		if !nMatch {
