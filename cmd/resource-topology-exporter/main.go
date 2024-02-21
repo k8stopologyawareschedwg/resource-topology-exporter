@@ -79,7 +79,7 @@ func main() {
 		klog.Infof("terminal pods are filtered from the PodResourcesLister client")
 		cli, err = terminalpods.NewFromLister(context.TODO(), cli, k8scli, time.Minute, parsedArgs.Global.Debug)
 		if err != nil {
-			klog.Fatalf("failed to get PodResourceAPI client: %w", err)
+			klog.Fatalf("failed to get PodResourceAPI client: %v", err)
 		}
 	}
 
