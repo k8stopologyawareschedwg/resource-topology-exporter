@@ -64,6 +64,7 @@ data:
       podReadinessEnable: true
       metricsTLS:
         certsDir: /etc/secrets/rte
+        wantCliAuth: true
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -91,6 +92,7 @@ spec:
           - --dump-config=.log
           - --sleep-interval=${RTE_POLL_INTERVAL}
           - --metrics-mode=${RTE_METRICS_MODE}
+          - --metrics-want-cli-auth=${RTE_METRICS_CLI_AUTH}
           - --sysfs=/host-sys
           - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
           - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock

@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strconv"
@@ -52,9 +53,10 @@ func NewDefaultTLSConfig() TLSConfig {
 }
 
 type TLSConfig struct {
-	CertsDir string `json:"certsDir,omitempty"`
-	CertFile string `json:"certFile,omitempty"`
-	KeyFile  string `json:"keyFile,omitempty"`
+	CertsDir    string `json:"certsDir,omitempty"`
+	CertFile    string `json:"certFile,omitempty"`
+	KeyFile     string `json:"keyFile,omitempty"`
+	WantCliAuth bool   `json:"wantCliAuth,omitempty"`
 }
 
 type Config struct {
@@ -154,6 +156,9 @@ func Setup(mode string, conf Config) error {
 		CertDir:       conf.TLS.CertsDir,
 		CertName:      conf.TLS.CertFile,
 		KeyName:       conf.TLS.KeyFile,
+		TLSOpts: []func(*tls.Config){
+			WithClientAuth(conf.TLS.WantCliAuth),
+		},
 	}
 	srv, err := ctrlmetricssrv.NewServer(opts, nil, nil)
 	if err != nil {
@@ -170,4 +175,16 @@ func Setup(mode string, conf Config) error {
 	}()
 
 	return nil
+}
+
+func WithClientAuth(cliAuth bool) func(tlscfg *tls.Config) {
+	return func(tlscfg *tls.Config) {
+		if !cliAuth {
+			tlscfg.ClientAuth = tls.NoClientCert
+			klog.InfoS("metrics server configuration", "client authentication", "disabled")
+			return
+		}
+		tlscfg.ClientAuth = tls.RequireAndVerifyClientCert
+		klog.InfoS("metrics server configuration", "client authentication", "enabled")
+	}
 }
