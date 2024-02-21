@@ -122,7 +122,7 @@ func PortFromEnv() int {
 	}
 	port, err := strconv.Atoi(envValue)
 	if err != nil {
-		klog.Warningf("the env variable METRICS_PORT has inccorrect value %q: %w", envValue, err)
+		klog.Warningf("the env variable METRICS_PORT has inccorrect value %q: %v", envValue, err)
 		return 0
 	}
 	return port
