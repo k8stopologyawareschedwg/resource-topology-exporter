@@ -66,6 +66,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertsDir, "metrics-certs-dir", pArgs.RTE.MetricsTLSCfg.CertsDir, "certificates directory for TLS metrics serving")
 	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertFile, "metrics-cert-file", pArgs.RTE.MetricsTLSCfg.CertFile, "certificate file name for TLS metrics serving")
 	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.KeyFile, "metrics-key-file", pArgs.RTE.MetricsTLSCfg.KeyFile, "key file name for TLS metrics serving")
+	flags.BoolVar(&pArgs.RTE.MetricsTLSCfg.WantCliAuth, "metrics-want-cli-auth", pArgs.RTE.MetricsTLSCfg.WantCliAuth, "Toggle if client certificate and authentication is required")
 
 	flags.StringVar(&refCnt, "reference-container", pArgs.RTE.ReferenceContainer.String(), "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
