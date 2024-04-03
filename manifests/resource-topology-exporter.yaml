@@ -66,6 +66,21 @@ data:
         certsDir: /etc/secrets/rte
         wantCliAuth: true
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-kube-rbac-proxy-metric
+stringData:
+  config.yaml: |-
+    "authorization":
+      "static":
+      - "path": "/metrics"
+        "resourceRequest": false
+        "user":
+          "name": "system:serviceaccount:openshift-monitoring:prometheus-k8s"
+        "verb": "get"    
+type: Opaque
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -137,6 +152,38 @@ spec:
         ports:
           - name: metrics-port
             containerPort: ${METRICS_PORT}
+      - name: kube-rbac-proxy
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+        args:
+        - "--secure-listen-address=${METRICS_ADDRESS}:${METRICS_PORT}"
+        - "--upstream=http://127.0.0.1:${METRICS_PORT}/"
+        - "--config-file=/etc/kube-rbac-proxy/config.yaml"
+        - "--tls-cert-file=/etc/secrets/rte/tls.crt"
+        - "--tls-private-key-file=/etc/secrets/rte/tls.key"
+        - "--client-ca-file=/etc/secrets/rte/ca/ca.crt"
+        - "--allow-paths=/metrics"
+        - "--logtostderr=true"
+        - "-v=10"
+        ports:
+        - containerPort: ${METRICS_PORT}
+          protocol: TCP
+          name: https
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+          - name: secret-kube-rbac-proxy-metric
+            mountPath: "/etc/kube-rbac-proxy"
+            readOnly: true
+          - name: rte-tls
+            mountPath: "/etc/secrets/rte/tls"
+            readOnly: true
+          - name: rte-ca
+            mountPath: "/etc/secrets/rte/ca"
+            readOnly: true
       - name: shared-pool-container
         image: gcr.io/google_containers/pause-amd64:3.0
       volumes:
@@ -163,3 +210,7 @@ spec:
         configMap:
           name: rte-tls-ca.crt
           optional: true
+      # Secret containing the kube-rbac-proxy configuration (see below).
+      - name: secret-kube-rbac-proxy-metric
+        secret:
+          secretName: secret-kube-rbac-proxy-metric
