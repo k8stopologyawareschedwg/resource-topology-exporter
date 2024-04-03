@@ -6,7 +6,7 @@ DAEMONSET="${2:-resource-topology-exporter-ds}"
 FAILED=1
 
 function wait-for-daemonset(){
-    retries=24
+    retries=60
     while [[ $retries -ge 0 ]];do
         sleep 5
         ready=$(kubectl -n $NAMESPACE get daemonset $DAEMONSET -o jsonpath="{.status.numberReady}")
