@@ -10,4 +10,5 @@ export RTE_POLL_INTERVAL="${RTE_POLL_INTERVAL:-60s}"
 export RTE_VERBOSE="${RTE_VERBOSE:-5}"
 export RTE_METRICS_MODE="${RTE_METRICS_MODE:-disabled}"
 export METRICS_PORT="${METRICS_PORT:-2112}"
+export METRICS_ADDRESS="${METRICS_ADDRESS:-127.0.0.1}"
 envsubst < ${DIRNAME}/../manifests/resource-topology-exporter.yaml
