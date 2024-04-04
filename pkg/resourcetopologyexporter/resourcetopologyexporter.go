@@ -34,6 +34,7 @@ type Args struct {
 	AddNRTOwnerEnable      bool                           `json:"addNRTOwnerEnable,omitempty"`
 	MetricsMode            string                         `json:"metricsMode,omitempty"`
 	MetricsPort            int                            `json:"metricsPort,omitempty"`
+	MetricsAddress         string                         `json:"metricsAddress,omitempty"`
 	MetricsTLSCfg          metricssrv.TLSConfig           `json:"metricsTLS,omitempty"`
 }
 
@@ -52,6 +53,7 @@ func (args Args) Clone() Args {
 		AddNRTOwnerEnable:      args.AddNRTOwnerEnable,
 		MetricsMode:            args.MetricsMode,
 		MetricsPort:            args.MetricsPort,
+		MetricsAddress:         args.MetricsAddress,
 		MetricsTLSCfg:          args.MetricsTLSCfg.Clone(),
 	}
 }

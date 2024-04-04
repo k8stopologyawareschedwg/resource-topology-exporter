@@ -20,6 +20,7 @@ resourceMonitor:
 topologyExporter:
   kubeletConfigFile: /podresources/config.yaml
   maxEventPerTimeUnit: 1
+  metricsAddress: 0.0.0.0
   metricsMode: disabled
   metricsPort: 2112
   metricsTLS:

@@ -11,4 +11,5 @@ export RTE_VERBOSE="${RTE_VERBOSE:-5}"
 export RTE_METRICS_MODE="${RTE_METRICS_MODE:-disabled}"
 export RTE_METRICS_CLI_AUTH="${RTE_METRICS_CLI_AUTH:-true}"
 export METRICS_PORT="${METRICS_PORT:-2112}"
+export METRICS_ADDRESS="${METRICS_ADDRESS:-127.0.0.1}"
 envsubst < ${DIRNAME}/../manifests/resource-topology-exporter.yaml
