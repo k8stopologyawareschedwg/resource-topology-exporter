@@ -63,4 +63,7 @@ func FromEnv(pArgs *ProgArgs) {
 	if pArgs.RTE.MetricsPort == 0 {
 		pArgs.RTE.MetricsPort = metricssrv.PortFromEnv()
 	}
+	if pArgs.RTE.MetricsAddress == "" {
+		pArgs.RTE.MetricsAddress = metricssrv.AddressFromEnv()
+	}
 }
