@@ -123,7 +123,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			}
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", "-k", "-L", fmt.Sprintf("https://%s:%d/metrics", MetricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-k", "-L", fmt.Sprintf("https://%s:%d/metrics", MetricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -142,7 +142,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			}
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", "-L", fmt.Sprintf("http://%s:%d/metrics", MetricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", MetricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -176,7 +176,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			cmd := []string{"curl", "-L", fmt.Sprintf("http://%s:%d/metrics", MetricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", MetricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
