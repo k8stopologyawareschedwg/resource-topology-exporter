@@ -126,6 +126,7 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "topologyExporter.addNRTOwnerEnable", out: &pArgs.RTE.AddNRTOwnerEnable},
 		{key: "topologyExporter.metricsMode", out: &pArgs.RTE.MetricsMode},
 		{key: "topologyExporter.metricsPort", out: &pArgs.RTE.MetricsPort},
+		{key: "topologyExporter.MetricsAddress", out: &pArgs.RTE.MetricsAddress},
 		{key: "topologyExporter.metricsTLS.certsDir", out: &pArgs.RTE.MetricsTLSCfg.CertsDir},
 		{key: "topologyExporter.metricsTLS.certFile", out: &pArgs.RTE.MetricsTLSCfg.CertFile},
 		{key: "topologyExporter.metricsTLS.keyFile", out: &pArgs.RTE.MetricsTLSCfg.KeyFile},
