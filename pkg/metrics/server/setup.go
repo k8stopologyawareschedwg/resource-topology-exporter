@@ -28,9 +28,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const prometheusDefaultPort = 2112
+const (
+	prometheusDefaultPort      = 2112
+	prometheusDefaultIPAddress = "0.0.0.0"
+)
 
 type Config struct {
+	IPAddress  string
 	Port       int
 	Registerer prometheus.Registerer
 	Gatherer   prometheus.Gatherer
@@ -38,6 +42,7 @@ type Config struct {
 
 func NewDefaultConfig() Config {
 	return Config{
+		IPAddress:  prometheusDefaultIPAddress,
 		Port:       prometheusDefaultPort,
 		Registerer: prometheus.DefaultRegisterer,
 		Gatherer:   prometheus.DefaultGatherer,
@@ -45,7 +50,7 @@ func NewDefaultConfig() Config {
 }
 
 func (conf Config) Address() string {
-	return fmt.Sprintf("0.0.0.0:%d", conf.Port)
+	return fmt.Sprintf("%s:%d", conf.IPAddress, conf.Port)
 }
 
 func (conf Config) Validate() error {
@@ -97,6 +102,11 @@ func Setup(mode string, conf Config) error {
 
 		klog.V(2).InfoS("overriding metrics port", "from", conf.Port, "to", port)
 		conf.Port = port
+	}
+
+	if ip, ok := os.LookupEnv("METRICS_ADDRESS"); ok {
+		klog.V(2).InfoS("overriding metrics address", "from", conf.IPAddress, "to", ip)
+		conf.IPAddress = ip
 	}
 
 	if err := conf.Validate(); err != nil {
