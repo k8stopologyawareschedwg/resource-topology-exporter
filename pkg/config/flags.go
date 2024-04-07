@@ -63,6 +63,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	flags.BoolVar(&pArgs.RTE.AddNRTOwnerEnable, "add-nrt-owner", pArgs.RTE.AddNRTOwnerEnable, "RTE will inject NRT's related node as OwnerReference to ensure cleanup if the node is deleted.")
 	flags.StringVar(&pArgs.RTE.MetricsMode, "metrics-mode", pArgs.RTE.MetricsMode, fmt.Sprintf("Select the mode to expose metrics endpoint. Valid options: %s", metricssrv.ServingModeSupported()))
 	flags.IntVar(&pArgs.RTE.MetricsPort, "metrics-port", pArgs.RTE.MetricsPort, "Select the port to listen for the metrics endpoint.")
+	flags.StringVar(&pArgs.RTE.MetricsAddress, "metrics-ip", pArgs.RTE.MetricsAddress, "Select the IP to listen for the metrics endpoint.")
 	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertsDir, "metrics-certs-dir", pArgs.RTE.MetricsTLSCfg.CertsDir, "certificates directory for TLS metrics serving")
 	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.CertFile, "metrics-cert-file", pArgs.RTE.MetricsTLSCfg.CertFile, "certificate file name for TLS metrics serving")
 	flags.StringVar(&pArgs.RTE.MetricsTLSCfg.KeyFile, "metrics-key-file", pArgs.RTE.MetricsTLSCfg.KeyFile, "key file name for TLS metrics serving")

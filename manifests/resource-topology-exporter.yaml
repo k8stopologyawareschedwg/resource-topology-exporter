@@ -112,6 +112,8 @@ spec:
           value: shared-pool-container
         - name: METRICS_PORT
           value: "${METRICS_PORT}"
+        - name: METRICS_ADDRESS
+          value: "${METRICS_ADDRESS}"
         volumeMounts:
           - name: host-sys
             mountPath: "/host-sys"

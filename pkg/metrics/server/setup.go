@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	PortDefault = 2112
+	PortDefault    = 2112
+	AddressDefault = "0.0.0.0"
 
 	TLSRootDir = "/etc/secrets/rte"
 
@@ -58,19 +59,21 @@ type TLSConfig struct {
 }
 
 type Config struct {
+	IP   string
 	Port int
 	TLS  TLSConfig
 }
 
-func NewConfig(port int, tlsConf TLSConfig) Config {
+func NewConfig(ip string, port int, tlsConf TLSConfig) Config {
 	return Config{
+		IP:   ip,
 		Port: port,
 		TLS:  tlsConf,
 	}
 }
 
 func NewDefaultConfig() Config {
-	return NewConfig(PortDefault, NewDefaultTLSConfig())
+	return NewConfig(AddressDefault, PortDefault, NewDefaultTLSConfig())
 }
 
 func (conf TLSConfig) Clone() TLSConfig {
@@ -89,7 +92,7 @@ func (conf Config) Validate() error {
 }
 
 func (conf Config) BindAddress() string {
-	return fmt.Sprintf(":%d", conf.Port)
+	return fmt.Sprintf("%s:%d", conf.IP, conf.Port)
 }
 
 func ServingModeIsSupported(value string) (string, error) {
@@ -126,6 +129,14 @@ func PortFromEnv() int {
 		return 0
 	}
 	return port
+}
+
+func AddressFromEnv() string {
+	ip, ok := os.LookupEnv("METRICS_ADDRESS")
+	if !ok {
+		return ""
+	}
+	return ip
 }
 
 func Setup(mode string, conf Config) error {
