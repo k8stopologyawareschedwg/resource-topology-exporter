@@ -52,7 +52,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		hasMetrics          bool
 		metricsMode         string
 		metricsPort         int
-		MetricsAddress      string
+		metricsAddress      string
 		rtePod              *corev1.Pod
 		workerNodes         []corev1.Node
 		topologyUpdaterNode *corev1.Node
@@ -100,7 +100,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rtePod = &pods.Items[0]
 
 			if hasMetrics {
-				MetricsAddress, err = e2ertepod.FindMetricsAddress(rtePod)
+				metricsAddress, err = e2ertepod.FindMetricsAddress(rtePod)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				metricsPort, err = e2ertepod.FindMetricsPort(rtePod)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -123,7 +123,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			}
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", "-v", "-k", "-L", fmt.Sprintf("https://%s:%d/metrics", MetricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-k", "-L", fmt.Sprintf("https://%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -142,7 +142,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			}
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", MetricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -176,7 +176,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", MetricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
