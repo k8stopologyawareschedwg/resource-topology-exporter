@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		ginkgo.It("[EventChain] should have some metrics exported", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", fmt.Sprintf("http://%s:%d/metrics", metricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -150,7 +150,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			cmd := []string{"curl", fmt.Sprintf("http:%s:%d/metrics", metricsAddress, metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http:%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
