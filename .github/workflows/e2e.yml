@@ -5,6 +5,7 @@ on:
     branches:
       - 'main'
       - 'release-0.11'
+      - 'release-0.18'
 
 defaults:
   run:
@@ -98,7 +99,11 @@ jobs:
       run: |
         kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
 
-  e2e-metrics-https:
+  e2e-metrics:
+    strategy:
+      matrix:
+        mode: [http, httptls]
+        address: ["0.0.0.0","127.120.110.100"]
     runs-on: ubuntu-22.04
     env:
       E2E_NODE_REFERENCE: true
@@ -106,7 +111,9 @@ jobs:
       E2E_TOPOLOGY_MANAGER_SCOPE: container
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
       RTE_METRICS_CLI_AUTH: false
-      RTE_METRICS_MODE: httptls
+      RTE_METRICS_MODE: ${{ matrix.mode }}
+      METRICS_ADDRESS: ${{ matrix.address }}
+      METRICS_PORT: "2112"
       RTE_POLL_INTERVAL: 10s
       RTE_VERBOSE: 6
     steps:
@@ -139,6 +146,8 @@ jobs:
         RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} \
         RTE_METRICS_CLI_AUTH=${RTE_METRICS_CLI_AUTH} \
         RTE_METRICS_MODE=${RTE_METRICS_MODE} \
+        METRICS_ADDRESS=${METRICS_ADDRESS} \
+        METRICS_PORT=${METRICS_PORT} \
         RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} \
         RTE_VERBOSE=${RTE_VERBOSE} \
         make gen-manifests | tee rte-e2e.yaml
