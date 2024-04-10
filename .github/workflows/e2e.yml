@@ -96,7 +96,7 @@ jobs:
     - name: show RTE logs
       if: ${{ failure() }}
       run: |
-        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+        kubectl logs -c resource-topology-exporter-container $( kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -- resource-topology-exporter ) || :
 
   e2e-metrics:
     strategy:
@@ -183,4 +183,4 @@ jobs:
     - name: show RTE logs
       if: ${{ failure() }}
       run: |
-        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+        kubectl logs -c resource-topology-exporter-container $( kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -- resource-topology-exporter ) || :
