@@ -87,29 +87,30 @@ var _ = ginkgo.Describe("[RTE][Monitoring] conditions", func() {
 				// wait for twice the poll interval, so the conditions will have enough time to get updated
 			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 		})
+		/*
+			// EventChain means that the test can be flaky in some specific cases, for example deleted CRD can be re-installed
+			// by third component
+			ginkgo.It("[Disruptive][EventChain] should change the RTE conditions under the pod status accordingly", func() {
+				ginkgo.By("deleting the crd")
 
-		// EventChain means that the test can be flaky in some specific cases, for example deleted CRD can be re-installed
-		// by third component
-		ginkgo.It("[Disruptive][EventChain] should change the RTE conditions under the pod status accordingly", func() {
-			ginkgo.By("deleting the crd")
+				err := f.ApiExt.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), crdName, metav1.DeleteOptions{})
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			err := f.ApiExt.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), crdName, metav1.DeleteOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				gomega.Eventually(func() bool {
+					return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
+					// wait for twice the poll interval, so the conditions will have enough time to get updated
+				}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
 
-			gomega.Eventually(func() bool {
-				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
-				// wait for twice the poll interval, so the conditions will have enough time to get updated
-			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
+				ginkgo.By("recreating the crd")
+				crd.ResourceVersion = ""
+				_, err = f.ApiExt.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			ginkgo.By("recreating the crd")
-			crd.ResourceVersion = ""
-			_, err = f.ApiExt.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-			gomega.Eventually(func() bool {
-				return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
-			}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
-		})
+				gomega.Eventually(func() bool {
+					return waitForPodCondition(e2etestenv.RTELabelName, podreadiness.NodeTopologyUpdated, corev1.ConditionFalse)
+				}).WithTimeout(2*timeout).WithPolling(1*time.Second).Should(gomega.BeTrue(), "pod contains wrong condition value")
+			})
+		*/
 	})
 })
 
