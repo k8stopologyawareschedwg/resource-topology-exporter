@@ -52,6 +52,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		hasMetrics          bool
 		rtePod              *corev1.Pod
 		metricsPort         int
+		metricsAddress      string
 		workerNodes         []corev1.Node
 		topologyUpdaterNode *corev1.Node
 	)
@@ -100,6 +101,8 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			if hasMetrics {
 				metricsPort, err = e2ertepod.FindMetricsPort(rtePod)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				metricsAddress, err = e2ertepod.FindMetricsAddress(rtePod)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 
 			initialized = true
@@ -116,7 +119,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 		ginkgo.It("[EventChain] should have some metrics exported", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			cmd := []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http://%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte
@@ -147,7 +150,7 @@ var _ = ginkgo.Describe("[RTE][Monitoring] metrics", func() {
 			rteContainerName, err := e2ertepod.FindRTEContainerName(rtePod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-			cmd := []string{"curl", fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)}
+			cmd := []string{"curl", "-v", "-L", fmt.Sprintf("http:%s:%d/metrics", metricsAddress, metricsPort)}
 			key := client.ObjectKeyFromObject(rtePod)
 			klog.Infof("executing cmd: %s on pod %q", cmd, key.String())
 			var stdout, stderr []byte

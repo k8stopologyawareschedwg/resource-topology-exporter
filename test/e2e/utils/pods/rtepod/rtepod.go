@@ -51,6 +51,22 @@ func FindMetricsPort(rtePod *corev1.Pod) (int, error) {
 	return 0, fmt.Errorf("cannot find METRICS_PORT environment variable")
 }
 
+func FindMetricsAddress(rtePod *corev1.Pod) (string, error) {
+	for idx := 0; idx < len(rtePod.Spec.Containers); idx++ {
+		cnt := rtePod.Spec.Containers[idx] // shortcut
+		if !isRTEContainer(cnt) {
+			continue
+		}
+
+		for _, envVar := range cnt.Env {
+			if envVar.Name == "METRICS_ADDRESS" {
+				return envVar.Value, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("cannot find METRICS_ADDRESS environment variable")
+}
+
 func FindRTEContainerName(rtePod *corev1.Pod) (string, error) {
 	for idx := 0; idx < len(rtePod.Spec.Containers); idx++ {
 		cnt := rtePod.Spec.Containers[idx] // shortcut
