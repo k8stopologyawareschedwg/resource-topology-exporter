@@ -90,3 +90,80 @@ jobs:
       if: ${{ failure() }}
       run: |
         kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :
+
+  e2e-metrics:
+    strategy:
+      matrix:
+        mode: [http, httptls]
+        address: ["0.0.0.0","127.120.110.100"]
+    runs-on: ubuntu-22.04
+    env:
+      E2E_NODE_REFERENCE: true
+      E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
+      E2E_TOPOLOGY_MANAGER_SCOPE: container
+      RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
+      RTE_METRICS_CLI_AUTH: false
+      RTE_METRICS_MODE: ${{ matrix.mode }}
+      METRICS_ADDRESS: ${{ matrix.address }}
+      METRICS_PORT: "2112"
+      RTE_POLL_INTERVAL: 10s
+      RTE_VERBOSE: 6
+    steps:
+    - name: checkout sources
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: setup golang
+      uses: actions/setup-go@v3
+      id: go
+      with:
+        go-version: 1.20.7
+
+    - name: show tool versions
+      run: |
+        go version
+        kind version
+    - name: build test binary
+      run: |
+        make build-e2e
+    - name: build image
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} RUNTIME=docker make image
+    - name: generate manifests
+      run: |
+        RTE_CONTAINER_IMAGE=${RTE_CONTAINER_IMAGE} \
+        RTE_METRICS_MODE=${RTE_METRICS_MODE} \
+        METRICS_ADDRESS=${METRICS_ADDRESS} \
+        METRICS_PORT=${METRICS_PORT} \
+        RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} \
+        RTE_VERBOSE=${RTE_VERBOSE} \
+        make gen-manifests | tee rte-e2e.yaml
+    - name: create K8S kind cluster
+      run: |
+        # kind is part of 20.04 image, see: https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md
+        # see image listing in https://github.com/kubernetes-sigs/kind/releases/tag/v0.20.0
+        kind create cluster --config=hack/kind-config-e2e.yaml --image kindest/node:v1.27.3@sha256:3966ac761ae0136263ffdb6cfd4db23ef8a83cba8a463690e98317add2c9ba72
+        kind load docker-image ${RTE_CONTAINER_IMAGE}
+    - name: deploy RTE
+      run: |
+        # TODO: what about the other workers (if any)?
+        kubectl label node kind-worker node-role.kubernetes.io/worker=''
+        hack/create-tls-secrets.sh
+        kubectl create -f rte-e2e.yaml
+    - name: cluster ready
+      run: |
+        hack/check-ds.sh
+    - name: deploy sample-devices
+      run: |
+        hack/deploy-devices.sh
+        hack/check-ds.sh default device-plugin-a-ds
+        kubectl describe nodes -l node-role.kubernetes.io/worker= || :
+    - name: run E2E tests
+      run: |
+        export KUBECONFIG=${HOME}/.kube/config
+        _out/rte-e2e.test -ginkgo.v -ginkgo.focus='\[RTE\].*\[Monitoring\]'
+    - name: show RTE logs
+      if: ${{ failure() }}
+      run: |
+        kubectl logs -l name=resource-topology -c resource-topology-exporter-container || :

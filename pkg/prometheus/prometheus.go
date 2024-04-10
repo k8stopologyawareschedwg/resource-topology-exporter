@@ -14,11 +14,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-const prometheusDefaultPort = "2112"
-
 const (
-	ServingDisabled = "disabled"
-	ServingHTTP     = "http" // plaintext
+	prometheusDefaultPort      = "2112"
+	prometheusDefaultIPAddress = "0.0.0.0"
+	ServingDisabled            = "disabled"
+	ServingHTTP                = "http" // plaintext
 )
 
 func ServingModeIsSupported(value string) (string, error) {
@@ -116,6 +116,7 @@ func InitPrometheus(mode string) error {
 
 	var err error
 	var port = prometheusDefaultPort
+	var ip = prometheusDefaultIPAddress
 
 	if envValue, ok := os.LookupEnv("METRICS_PORT"); ok {
 		if _, err = strconv.Atoi(envValue); err != nil {
@@ -124,13 +125,17 @@ func InitPrometheus(mode string) error {
 		port = envValue
 	}
 
+	if envValue, ok := os.LookupEnv("METRICS_ADDRESS"); ok {
+		ip = envValue
+	}
+
 	nodeName, err = getNodeName()
 	if err != nil {
 		return err
 	}
 
 	http.Handle("/metrics", promhttp.Handler())
-	addr := fmt.Sprintf("0.0.0.0:%s", port)
+	addr := fmt.Sprintf("%s:%s", ip, port)
 
 	go func() {
 		if err = http.ListenAndServe(addr, nil); err != nil {
