@@ -15,7 +15,6 @@ import (
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dump"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	resup "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
@@ -90,7 +89,7 @@ func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientse
 				Annotations: make(map[string]string),
 			},
 		}
-		te.updateNRTInfo(&nrtNew, info)
+		info.UpdateNRT(&nrtNew, te.tmConfig)
 		te.updateOwnerReferences(ctx, &nrtNew)
 
 		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(ctx, &nrtNew, metav1.CreateOptions{})
@@ -107,7 +106,7 @@ func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientse
 	}
 
 	nrtMutated := nrt.DeepCopy()
-	te.updateNRTInfo(nrtMutated, info)
+	info.UpdateNRT(nrtMutated, te.tmConfig)
 	te.updateOwnerReferences(ctx, nrtMutated)
 
 	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
@@ -117,15 +116,6 @@ func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientse
 	metrics.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
 	klog.V(7).Infof("resourceupdater changed CRD instance: %v", dump.Object(nrtUpdated))
 	return nil
-}
-
-func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info resup.MonitorInfo) {
-	nrt.Annotations = k8sannotations.Merge(nrt.Annotations, info.Annotations)
-	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
-	nrt.Zones = info.Zones.DeepCopy()
-	nrt.Attributes = info.Attributes.DeepCopy()
-	nrt.Attributes = append(nrt.Attributes, te.makeAttributes()...)
-	// TODO: check for duplicate attributes?
 }
 
 // updateOwnerReferences ensure nrt.OwnerReferences include a reference to the Node with the same name as the NRT
@@ -149,17 +139,4 @@ func (te *NRTUpdater) updateOwnerReferences(ctx context.Context, nrt *v1alpha2.N
 	}
 
 	nrt.OwnerReferences = []metav1.OwnerReference{nodeReference}
-}
-
-func (te *NRTUpdater) makeAttributes() v1alpha2.AttributeList {
-	return v1alpha2.AttributeList{
-		{
-			Name:  "topologyManagerScope",
-			Value: te.tmConfig.Scope,
-		},
-		{
-			Name:  "topologyManagerPolicy",
-			Value: te.tmConfig.Policy,
-		},
-	}
 }

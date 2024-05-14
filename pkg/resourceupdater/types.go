@@ -2,6 +2,7 @@ package resourceupdater
 
 import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 )
 
 const (
@@ -34,6 +35,19 @@ func (conf TMConfig) IsValid() bool {
 	return conf.Policy != "" && conf.Scope != ""
 }
 
+func (conf TMConfig) ToAttributes() v1alpha2.AttributeList {
+	return v1alpha2.AttributeList{
+		{
+			Name:  "topologyManagerScope",
+			Value: conf.Scope,
+		},
+		{
+			Name:  "topologyManagerPolicy",
+			Value: conf.Policy,
+		},
+	}
+}
+
 type MonitorInfo struct {
 	Timer       bool
 	Zones       v1alpha2.ZoneList
@@ -46,4 +60,13 @@ func (mi MonitorInfo) UpdateReason() string {
 		return RTEUpdatePeriodic
 	}
 	return RTEUpdateReactive
+}
+
+func (mi MonitorInfo) UpdateNRT(nrt *v1alpha2.NodeResourceTopology, tmConfig TMConfig) {
+	nrt.Annotations = k8sannotations.Merge(nrt.Annotations, mi.Annotations)
+	nrt.Annotations[k8sannotations.RTEUpdate] = mi.UpdateReason()
+	nrt.Zones = mi.Zones.DeepCopy()
+	nrt.Attributes = mi.Attributes.DeepCopy()
+	nrt.Attributes = append(nrt.Attributes, tmConfig.ToAttributes()...)
+	// TODO: check for duplicate attributes?
 }
