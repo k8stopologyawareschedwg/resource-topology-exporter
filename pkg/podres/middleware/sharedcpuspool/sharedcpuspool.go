@@ -12,7 +12,7 @@ import (
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8simported/cpuset"
+	"k8s.io/utils/cpuset"
 )
 
 type ContainerIdent struct {
