@@ -21,3 +21,13 @@ const (
 	SleepDuration  = "k8stopoawareschedwg/sleep-duration"
 	UpdateInterval = "k8stopoawareschedwg/update-interval"
 )
+
+func Merge(kvs ...map[string]string) map[string]string {
+	ret := make(map[string]string)
+	for _, kv := range kvs {
+		for key, value := range kv {
+			ret[key] = value
+		}
+	}
+	return ret
+}
