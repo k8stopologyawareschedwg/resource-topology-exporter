@@ -134,6 +134,7 @@ func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info Mon
 			},
 		}
 		te.updateNRTInfo(&nrtNew, info)
+		te.updateOwnerReferences(ctx, &nrtNew)
 
 		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
 		if err != nil {
@@ -150,6 +151,7 @@ func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info Mon
 
 	nrtMutated := nrt.DeepCopy()
 	te.updateNRTInfo(nrtMutated, info)
+	te.updateOwnerReferences(ctx, nrtMutated)
 
 	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
@@ -167,8 +169,6 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 	nrt.Attributes = info.Attributes.DeepCopy()
 	nrt.Attributes = append(nrt.Attributes, te.makeAttributes()...)
 	// TODO: check for duplicate attributes?
-
-	te.updateOwnerReferences(nrt)
 }
 
 // updateOwnerReferences ensure nrt.OwnerReferences include a reference to the Node with the same name as the NRT
