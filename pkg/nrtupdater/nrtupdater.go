@@ -166,7 +166,7 @@ func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info Mon
 }
 
 func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info MonitorInfo) {
-	nrt.Annotations = mergeAnnotations(nrt.Annotations, info.Annotations)
+	nrt.Annotations = k8sannotations.Merge(nrt.Annotations, info.Annotations)
 	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.Zones = info.Zones.DeepCopy()
 	nrt.Attributes = info.Attributes.DeepCopy()
@@ -210,14 +210,4 @@ func (te *NRTUpdater) makeAttributes() v1alpha2.AttributeList {
 			Value: te.tmConfig.Policy,
 		},
 	}
-}
-
-func mergeAnnotations(kvs ...map[string]string) map[string]string {
-	ret := make(map[string]string)
-	for _, kv := range kvs {
-		for key, value := range kv {
-			ret[key] = value
-		}
-	}
-	return ret
 }
