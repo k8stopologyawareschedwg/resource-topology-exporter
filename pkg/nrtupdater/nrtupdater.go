@@ -50,14 +50,6 @@ func (conf TMConfig) IsValid() bool {
 	return conf.Policy != "" && conf.Scope != ""
 }
 
-type NRTUpdater struct {
-	args       Args
-	tmConfig   TMConfig
-	stopChan   chan struct{}
-	nodeGetter NodeGetter
-	nrtCli     topologyclientset.Interface
-}
-
 type MonitorInfo struct {
 	Timer       bool
 	Zones       v1alpha2.ZoneList
@@ -70,6 +62,14 @@ func (mi MonitorInfo) UpdateReason() string {
 		return RTEUpdatePeriodic
 	}
 	return RTEUpdateReactive
+}
+
+type NRTUpdater struct {
+	args       Args
+	tmConfig   TMConfig
+	stopChan   chan struct{}
+	nodeGetter NodeGetter
+	nrtCli     topologyclientset.Interface
 }
 
 func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, args Args, tmconf TMConfig) (*NRTUpdater, error) {
@@ -85,8 +85,8 @@ func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, ar
 	}, nil
 }
 
-func (te *NRTUpdater) Update(info MonitorInfo) error {
-	return te.updateWithClient(te.nrtCli, info)
+func (te *NRTUpdater) Update(ctx context.Context, info MonitorInfo) error {
+	return te.updateWithClient(ctx, te.nrtCli, info)
 }
 
 func (te *NRTUpdater) Stop() {
@@ -99,7 +99,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 		case info := <-infoChannel:
 			tsBegin := time.Now()
 			condStatus := v1.ConditionTrue
-			if err := te.Update(info); err != nil {
+			if err := te.Update(context.Background(), info); err != nil {
 				klog.Warningf("failed to update: %v", err)
 				condStatus = v1.ConditionFalse
 			}
@@ -118,14 +118,14 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 	}
 }
 
-func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
+func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) error {
 	klog.V(7).Infof("update: sending zone: %v", dump.Object(info.Zones))
 
 	if te.args.NoPublish {
 		return nil
 	}
 
-	nrt, err := cli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
+	nrt, err := cli.TopologyV1alpha2().NodeResourceTopologies().Get(ctx, te.args.Hostname, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		nrtNew := v1alpha2.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
@@ -136,7 +136,7 @@ func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info Mon
 		te.updateNRTInfo(&nrtNew, info)
 		te.updateOwnerReferences(ctx, &nrtNew)
 
-		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(ctx, &nrtNew, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
@@ -175,8 +175,8 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 //
 // Check nrt.OwnerReferences for Node references and update it so it has only one Node reference,
 // the one to the Node with the same name as the NRT.
-func (te *NRTUpdater) updateOwnerReferences(nrt *v1alpha2.NodeResourceTopology) {
-	node, err := te.nodeGetter.Get(context.TODO(), nrt.Name, metav1.GetOptions{})
+func (te *NRTUpdater) updateOwnerReferences(ctx context.Context, nrt *v1alpha2.NodeResourceTopology) {
+	node, err := te.nodeGetter.Get(ctx, nrt.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.Is(err, NotConfigured) {
 			return

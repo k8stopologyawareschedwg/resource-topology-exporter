@@ -61,6 +61,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 		t.Fatalf("failed to create NRT updater: %v", err)
 	}
 	err = nrtUpd.Update(
+		context.TODO(),
 		MonitorInfo{
 			Zones: v1alpha2.ZoneList{
 				{
@@ -100,6 +101,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 		t.Fatalf("failed to create NRT updater: %v", err)
 	}
 	err = nrtUpd.Update(
+		context.TODO(),
 		MonitorInfo{
 			Zones: v1alpha2.ZoneList{
 				{
@@ -195,6 +197,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	}
 
 	err = nrtUpd.Update(
+		context.TODO(),
 		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
 	)
 	if err != nil {
@@ -209,6 +212,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	checkOwnerReferences(t, obj, expected)
 
 	err = nrtUpd.Update(
+		context.TODO(),
 		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
 	)
 	if err != nil {
