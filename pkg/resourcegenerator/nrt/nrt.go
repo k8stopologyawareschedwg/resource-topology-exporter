@@ -1,4 +1,4 @@
-package fake
+package nrt
 
 import (
 	"math/rand"

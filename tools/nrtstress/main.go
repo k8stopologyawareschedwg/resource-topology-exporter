@@ -8,7 +8,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater/fake"
+	nrtres "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcegenerator/nrt"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 
 	klog.Infof("generating fake periodic updates every %v with random seed %v", interval, randSeed)
 
-	gen := fake.NewGenerator(interval, randSeed)
+	gen := nrtres.NewGenerator(interval, randSeed)
 	go gen.Run()
 
 	klog.Infof("using NRT Updater args: %+#v", nrtupdaterArgs)
