@@ -1,4 +1,4 @@
-package nrtupdater
+package resourceupdater
 
 import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"

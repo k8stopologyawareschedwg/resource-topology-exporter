@@ -99,7 +99,7 @@ func main() {
 		},
 		NRTCli: nrtcli,
 	}
-	err = resourcetopologyexporter.Execute(hnd, parsedArgs.NRTupdater, parsedArgs.Resourcemonitor, parsedArgs.RTE)
+	err = resourcetopologyexporter.Execute(hnd, parsedArgs.Resourceupdater, parsedArgs.Resourcemonitor, parsedArgs.RTE)
 	if err != nil {
 		klog.Fatalf("failed to execute: %v", err)
 	}

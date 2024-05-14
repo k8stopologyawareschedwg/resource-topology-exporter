@@ -107,9 +107,14 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "global.debug", out: &pArgs.Global.Debug},
 		{key: "global.verbose", out: &pArgs.Global.Verbose},
 		{key: "global.kubeconfig", out: &pArgs.Global.KubeConfig},
-		{key: "nrtUpdater.noPublish", out: &pArgs.NRTupdater.NoPublish},
-		{key: "nrtUpdater.oneShot", out: &pArgs.NRTupdater.Oneshot},
-		{key: "nrtUpdater.hostname", out: &pArgs.NRTupdater.Hostname},
+		// DEPRECATED
+		{key: "nrtUpdater.noPublish", out: &pArgs.Resourceupdater.NoPublish},
+		{key: "nrtUpdater.oneShot", out: &pArgs.Resourceupdater.Oneshot},
+		{key: "nrtUpdater.hostname", out: &pArgs.Resourceupdater.Hostname},
+		// RECOMMENDED
+		{key: "resourceUpdater.noPublish", out: &pArgs.Resourceupdater.NoPublish},
+		{key: "resourceUpdater.oneShot", out: &pArgs.Resourceupdater.Oneshot},
+		{key: "resourceUpdater.hostname", out: &pArgs.Resourceupdater.Hostname},
 		{key: "resourceMonitor.namespace", out: &pArgs.Resourcemonitor.Namespace},
 		{key: "resourceMonitor.sysfsRoot", out: &pArgs.Resourcemonitor.SysfsRoot},
 		{key: "resourceMonitor.refreshNodeResources", out: &pArgs.Resourcemonitor.RefreshNodeResources},

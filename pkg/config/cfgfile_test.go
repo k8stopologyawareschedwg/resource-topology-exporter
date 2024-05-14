@@ -77,6 +77,10 @@ func TestFromFiles(t *testing.T) {
 		{
 			name: "00-full",
 		},
+		// backward-compatibility with config from 0.19 or previously
+		{
+			name: "80-full-legacy",
+		},
 	} {
 		t.Run(tcase.name, func(t *testing.T) {
 			confRoot := filepath.Join(testDataDir, "conftree", tcase.name)

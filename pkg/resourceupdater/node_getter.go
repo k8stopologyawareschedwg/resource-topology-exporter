@@ -1,4 +1,4 @@
-package nrtupdater
+package resourceupdater
 
 import (
 	"context"

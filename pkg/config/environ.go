@@ -48,8 +48,8 @@ func TopologyManagerScopeFromEnv() string {
 }
 
 func FromEnv(pArgs *ProgArgs) {
-	if pArgs.NRTupdater.Hostname == "" {
-		pArgs.NRTupdater.Hostname = HostNameFromEnv()
+	if pArgs.Resourceupdater.Hostname == "" {
+		pArgs.Resourceupdater.Hostname = HostNameFromEnv()
 	}
 	if pArgs.RTE.TopologyManagerPolicy == "" {
 		pArgs.RTE.TopologyManagerPolicy = TopologyManagerPolicyFromEnv()

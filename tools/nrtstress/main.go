@@ -7,8 +7,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	nrtres "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcegenerator/nrt"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 
-	nrtupdaterArgs := nrtupdater.Args{
+	resourceupdaterArgs := resourceupdater.Args{
 		Hostname:  hostname,
 		NoPublish: dryRun,
 	}
@@ -43,9 +43,9 @@ func main() {
 	gen := nrtres.NewGenerator(interval, randSeed)
 	go gen.Run()
 
-	klog.Infof("using NRT Updater args: %+#v", nrtupdaterArgs)
+	klog.Infof("using NRT Updater args: %+#v", resourceupdaterArgs)
 
-	tmConf := nrtupdater.TMConfig{
+	tmConf := resourceupdater.TMConfig{
 		Policy: tmPolicy,
 		Scope:  tmScope,
 	}
@@ -55,8 +55,8 @@ func main() {
 		klog.Fatalf("failed to get a noderesourcetopology client: %v", err)
 	}
 
-	nodeGetter := &nrtupdater.DisabledNodeGetter{}
-	upd, err := nrtupdater.NewNRTUpdater(nodeGetter, nrtcli, nrtupdaterArgs, tmConf)
+	nodeGetter := &resourceupdater.DisabledNodeGetter{}
+	upd, err := resourceupdater.NewNRTUpdater(nodeGetter, nrtcli, resourceupdaterArgs, tmConf)
 	if err != nil {
 		klog.Fatalf("failed to create a noderesourcetopology updater: %v", err)
 	}

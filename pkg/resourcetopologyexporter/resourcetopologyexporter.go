@@ -13,11 +13,12 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/ratelimiter"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
+	nrtupdater "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater/nrt"
 )
 
 type Args struct {
@@ -59,7 +60,7 @@ func (args Args) Clone() Args {
 }
 
 type tmSettings struct {
-	config nrtupdater.TMConfig
+	config resourceupdater.TMConfig
 }
 
 type Handle struct {
@@ -67,21 +68,21 @@ type Handle struct {
 	NRTCli topologyclientset.Interface
 }
 
-func Execute(hnd Handle, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
+func Execute(hnd Handle, resourceupdaterArgs resourceupdater.Args, resourcemonitorArgs resourcemonitor.Args, rteArgs Args) error {
 	tmConf, err := getTopologyManagerSettings(rteArgs)
 	if err != nil {
 		return err
 	}
 
-	var nodeGetter nrtupdater.NodeGetter
+	var nodeGetter resourceupdater.NodeGetter
 	if rteArgs.AddNRTOwnerEnable {
-		nodeGetter, err = nrtupdater.NewCachedNodeGetter(hnd.ResMon.K8SCli, context.Background())
+		nodeGetter, err = resourceupdater.NewCachedNodeGetter(hnd.ResMon.K8SCli, context.Background())
 		if err != nil {
 			klog.V(2).Info("Cannot enable 'add-nrt-owner'. Unable to get node info")
 			return fmt.Errorf("Cannot enable 'add-nrt-owner'. %w", err)
 		}
 	} else {
-		nodeGetter = &nrtupdater.DisabledNodeGetter{}
+		nodeGetter = &resourceupdater.DisabledNodeGetter{}
 	}
 
 	var condChan chan v1.PodCondition
@@ -105,7 +106,7 @@ func Execute(hnd Handle, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs res
 	}
 	go resObs.Run(eventSource.Events(), condChan)
 
-	upd, err := nrtupdater.NewNRTUpdater(nodeGetter, hnd.NRTCli, nrtupdaterArgs, tmConf.config)
+	upd, err := nrtupdater.NewNRTUpdater(nodeGetter, hnd.NRTCli, resourceupdaterArgs, tmConf.config)
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func createEventSource(rteArgs *Args) (notification.EventSource, error) {
 func getTopologyManagerSettings(rteArgs Args) (tmSettings, error) {
 	if rteArgs.TopologyManagerPolicy != "" && rteArgs.TopologyManagerScope != "" {
 		tmConf := tmSettings{
-			config: nrtupdater.TMConfig{
+			config: resourceupdater.TMConfig{
 				Policy: rteArgs.TopologyManagerPolicy,
 				Scope:  rteArgs.TopologyManagerScope,
 			},
@@ -166,7 +167,7 @@ func getTopologyManagerSettings(rteArgs Args) (tmSettings, error) {
 			return tmSettings{}, fmt.Errorf("error getting topology Manager Policy: %w", err)
 		}
 		tmConf := tmSettings{
-			config: nrtupdater.TMConfig{
+			config: resourceupdater.TMConfig{
 				Policy: klConfig.TopologyManagerPolicy,
 				Scope:  klConfig.TopologyManagerScope,
 			},

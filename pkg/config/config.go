@@ -24,9 +24,9 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 )
 
 type GlobalArgs struct {
@@ -45,7 +45,7 @@ func (args GlobalArgs) Clone() GlobalArgs {
 
 type ProgArgs struct {
 	Global          GlobalArgs                    `json:"global,omitempty"`
-	NRTupdater      nrtupdater.Args               `json:"nrtUpdater,omitempty"`
+	Resourceupdater resourceupdater.Args          `json:"resourceUpdater,omitempty"`
 	Resourcemonitor resourcemonitor.Args          `json:"resourceMonitor,omitempty"`
 	RTE             resourcetopologyexporter.Args `json:"topologyExporter,omitempty"`
 	Version         bool                          `json:"-"`
@@ -71,7 +71,7 @@ func (pa *ProgArgs) ToYAMLString() string {
 func (pa ProgArgs) Clone() ProgArgs {
 	return ProgArgs{
 		Global:          pa.Global.Clone(),
-		NRTupdater:      pa.NRTupdater.Clone(),
+		Resourceupdater: pa.Resourceupdater.Clone(),
 		Resourcemonitor: pa.Resourcemonitor.Clone(),
 		RTE:             pa.RTE.Clone(),
 		Version:         pa.Version,
@@ -145,8 +145,8 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 
 func Finalize(pArgs *ProgArgs) error {
 	var err error
-	if pArgs.NRTupdater.Hostname == "" {
-		pArgs.NRTupdater.Hostname, err = os.Hostname()
+	if pArgs.Resourceupdater.Hostname == "" {
+		pArgs.Resourceupdater.Hostname, err = os.Hostname()
 	}
 	return err
 }

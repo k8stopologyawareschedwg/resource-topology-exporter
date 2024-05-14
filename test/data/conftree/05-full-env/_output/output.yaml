@@ -1,7 +1,5 @@
 global:
   verbose: 5
-nrtUpdater:
-  hostname: node.kubelab.io
 resourceMonitor:
   podSetFingerprint: true
   podSetFingerprintMethod: with-exclusive-resources
@@ -17,6 +15,8 @@ resourceMonitor:
     workernode2:
     - cpu
   sysfsRoot: /sys
+resourceUpdater:
+  hostname: node.kubelab.io
 topologyExporter:
   kubeletConfigFile: /podresources/config.yaml
   maxEventPerTimeUnit: 1

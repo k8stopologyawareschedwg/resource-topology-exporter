@@ -9,19 +9,19 @@ import (
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dump"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 )
 
 type Generator struct {
-	Infos    <-chan nrtupdater.MonitorInfo
-	infoChan chan nrtupdater.MonitorInfo
+	Infos    <-chan resourceupdater.MonitorInfo
+	infoChan chan resourceupdater.MonitorInfo
 	interval time.Duration
 	rnd      *rand.Rand
 }
 
 func NewGenerator(interval time.Duration, randSeed int64) *Generator {
 	gen := Generator{
-		infoChan: make(chan nrtupdater.MonitorInfo),
+		infoChan: make(chan resourceupdater.MonitorInfo),
 		interval: interval,
 	}
 	gen.Infos = gen.infoChan
@@ -34,7 +34,7 @@ func (ge *Generator) Run() {
 
 	// TODO: move to for { select {} } when we have more sources
 	for range ticker.C {
-		mi := nrtupdater.MonitorInfo{
+		mi := resourceupdater.MonitorInfo{
 			Timer: true,
 			Zones: ge.MakeZones(),
 		}

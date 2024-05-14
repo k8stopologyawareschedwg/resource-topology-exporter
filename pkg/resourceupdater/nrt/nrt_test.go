@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package nrtupdater
+package nrt
 
 import (
 	"context"
@@ -30,29 +30,30 @@ import (
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned/fake"
+	resup "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 )
 
 func TestUpdateTMPolicy(t *testing.T) {
 	nodeName := "test-node"
 
-	args := Args{
+	args := resup.Args{
 		Hostname: nodeName,
 	}
 	var nrtUpd *NRTUpdater
 	cli := fake.NewSimpleClientset()
 
-	tmConfInitial := TMConfig{
+	tmConfInitial := resup.TMConfig{
 		Scope:  "scope-initial",
 		Policy: "policy-initial",
 	}
-	tmConfUpdated := TMConfig{
+	tmConfUpdated := resup.TMConfig{
 		Scope:  "scope-updated",
 		Policy: "polcy-updated",
 	}
 
 	var err error
 	k8sClient := clientk8sfake.NewSimpleClientset()
-	nodeGetter, err := NewCachedNodeGetter(k8sClient, context.Background())
+	nodeGetter, err := resup.NewCachedNodeGetter(k8sClient, context.Background())
 	if err != nil {
 		t.Fatalf("failed to create node getter: %v", err)
 	}
@@ -62,7 +63,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 	}
 	err = nrtUpd.Update(
 		context.TODO(),
-		MonitorInfo{
+		resup.MonitorInfo{
 			Zones: v1alpha2.ZoneList{
 				{
 					Name: "test-zone-0",
@@ -102,7 +103,7 @@ func TestUpdateTMPolicy(t *testing.T) {
 	}
 	err = nrtUpd.Update(
 		context.TODO(),
-		MonitorInfo{
+		resup.MonitorInfo{
 			Zones: v1alpha2.ZoneList{
 				{
 					Name: "test-zone-0",
@@ -138,10 +139,10 @@ func TestUpdateTMPolicy(t *testing.T) {
 func TestUpdateOwnerReferences(t *testing.T) {
 	nodeName := "test-node"
 
-	args := Args{
+	args := resup.Args{
 		Hostname: nodeName,
 	}
-	tmConfig := TMConfig{
+	tmConfig := resup.TMConfig{
 		Scope:  "scope-whatever",
 		Policy: "policy-whatever",
 	}
@@ -187,7 +188,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	cli := fake.NewSimpleClientset()
 	var err error
 	k8sClient := clientk8sfake.NewSimpleClientset(&node)
-	nodeGetter, err := NewCachedNodeGetter(k8sClient, context.Background())
+	nodeGetter, err := resup.NewCachedNodeGetter(k8sClient, context.Background())
 	if err != nil {
 		t.Fatalf("failed to create node getter: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 
 	err = nrtUpd.Update(
 		context.TODO(),
-		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
+		resup.MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
 	)
 	if err != nil {
 		t.Fatalf("failed to perform the initial creation: %v", err)
@@ -213,7 +214,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 
 	err = nrtUpd.Update(
 		context.TODO(),
-		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
+		resup.MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
 	)
 	if err != nil {
 		t.Fatalf("failed to perform the initial creation: %v", err)
@@ -225,7 +226,7 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	checkOwnerReferences(t, obj, expected)
 }
 
-func checkTMConfig(t *testing.T, obj runtime.Object, expectedConf TMConfig) {
+func checkTMConfig(t *testing.T, obj runtime.Object, expectedConf resup.TMConfig) {
 	t.Helper()
 
 	nrtObj, ok := obj.(*v1alpha2.NodeResourceTopology)
@@ -241,8 +242,8 @@ func checkTMConfig(t *testing.T, obj runtime.Object, expectedConf TMConfig) {
 	}
 }
 
-func tmConfigFromAttributes(attrs v1alpha2.AttributeList) TMConfig {
-	conf := TMConfig{}
+func tmConfigFromAttributes(attrs v1alpha2.AttributeList) resup.TMConfig {
+	conf := resup.TMConfig{}
 	for _, attr := range attrs {
 		if attr.Name == "topologyManagerScope" {
 			conf.Scope = attr.Value

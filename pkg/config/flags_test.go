@@ -50,10 +50,10 @@ func TestOneshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !pArgs.NRTupdater.Oneshot {
+	if !pArgs.Resourceupdater.Oneshot {
 		t.Errorf("oneshot should be true")
 	}
-	if !pArgs.NRTupdater.NoPublish {
+	if !pArgs.Resourceupdater.NoPublish {
 		t.Errorf("nopublish should be true")
 	}
 }

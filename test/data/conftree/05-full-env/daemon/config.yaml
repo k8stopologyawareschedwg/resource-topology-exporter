@@ -1,6 +1,6 @@
 global:
   verbose: 2
-nrtUpdater:
+resourceUpdater:
   hostname: node.kubelab.io
 resourceMonitor:
   sysfsRoot: /sys

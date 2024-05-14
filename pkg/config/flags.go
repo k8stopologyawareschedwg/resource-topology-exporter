@@ -41,9 +41,9 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	flags.BoolVar(&pArgs.Global.Debug, "debug", pArgs.Global.Debug, " Enable debug output.")
 	flags.StringVar(&pArgs.Global.KubeConfig, "kubeconfig", pArgs.Global.KubeConfig, "path to kubeconfig file.")
 
-	flags.BoolVar(&pArgs.NRTupdater.NoPublish, "no-publish", pArgs.NRTupdater.NoPublish, "Do not publish discovered features to the cluster-local Kubernetes API server.")
-	flags.BoolVar(&pArgs.NRTupdater.Oneshot, "oneshot", pArgs.NRTupdater.Oneshot, "Update once and exit.")
-	flags.StringVar(&pArgs.NRTupdater.Hostname, "hostname", pArgs.NRTupdater.Hostname, "Override the node hostname.")
+	flags.BoolVar(&pArgs.Resourceupdater.NoPublish, "no-publish", pArgs.Resourceupdater.NoPublish, "Do not publish discovered features to the cluster-local Kubernetes API server.")
+	flags.BoolVar(&pArgs.Resourceupdater.Oneshot, "oneshot", pArgs.Resourceupdater.Oneshot, "Update once and exit.")
+	flags.StringVar(&pArgs.Resourceupdater.Hostname, "hostname", pArgs.Resourceupdater.Hostname, "Override the node hostname.")
 
 	flags.StringVar(&pArgs.Resourcemonitor.Namespace, "watch-namespace", pArgs.Resourcemonitor.Namespace, "Namespace to watch pods for. Use \"\" for all namespaces.")
 	flags.StringVar(&pArgs.Resourcemonitor.SysfsRoot, "sysfs", pArgs.Resourcemonitor.SysfsRoot, "Top-level component path of sysfs.")

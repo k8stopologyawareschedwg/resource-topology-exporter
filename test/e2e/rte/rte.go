@@ -40,7 +40,7 @@ import (
 	topologyclientset "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/generated/clientset/versioned"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/fixture"
 	e2enodes "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodes"
 	e2enodetopology "github.com/k8stopologyawareschedwg/resource-topology-exporter/test/e2e/utils/nodetopology"
@@ -147,8 +147,8 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 					klog.Infof("resource %s missing annotation!", topologyUpdaterNode.Name)
 					return false
 				}
-				klog.Infof("resource %s reason %v expected %v", topologyUpdaterNode.Name, reason, nrtupdater.RTEUpdateReactive)
-				return reason == nrtupdater.RTEUpdateReactive
+				klog.Infof("resource %s reason %v expected %v", topologyUpdaterNode.Name, reason, resourceupdater.RTEUpdateReactive)
+				return reason == resourceupdater.RTEUpdateReactive
 			}).WithTimeout(31*time.Second).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
 			ginkgo.By("checking the topology was updated for the right reason")
 
@@ -156,7 +156,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 
 			gomega.Expect(finalNodeTopo.Annotations).ToNot(gomega.BeNil(), "missing annotations entirely")
 			reason := finalNodeTopo.Annotations[k8sannotations.RTEUpdate]
-			gomega.Expect(reason).To(gomega.Equal(nrtupdater.RTEUpdateReactive), "update reason error: expected %q got %q", nrtupdater.RTEUpdateReactive, reason)
+			gomega.Expect(reason).To(gomega.Equal(resourceupdater.RTEUpdateReactive), "update reason error: expected %q got %q", resourceupdater.RTEUpdateReactive, reason)
 		})
 	})
 

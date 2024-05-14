@@ -1,4 +1,4 @@
-package nrtupdater
+package nrt
 
 import (
 	"context"
@@ -18,17 +18,18 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
+	resup "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 )
 
 type NRTUpdater struct {
-	args       Args
-	tmConfig   TMConfig
+	args       resup.Args
+	tmConfig   resup.TMConfig
 	stopChan   chan struct{}
-	nodeGetter NodeGetter
+	nodeGetter resup.NodeGetter
 	nrtCli     topologyclientset.Interface
 }
 
-func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, args Args, tmconf TMConfig) (*NRTUpdater, error) {
+func NewNRTUpdater(nodeGetter resup.NodeGetter, nrtCli topologyclientset.Interface, args resup.Args, tmconf resup.TMConfig) (*NRTUpdater, error) {
 	if nrtCli == nil {
 		return nil, fmt.Errorf("missing NRT client interface")
 	}
@@ -41,7 +42,7 @@ func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, ar
 	}, nil
 }
 
-func (te *NRTUpdater) Update(ctx context.Context, info MonitorInfo) error {
+func (te *NRTUpdater) Update(ctx context.Context, info resup.MonitorInfo) error {
 	return te.updateWithClient(ctx, te.nrtCli, info)
 }
 
@@ -49,7 +50,7 @@ func (te *NRTUpdater) Stop() {
 	te.stopChan <- struct{}{}
 }
 
-func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCondition) {
+func (te *NRTUpdater) Run(infoChannel <-chan resup.MonitorInfo, condChan chan v1.PodCondition) {
 	for {
 		select {
 		case info := <-infoChannel:
@@ -62,7 +63,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 			tsEnd := time.Now()
 
 			tsDiff := tsEnd.Sub(tsBegin)
-			metrics.UpdateOperationDelayMetric("node_resource_object_update", RTEUpdateReactive, float64(tsDiff.Milliseconds()))
+			metrics.UpdateOperationDelayMetric("node_resource_object_update", resup.RTEUpdateReactive, float64(tsDiff.Milliseconds()))
 			if te.args.Oneshot {
 				break
 			}
@@ -74,7 +75,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 	}
 }
 
-func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) error {
+func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientset.Interface, info resup.MonitorInfo) error {
 	klog.V(7).Infof("update: sending zone: %v", dump.Object(info.Zones))
 
 	if te.args.NoPublish {
@@ -97,7 +98,7 @@ func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientse
 			return fmt.Errorf("update failed for NRT instance: %w", err)
 		}
 		metrics.UpdateNodeResourceTopologyWritesMetric("create", info.UpdateReason())
-		klog.V(2).Infof("nrtupdater created NRT instance: %v", dump.Object(nrtCreated))
+		klog.V(2).Infof("resourceupdater created NRT instance: %v", dump.Object(nrtCreated))
 		return nil
 	}
 
@@ -114,11 +115,11 @@ func (te *NRTUpdater) updateWithClient(ctx context.Context, cli topologyclientse
 		return fmt.Errorf("update failed for NRT instance: %w", err)
 	}
 	metrics.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
-	klog.V(7).Infof("nrtupdater changed CRD instance: %v", dump.Object(nrtUpdated))
+	klog.V(7).Infof("resourceupdater changed CRD instance: %v", dump.Object(nrtUpdated))
 	return nil
 }
 
-func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info MonitorInfo) {
+func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info resup.MonitorInfo) {
 	nrt.Annotations = k8sannotations.Merge(nrt.Annotations, info.Annotations)
 	nrt.Annotations[k8sannotations.RTEUpdate] = info.UpdateReason()
 	nrt.Zones = info.Zones.DeepCopy()
@@ -134,10 +135,10 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 func (te *NRTUpdater) updateOwnerReferences(ctx context.Context, nrt *v1alpha2.NodeResourceTopology) {
 	node, err := te.nodeGetter.Get(ctx, nrt.Name, metav1.GetOptions{})
 	if err != nil {
-		if errors.Is(err, NotConfigured) {
+		if errors.Is(err, resup.NotConfigured) {
 			return
 		}
-		klog.V(7).Infof("nrtupdater unable to get Node %s. Can't add Owner reference. error: %v", nrt.Name, err)
+		klog.V(7).Infof("resourceupdater unable to get Node %s. Can't add Owner reference. error: %v", nrt.Name, err)
 		return
 	}
 	nodeReference := metav1.OwnerReference{

@@ -10,16 +10,16 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourceupdater"
 )
 
 type ResourceObserver struct {
-	Infos           <-chan nrtupdater.MonitorInfo
+	Infos           <-chan resourceupdater.MonitorInfo
 	resMon          resourcemonitor.ResourceMonitor
 	resourceExclude resourcemonitor.ResourceExclude
-	infoChan        chan nrtupdater.MonitorInfo
+	infoChan        chan resourceupdater.MonitorInfo
 	stopChan        chan struct{}
 	exposeTiming    bool
 }
@@ -34,7 +34,7 @@ func NewResourceObserver(hnd resourcemonitor.Handle, args resourcemonitor.Args) 
 		resMon:          resMon,
 		resourceExclude: args.ResourceExclude,
 		stopChan:        make(chan struct{}),
-		infoChan:        make(chan nrtupdater.MonitorInfo),
+		infoChan:        make(chan resourceupdater.MonitorInfo),
 		exposeTiming:    args.ExposeTiming,
 	}
 	resObs.Infos = resObs.infoChan
@@ -52,7 +52,7 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 		case ev := <-eventsChan:
 			var err error
 
-			monInfo := nrtupdater.MonitorInfo{Timer: ev.IsTimer()}
+			monInfo := resourceupdater.MonitorInfo{Timer: ev.IsTimer()}
 
 			tsWakeupDiff := ev.Timestamp.Sub(lastWakeup)
 			lastWakeup = ev.Timestamp

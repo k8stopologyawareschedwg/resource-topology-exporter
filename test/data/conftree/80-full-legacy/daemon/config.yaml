@@ -1,14 +1,11 @@
 global:
-  verbose: 4
-resourceUpdater:
+  verbose: 2
+nrtUpdater:
   hostname: node.kubelab.io
 resourceMonitor:
-  podSetFingerprint: true
-  podSetFingerprintMethod: with-exclusive-resources
   sysfsRoot: /sys
 topologyExporter:
-  addNRTOwnerEnable: true
-  kubeletConfigFile: /podresources/config.yaml
+  addNRTOwnerEnable: false
   maxEventPerTimeUnit: 1
   metricsMode: disabled
   podReadinessEnable: true

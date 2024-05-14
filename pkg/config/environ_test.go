@@ -40,8 +40,8 @@ func TestFromEnv(t *testing.T) {
 	SetDefaults(&pArgs)
 	FromEnv(&pArgs)
 
-	if pArgs.NRTupdater.Hostname != nodeName {
-		t.Errorf("hostname mismatch got %q expected %q", pArgs.NRTupdater.Hostname, nodeName)
+	if pArgs.Resourceupdater.Hostname != nodeName {
+		t.Errorf("hostname mismatch got %q expected %q", pArgs.Resourceupdater.Hostname, nodeName)
 	}
 	if pArgs.RTE.TopologyManagerPolicy != tmPol {
 		t.Errorf("TM policy mismatch got %q expected %q", pArgs.RTE.TopologyManagerPolicy, tmPol)
