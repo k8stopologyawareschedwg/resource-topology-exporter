@@ -16,7 +16,6 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/dump"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
-	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
 )
@@ -75,11 +74,7 @@ func (mi MonitorInfo) UpdateReason() string {
 
 func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, args Args, tmconf TMConfig) (*NRTUpdater, error) {
 	if nrtCli == nil {
-		cli, err := k8shelpers.GetTopologyClient(args.KubeConfig)
-		if err != nil {
-			return nil, err
-		}
-		nrtCli = cli
+		return nil, fmt.Errorf("missing NRT client interface")
 	}
 	return &NRTUpdater{
 		args:       args,
