@@ -14,6 +14,8 @@ GOLANGCI_LINT_VERSION=1.54.2
 GOLANGCI_LINT_BIN=$(BINDIR)/golangci-lint
 GOLANGCI_LINT_VERSION_TAG=v${GOLANGCI_LINT_VERSION}
 
+KUBELET_MOD_VERSION = $(shell go list -m -f '{{ .Version }}' k8s.io/kubelet)
+
 .PHONY: all
 all: build
 
@@ -38,7 +40,7 @@ build-dbg: build-tools
 .PHONY: gofmt
 gofmt:
 	@echo "Running gofmt"
-	gofmt -s -w `find . -path ./vendor -prune -o -type f -name '*.go' -print`
+	gofmt -s -w `find . -type f -name '*.go' -print`
 
 .PHONY: govet
 govet:
@@ -50,11 +52,7 @@ outdir:
 
 .PHONY: deps-update
 deps-update:
-	go mod tidy && go mod vendor
-
-.PHONY: deps-clean
-deps-clean:
-	rm -rf vendor
+	go mod tidy
 
 .PHONY: binaries-all
 binaries-all: outdir deps-update extra-tools build
@@ -140,13 +138,15 @@ _out/golangci-lint: outdir
 		echo "Using golangci-lint cached at $(GOLANGCI_LINT_BIN)";\
 	fi
 
-
 _out/git-semver: outdir
-	@go build -o _out/git-semver vendor/github.com/mdomke/git-semver/main.go
+	@GOBIN=$(shell pwd)/_out go install github.com/mdomke/git-semver/v6@v6.9.0
 
-gen-mocks:
-	mockery \
-		--dir=vendor/k8s.io/kubelet/pkg/apis/podresources/v1 \
+_out/mockery: outdir
+	@GOBIN=$(shell pwd)/_out go install github.com/vektra/mockery/v2@v2.43.1
+
+gen-mocks: deps-update _out/mockery
+	_out/mockery \
+		--dir=$(GOPATH)/pkg/mod/k8s.io/kubelet@$(KUBELET_MOD_VERSION)/pkg/apis/podresources/v1 \
 		--name=PodResourcesListerClient \
 		--structname=MockPodResourcesListerClient \
 		--filename=mock_PodResourcesListerClient.go \
