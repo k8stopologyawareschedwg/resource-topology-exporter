@@ -41,7 +41,7 @@ const (
 type CleanupFunc func() error
 
 func GetClient(endpoint string) (podresourcesapi.PodResourcesListerClient, CleanupFunc, error) {
-	klog.Infof("creating a podresources client for endpoint %q", endpoint)
+	klog.V(4).Infof("creating a podresources client for endpoint %q", endpoint)
 
 	var cli podresourcesapi.PodResourcesListerClient
 	var cleanup CleanupFunc = nullCleanup
@@ -62,7 +62,7 @@ func GetClient(endpoint string) (podresourcesapi.PodResourcesListerClient, Clean
 	if err != nil {
 		return nil, cleanup, fmt.Errorf("failed to create podresource client: %w", err)
 	}
-	klog.Infof("created a podresources client for endpoint %q", endpoint)
+	klog.V(4).Infof("created a podresources client for endpoint %q", endpoint)
 	return cli, cleanup, nil
 }
 
@@ -128,7 +128,7 @@ func ParseEndpoint(endpoint string) (string, string, error) {
 	if u.Scheme != UnixProtocol && u.Scheme != FakeProtocol {
 		return "", "", UnsupportedProtocolError{proto: u.Scheme}
 	}
-	klog.Infof("endpoint %q -> protocol=%q path=%q", endpoint, u.Scheme, u.Path)
+	klog.V(6).Infof("endpoint %q -> protocol=%q path=%q", endpoint, u.Scheme, u.Path)
 	return u.Scheme, u.Path, nil
 }
 
