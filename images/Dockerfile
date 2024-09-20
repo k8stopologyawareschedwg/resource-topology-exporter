@@ -1,8 +1,5 @@
-FROM  quay.io/centos/centos:8
-RUN cd /etc/yum.repos.d/ && \
-	sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
-	sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-RUN yum install -y hwdata && yum clean -y all
+FROM  quay.io/centos/centos:stream9
+RUN dnf install -y hwdata && dnf clean -y all
 ADD _out/resource-topology-exporter /bin/resource-topology-exporter
 RUN mkdir -p /etc/rte /etc/secrets/rte/tls /etc/secrets/rte/ca
 
