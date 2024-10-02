@@ -26,10 +26,19 @@ build-tools: outdir _out/git-semver
 extra-tools: outdir _out/nrtstress
 
 .PHONY: build
-build: build-tools
+build: build-rte
+
+.PHONY: build-rte
+build-rte: build-tools
 	$(COMMONENVVAR) $(BUILDENVVAR) go build \
 	-ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
 	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
+
+.PHONY: build-proxy
+build-proxy: build-tools
+	$(COMMONENVVAR) $(BUILDENVVAR) go build \
+	-ldflags "-s -w -X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
+	-o _out/podresources-proxy cmd/podresources-proxy/main.go
 
 .PHONY: build-dbg
 build-dbg: build-tools
