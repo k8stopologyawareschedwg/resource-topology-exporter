@@ -89,7 +89,7 @@ jobs:
         pushd _dist && sha256sum * >> ../SHA256SUMS && mv ../SHA256SUMS . && popd
 
     - name: upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
         path: _dist/*
