@@ -44,11 +44,19 @@ func FixExtraConfigPath(configRoot string) string {
 }
 
 func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
-	err := fromDaemonFiles(pArgs, configRoot)
+	cfgRoot, err := validateConfigRootPath(configRoot)
+	if err != nil {
+		return err
+	}
+	extraCfgPath, err := validateConfigRootPath(extraConfigPath)
+	if err != nil {
+		return err
+	}
+	err = fromDaemonFiles(pArgs, cfgRoot)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return fromExtraFile(pArgs, extraConfigPath)
+	return fromExtraFile(pArgs, extraCfgPath)
 }
 
 func fromExtraFile(pArgs *ProgArgs, extraConfigPath string) error {
@@ -94,17 +102,21 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 
 	// this directory may be missing, that's expected and fine
 	configletDir := filepath.Join(configPathRoot, "daemon", "config.yaml.d")
-	if configLets, err := os.ReadDir(configletDir); err == nil {
-		for _, configLet := range configLets {
-			if !configLet.Type().IsRegular() {
-				klog.Infof("configlet %q not regular file: ignored", configLet.Name())
+	if configlets, err := os.ReadDir(configletDir); err == nil {
+		for _, configlet := range configlets {
+			if !configlet.Type().IsRegular() {
+				klog.Infof("configlet %q not regular file: ignored", configlet.Name())
 				continue
 			}
-			configLetPath := filepath.Join(configletDir, configLet.Name())
-			if pArgs.Global.Debug {
-				klog.Infof("loading configlet: %q", configLetPath)
+			configletPath, err := validateConfigPath(filepath.Join(configletDir, configlet.Name()))
+			if err != nil {
+				klog.Infof("could not load %q: %v", configlet.Name(), err)
+				continue
 			}
-			err = loadConfiglet(confObj, configLetPath)
+			if pArgs.Global.Debug {
+				klog.Infof("loading configlet: %q", configletPath)
+			}
+			err = loadConfiglet(confObj, configletPath)
 			if err != nil {
 				return err
 			}

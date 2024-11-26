@@ -26,7 +26,7 @@ func TestFromEnv(t *testing.T) {
 	tmPol := "restricted"
 	tmScope := "pod"
 
-	closer := setupTestWithEnv(t, map[string]string{
+	_, closer := setupTestWithEnv(t, map[string]string{
 		"TOPOLOGY_MANAGER_POLICY":  tmPol,
 		"TOPOLOGY_MANAGER_SCOPE":   tmScope,
 		"NODE_NAME":                nodeName,

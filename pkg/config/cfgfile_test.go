@@ -27,10 +27,10 @@ import (
 )
 
 func TestReadResourceExclude(t *testing.T) {
-	closer := setupTest(t)
+	testDir, closer := setupTest(t)
 	t.Cleanup(closer)
 
-	cfg, err := os.CreateTemp("", "exclude-list")
+	cfg, err := os.CreateTemp(testDir, "exclude-list")
 	if err != nil {
 		t.Fatalf("unexpected error creating temp file: %v", err)
 	}
@@ -69,6 +69,9 @@ func TestReadResourceExclude(t *testing.T) {
 }
 
 func TestFromFiles(t *testing.T) {
+	testDir, closer := setupTest(t)
+	t.Cleanup(closer)
+
 	type testCase struct {
 		name string
 	}
@@ -79,7 +82,7 @@ func TestFromFiles(t *testing.T) {
 		},
 	} {
 		t.Run(tcase.name, func(t *testing.T) {
-			confRoot := filepath.Join(testDataDir, "conftree", tcase.name)
+			confRoot := filepath.Join(testDir, "conftree", tcase.name)
 			extraPath := FixExtraConfigPath(confRoot)
 
 			var pArgs ProgArgs

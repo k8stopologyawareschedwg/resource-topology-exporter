@@ -23,6 +23,7 @@ package rte_local
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,25 @@ import (
 
 var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 	ginkgo.Context("with the binary available", func() {
+		var userTestDataDir string
+		var userTestConfigFile string
+
+		ginkgo.BeforeEach(func() {
+			var err error
+			userTestDataDir, err = config.UserRunDir()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			tmpDir := filepath.Join(userTestDataDir, "e2e")
+			gomega.Expect(os.MkdirAll(tmpDir, 0700)).To(gomega.Succeed())
+
+			userTestConfigFile = filepath.Join(tmpDir, "kubelet_tm_full.yaml")
+			gomega.Expect(copyFile(userTestConfigFile, filepath.Join(utils.TestDataPath, "rteconfig", "kubelet_tm_full.yaml"))).To(gomega.Succeed())
+		})
+
+		ginkgo.AfterEach(func() {
+			gomega.Expect(os.RemoveAll(userTestDataDir)).To(gomega.Succeed())
+		})
+
 		ginkgo.It("[release] it should show the correct version", func() {
 			cmdline := []string{
 				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
@@ -60,7 +80,7 @@ var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 		ginkgo.It("[release] it should read the config file to get TM config", func() {
 			cmdline := []string{
 				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
-				"--config", filepath.Join(utils.TestDataPath, "rteconfig", "kubelet_tm_full.yaml"),
+				"--config", userTestConfigFile,
 				"--dump-config", ".andexit",
 			}
 			fmt.Fprintf(ginkgo.GinkgoWriter, "running: %v\n", cmdline)
@@ -83,7 +103,7 @@ var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 			cmdline := []string{
 				filepath.Join(utils.BinariesPath, "resource-topology-exporter"),
 				"--topology-manager-policy", "single-numa-node",
-				"--config", filepath.Join(utils.TestDataPath, "rteconfig", "kubelet_tm_full.yaml"),
+				"--config", userTestConfigFile,
 				"--dump-config", ".andexit",
 			}
 			fmt.Fprintf(ginkgo.GinkgoWriter, "running: %v\n", cmdline)
@@ -103,3 +123,11 @@ var _ = ginkgo.Describe("[RTE][Local] Resource topology exporter", func() {
 		})
 	})
 })
+
+func copyFile(destPath, srcPath string) error {
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(destPath, data, 0644)
+}
