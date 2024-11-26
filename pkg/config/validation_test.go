@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
@@ -90,6 +91,87 @@ func TestValidation(t *testing.T) {
 			gotErr := (err != nil)
 			if gotErr != tcase.expectedError {
 				t.Errorf("validation mismatch: got %v expected %v", gotErr, tcase.expectedError)
+			}
+		})
+	}
+}
+
+func TestIsConfigRootAllowed(t *testing.T) {
+	type testCase struct {
+		name            string
+		cfgPath         string
+		addDirFns       []func() (string, error)
+		expectedError   bool
+		expectedPattern string
+	}
+
+	// important note: this functions *expects* canonicalized paths
+	for _, tcase := range []testCase{
+		{
+			name:            "base path",
+			cfgPath:         "/etc/rte",
+			addDirFns:       []func() (string, error){},
+			expectedPattern: "/etc/rte",
+		},
+		{
+			name:            "obvious misuses",
+			cfgPath:         "/etc/passwd",
+			addDirFns:       []func() (string, error){},
+			expectedPattern: "",
+		},
+		{
+			name:            "slightly less obvious misuse",
+			cfgPath:         "/usr/local/etc/shadow",
+			addDirFns:       []func() (string, error){},
+			expectedPattern: "",
+		},
+		{
+			name:    "injection fails on err",
+			cfgPath: "/var/rte/config",
+			addDirFns: []func() (string, error){
+				func() (string, error) {
+					return "/var/rte/config", errors.New("bogus error")
+				},
+			},
+			expectedPattern: "",
+		},
+		{
+			name:    "injected run",
+			cfgPath: "/run/user/12345/rte",
+			addDirFns: []func() (string, error){
+				func() (string, error) {
+					return "/run/user/12345/rte", nil
+				},
+			},
+			expectedPattern: "/run/user/12345/rte",
+		},
+		{
+			name:            "run not allowed unless injected",
+			cfgPath:         "/run/user/12345/rte",
+			addDirFns:       []func() (string, error){},
+			expectedPattern: "",
+		},
+		{
+			name:    "injected home",
+			cfgPath: "/home/foobar/.rte",
+			addDirFns: []func() (string, error){
+				func() (string, error) {
+					return "/home/foobar/.rte", nil
+				},
+			},
+			expectedPattern: "/home/foobar/.rte",
+		},
+		{
+			name:            "home not allowed unless injected",
+			cfgPath:         "/home/foobar/.rte",
+			addDirFns:       []func() (string, error){},
+			expectedPattern: "",
+		},
+	} {
+		t.Run(tcase.name, func(t *testing.T) {
+			pattern, _ := IsConfigRootAllowed(tcase.cfgPath, tcase.addDirFns...)
+			if pattern != tcase.expectedPattern {
+				t.Errorf("validation mismatch: got pattern %q expected %q", pattern, tcase.expectedPattern)
 			}
 		})
 	}
