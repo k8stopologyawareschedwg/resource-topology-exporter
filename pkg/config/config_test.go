@@ -69,6 +69,66 @@ func TestLoadArgs(t *testing.T) {
 	}
 }
 
+func TestValidateConfigRootPath(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name        string
+		configRoot  string
+		expectError bool
+	}{
+		{
+			name:        "Valid path under /etc/rte",
+			configRoot:  "/etc/rte/myconfig",
+			expectError: false,
+		},
+		{
+			name:        "Valid path under /run/rte",
+			configRoot:  "/run/rte/myconfig",
+			expectError: false,
+		},
+		{
+			name:        "Valid path under /var/rte",
+			configRoot:  "/var/rte/myconfig",
+			expectError: false,
+		},
+		{
+			name:        "Valid path under /usr/local/etc/rte",
+			configRoot:  "/usr/local/etc/rte/myconfig",
+			expectError: false,
+		},
+		{
+			name:        "Invalid path outside allowed prefixes",
+			configRoot:  "/var/myconfig",
+			expectError: true,
+		},
+		{
+			name:        "Relative path resolving to allowed prefix",
+			configRoot:  "../tmp/myconfig",
+			expectError: false,
+		},
+		{
+			name:        "Invalid relative path outside allowed prefixes",
+			configRoot:  "/root/../var/myconfig",
+			expectError: true,
+		},
+		{
+			name:        "Invalid empty path",
+			configRoot:  "",
+			expectError: true,
+		},
+	}
+
+	// Iterate over test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			configRoot, err := ValidateConfigRootPath(tc.configRoot)
+			if (err != nil) != tc.expectError {
+				t.Errorf("ValidateConfigRootPath(%q) = %v, expectError %v, configRoot absoulte path %s", tc.configRoot, err, tc.expectError, configRoot)
+			}
+		})
+	}
+}
+
 func setupEnviron(t *testing.T, envDefsPath string) {
 	t.Helper()
 	data, err := os.ReadFile(envDefsPath)

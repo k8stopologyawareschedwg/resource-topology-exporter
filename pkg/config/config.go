@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -107,6 +109,10 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 		return pArgs, err
 	}
 
+	configRoot, err = ValidateConfigRootPath(configRoot)
+	if err != nil {
+		return pArgs, err
+	}
 	// now the real processing begins. From now on we waste nothing
 	if pArgs.Global.Debug {
 		klog.Infof("configRoot=%q extraConfigPath=%q", configRoot, extraConfigPath)
@@ -149,4 +155,28 @@ func Finalize(pArgs *ProgArgs) error {
 		pArgs.NRTupdater.Hostname, err = os.Hostname()
 	}
 	return err
+}
+
+func ValidateConfigRootPath(configRoot string) (string, error) {
+	allowedPrefixes := []string{
+		"/etc/rte",
+		"/run/rte",
+		"/var/rte",
+		"/usr/local/etc/rte",
+		"/home", // mostly for tests
+	}
+	if configRoot == "" {
+		return "", fmt.Errorf("configRoot is not allowed to be an empty string")
+	}
+	// Resolve and clean the input path
+	absPath, err := filepath.Abs(filepath.Clean(configRoot))
+	if err != nil {
+		return "", fmt.Errorf("failed to validate configRoot path: %w", err)
+	}
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(absPath, prefix) {
+			return absPath, nil
+		}
+	}
+	return "", fmt.Errorf("configRoot path %q must be configured under one of the following dir paths %v", configRoot, allowedPrefixes)
 }
