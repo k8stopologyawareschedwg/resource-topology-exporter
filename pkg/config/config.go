@@ -18,8 +18,10 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -27,6 +29,10 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
+)
+
+var (
+	SkipDirectory = errors.New("skip config directory")
 )
 
 type GlobalArgs struct {
@@ -149,4 +155,17 @@ func Finalize(pArgs *ProgArgs) error {
 		pArgs.NRTupdater.Hostname, err = os.Hostname()
 	}
 	return err
+}
+
+func UserRunDir() (string, error) {
+	return filepath.Join("/run", "user", fmt.Sprintf("%d", os.Getuid()), "rte"), nil
+}
+
+func UserHomeDir() (string, error) {
+	homeDir, ok := os.LookupEnv("HOME")
+	if !ok || homeDir == "" {
+		// can happen in CI
+		return "", SkipDirectory
+	}
+	return filepath.Join(homeDir, ".rte"), nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,9 @@ import (
 )
 
 func TestLoadArgs(t *testing.T) {
+	_, closer := setupTest(t)
+	t.Cleanup(closer)
+
 	type testCase struct {
 		name string
 	}
@@ -39,7 +43,8 @@ func TestLoadArgs(t *testing.T) {
 		},
 	} {
 		t.Run(tcase.name, func(t *testing.T) {
-			confRoot := filepath.Join(testDataDir, "conftree", tcase.name)
+			userDir, _ := UserRunDir()
+			confRoot := filepath.Join(userDir, "conftree", tcase.name)
 
 			environ := filepath.Join(confRoot, "_env", "vars.yaml")
 			setupEnviron(t, environ)
@@ -66,6 +71,14 @@ func TestLoadArgs(t *testing.T) {
 				t.Errorf("invalid defaults.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
 			}
 		})
+	}
+}
+
+func TestUserHomeDirWithoutEnv(t *testing.T) {
+	t.Setenv("HOME", "")
+	_, err := UserHomeDir()
+	if !errors.Is(err, SkipDirectory) {
+		t.Fatalf("returned unexpected error: %v", err)
 	}
 }
 

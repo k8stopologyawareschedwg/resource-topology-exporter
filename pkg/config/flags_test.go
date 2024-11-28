@@ -19,6 +19,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -43,7 +44,7 @@ var (
 )
 
 func TestOneshot(t *testing.T) {
-	closer := setupTest(t)
+	_, closer := setupTest(t)
 	t.Cleanup(closer)
 
 	pArgs, err := LoadArgs("--oneshot", "--no-publish")
@@ -59,7 +60,7 @@ func TestOneshot(t *testing.T) {
 }
 
 func TestReferenceContainer(t *testing.T) {
-	closer := setupTest(t)
+	_, closer := setupTest(t)
 	t.Cleanup(closer)
 
 	pArgs, err := LoadArgs("--reference-container=ns/pod/cont")
@@ -74,7 +75,7 @@ func TestReferenceContainer(t *testing.T) {
 }
 
 func TestRefreshNodeResources(t *testing.T) {
-	closer := setupTest(t)
+	_, closer := setupTest(t)
 	t.Cleanup(closer)
 
 	pArgs, err := LoadArgs("--refresh-node-resources")
@@ -87,7 +88,7 @@ func TestRefreshNodeResources(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
-	closer := setupTest(t)
+	_, closer := setupTest(t)
 	t.Cleanup(closer)
 
 	pArgs, err := LoadArgs()
@@ -119,7 +120,8 @@ func TestLoadDefaults(t *testing.T) {
 	}
 }
 
-func setupTest(t *testing.T) func() {
+func setupTest(t *testing.T) (string, func()) {
+	t.Helper()
 	return setupTestWithEnv(t, map[string]string{
 		"NODE_NAME":                node,
 		"REFERENCE_NAMESPACE":      namespace,
@@ -128,7 +130,8 @@ func setupTest(t *testing.T) func() {
 	})
 }
 
-func setupTestWithEnv(t *testing.T, envs map[string]string) func() {
+func setupTestWithEnv(t *testing.T, envs map[string]string) (string, func()) {
+	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("Cannot retrieve tests directory")
@@ -137,10 +140,24 @@ func setupTestWithEnv(t *testing.T, envs map[string]string) func() {
 	baseDir = filepath.Dir(file)
 	testDataDir = filepath.Clean(filepath.Join(baseDir, "..", "..", "test", "data"))
 
-	return envSetter(envs)
+	userDir, err := UserRunDir()
+	if err == nil {
+		err2 := os.CopyFS(userDir, os.DirFS(testDataDir))
+		log.Printf("copyfs %q -> %q err=%v", testDataDir, userDir, err2)
+	}
+
+	closer := envSetter(envs)
+	return userDir, func() {
+		closer()
+		if err != nil {
+			return
+		}
+		err2 := os.RemoveAll(userDir)
+		log.Printf("cleaned up %q err=%v", userDir, err2)
+	}
 }
 
-func envSetter(envs map[string]string) (closer func()) {
+func envSetter(envs map[string]string) func() {
 	originalEnvs := map[string]string{}
 
 	for name, value := range envs {
