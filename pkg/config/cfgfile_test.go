@@ -17,6 +17,9 @@ limitations under the License.
 package config
 
 import (
+	"errors"
+	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,13 +33,10 @@ func TestReadResourceExclude(t *testing.T) {
 	testDir, closer := setupTest(t)
 	t.Cleanup(closer)
 
-	cfg, err := os.CreateTemp(testDir, "exclude-list")
+	err := os.MkdirAll(filepath.Join(testDir, "extra"), 0755)
 	if err != nil {
 		t.Fatalf("unexpected error creating temp file: %v", err)
 	}
-	t.Cleanup(func() {
-		os.Remove(cfg.Name())
-	})
 
 	cfgContent := `resourceExclude:
   masternode: [memory, device/exampleA]
@@ -44,14 +44,11 @@ func TestReadResourceExclude(t *testing.T) {
   workernode2: [cpu]
   "*": [device/exampleC]`
 
-	if _, err := cfg.Write([]byte(cfgContent)); err != nil {
+	if err := os.WriteFile(filepath.Join(testDir, "extra", "config.yaml"), []byte(cfgContent), 0644); err != nil {
 		t.Fatalf("unexpected error writing data: %v", err)
 	}
-	if err := cfg.Close(); err != nil {
-		t.Fatalf("unexpected error closing temp file: %v", err)
-	}
 
-	pArgs, err := LoadArgs("--config", cfg.Name())
+	pArgs, err := LoadArgs(testDir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -83,11 +80,12 @@ func TestFromFiles(t *testing.T) {
 	} {
 		t.Run(tcase.name, func(t *testing.T) {
 			confRoot := filepath.Join(testDir, "conftree", tcase.name)
-			extraPath := FixExtraConfigPath(confRoot)
+			cleanCase := setupCase(t, testDir, tcase.name)
+			t.Cleanup(cleanCase)
 
 			var pArgs ProgArgs
 			SetDefaults(&pArgs)
-			err := FromFiles(&pArgs, confRoot, extraPath)
+			err := FromFiles(&pArgs, testDir)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -105,5 +103,37 @@ func TestFromFiles(t *testing.T) {
 				t.Errorf("invalid defaults.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
 			}
 		})
+	}
+}
+
+func setupCase(t *testing.T, testDir, name string) func() {
+	t.Helper()
+
+	log.Printf("setupCase: %s", name)
+
+	confRoot := filepath.Join(testDir, "conftree", name)
+
+	if err := os.CopyFS(filepath.Join(testDir, "daemon"), os.DirFS(filepath.Join(confRoot, "daemon"))); err != nil {
+		t.Fatalf("cannot setup daemon: %v", err)
+	}
+	log.Printf("copied: %s -> %s", filepath.Join(confRoot, "daemon"), filepath.Join(testDir, "daemon"))
+
+	if err := os.CopyFS(filepath.Join(testDir, "extra"), os.DirFS(filepath.Join(confRoot, "extra"))); err != nil {
+		t.Fatalf("cannot setup extra: %v", err)
+	}
+	log.Printf("copied: %s -> %s", filepath.Join(confRoot, "extra"), filepath.Join(testDir, "extra"))
+
+	return func() {
+		var err error
+		err = os.RemoveAll(filepath.Join(testDir, "daemon"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("cannot cleanup daemon: %v", err)
+		}
+		log.Printf("cleanup: %s", filepath.Join(testDir, "daemon"))
+		err = os.RemoveAll(filepath.Join(testDir, "extra"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("cannot cleanup extra: %v", err)
+		}
+		log.Printf("cleanup: %s", filepath.Join(testDir, "extra"))
 	}
 }

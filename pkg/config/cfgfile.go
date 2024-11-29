@@ -32,23 +32,14 @@ import (
 )
 
 const (
-	DefaultconfigRoot     = "/etc/rte"
-	LegacyExtraConfigPath = "/etc/resource-topology-exporter/config.yaml"
+	DefaultconfigRoot = "/etc/rte"
 
 	configDirDaemon = "daemon"
 	configDirExtra  = "extra"
 )
 
-func FixExtraConfigPath(configRoot string) string {
-	return filepath.Join(configRoot, configDirExtra, "config.yaml")
-}
-
-func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
+func FromFiles(pArgs *ProgArgs, configRoot string) error {
 	cfgRoot, err := validateConfigRootPath(configRoot)
-	if err != nil {
-		return err
-	}
-	extraCfgPath, err := validateConfigRootPath(extraConfigPath)
 	if err != nil {
 		return err
 	}
@@ -56,7 +47,7 @@ func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return fromExtraFile(pArgs, extraCfgPath)
+	return fromExtraFile(pArgs, getExtraConfigPath(cfgRoot))
 }
 
 func fromExtraFile(pArgs *ProgArgs, extraConfigPath string) error {
@@ -108,7 +99,7 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 				klog.Infof("configlet %q not regular file: ignored", configlet.Name())
 				continue
 			}
-			configletPath, err := validateConfigPath(filepath.Join(configletDir, configlet.Name()))
+			configletPath, err := validateConfigletPath(configletDir, filepath.Join(configletDir, configlet.Name()))
 			if err != nil {
 				klog.Infof("could not load %q: %v", configlet.Name(), err)
 				continue
@@ -231,4 +222,8 @@ func mergeConfObj(obj, upd map[string]interface{}) {
 	for key, val := range upd {
 		obj[key] = val
 	}
+}
+
+func getExtraConfigPath(configRoot string) string {
+	return filepath.Join(configRoot, configDirExtra, "config.yaml")
 }

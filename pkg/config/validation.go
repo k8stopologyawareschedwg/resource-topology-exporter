@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
@@ -43,7 +45,8 @@ func Validate(pArgs *ProgArgs) error {
 	return nil
 }
 
-func validateConfigPath(configletPath string) (string, error) {
+// path is constructed after validation, no need to check if it is allowed
+func validateConfigletPath(configletDir, configletPath string) (string, error) {
 	configRoot := filepath.Clean(configletPath)
 	cfgRoot, err := filepath.EvalSymlinks(configRoot)
 	if err != nil {
@@ -55,35 +58,40 @@ func validateConfigPath(configletPath string) (string, error) {
 		}
 	}
 	// else either success or checking a non-existing path. Which can be still OK.
-
-	pattern, err := IsConfigRootAllowed(cfgRoot, UserRunDir, UserHomeDir)
-	if err != nil {
-		return "", err
-	}
-	if pattern == "" {
-		return "", fmt.Errorf("failed to validate configRoot path %q: does not match any allowed pattern", cfgRoot)
+	if !strings.HasPrefix(cfgRoot, configletDir) {
+		return "", fmt.Errorf("resolved configlet path %q goes outside configlet dir %q", cfgRoot, configletPath)
 	}
 	return cfgRoot, nil
-
 }
 
 func validateConfigRootPath(configRoot string) (string, error) {
 	if configRoot == "" {
 		return "", fmt.Errorf("configRoot is not allowed to be an empty string")
 	}
-	return validateConfigPath(configRoot)
+
+	cfgRoot, err := validateConfigletPath("/", configRoot)
+	if err != nil {
+		return "", err
+	}
+
+	allowedPatterns, err := GetAllowedConfigRoots(UserRunDir, UserHomeDir)
+	if err != nil {
+		return "", err
+	}
+	idx := slices.Index(allowedPatterns, cfgRoot)
+	if idx == -1 {
+		return "", fmt.Errorf("config path %q: does not match any allowed pattern (%s)", cfgRoot, strings.Join(allowedPatterns, ","))
+	}
+	log.Printf("configRoot %q", cfgRoot)
+	return allowedPatterns[idx], nil
 }
 
-// IsConfigRootAllowed checks if an *already cleaned and canonicalized* path is among the allowed list.
-// use `addDirFns` to inject user-dependent paths (e.g. $HOME). Returns the matched pattern, if any,
-// and error describing the failure. The error is only relevant if failed to inject user-provided paths.
-func IsConfigRootAllowed(cfgPath string, addDirFns ...func() (string, error)) (string, error) {
+func GetAllowedConfigRoots(addDirFns ...func() (string, error)) ([]string, error) {
 	allowedPatterns := []string{
 		"/etc/rte",
 		"/run/rte",
 		"/var/rte",
 		"/usr/local/etc/rte",
-		"/etc/resource-topology-exporter", // legacy, but still supported
 	}
 	for _, addDirFn := range addDirFns {
 		userDir, err := addDirFn()
@@ -91,15 +99,9 @@ func IsConfigRootAllowed(cfgPath string, addDirFns ...func() (string, error)) (s
 			continue
 		}
 		if err != nil {
-			return "", err
+			return []string{}, err
 		}
 		allowedPatterns = append(allowedPatterns, userDir)
 	}
-
-	for _, pattern := range allowedPatterns {
-		if strings.HasPrefix(cfgPath, pattern) {
-			return pattern, nil
-		}
-	}
-	return "", nil
+	return allowedPatterns, nil
 }
