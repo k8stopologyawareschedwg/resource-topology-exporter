@@ -18,6 +18,7 @@ package config
 
 import (
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +28,7 @@ import (
 )
 
 func TestLoadArgs(t *testing.T) {
-	_, closer := setupTest(t)
+	testDir, closer := setupTest(t)
 	t.Cleanup(closer)
 
 	type testCase struct {
@@ -43,6 +44,9 @@ func TestLoadArgs(t *testing.T) {
 		},
 	} {
 		t.Run(tcase.name, func(t *testing.T) {
+			cleanCase := setupCase(t, testDir, tcase.name)
+			t.Cleanup(cleanCase)
+
 			userDir, _ := UserRunDir()
 			confRoot := filepath.Join(userDir, "conftree", tcase.name)
 
@@ -51,7 +55,7 @@ func TestLoadArgs(t *testing.T) {
 
 			cmdline := filepath.Join(confRoot, "_cmdline", "flags.yaml")
 			args := setupCmdline(t, cmdline)
-			args = append(args, confRoot) // always last
+			args = append(args, testDir) // always last
 
 			pArgs, err := LoadArgs(args...)
 			if err != nil {
@@ -68,7 +72,7 @@ func TestLoadArgs(t *testing.T) {
 			got := strings.TrimSpace(string(pArgs.ToYAMLString()))
 			expected := strings.TrimSpace(string(expectedRaw))
 			if got != expected {
-				t.Errorf("invalid defaults.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
+				t.Errorf("invalid output.\n>>> got:\n{%s}\n>>> expected:\n{%s}", got, expected)
 			}
 		})
 	}
@@ -112,10 +116,10 @@ func setupCmdline(t *testing.T, cmdlineDefsPath string) []string {
 	}
 	err = yaml.Unmarshal(data, &flags)
 	if err != nil {
-		t.Logf("error getting commandline flags from %q: %v", cmdlineDefsPath, err)
+		log.Printf("error getting commandline flags from %q: %v", cmdlineDefsPath, err)
 		// intentionally swallow
 		return flags
 	}
-	t.Logf("using command line: %q", flags)
+	log.Printf("using command line: %q", flags)
 	return flags
 }

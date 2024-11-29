@@ -28,15 +28,12 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version"
 )
 
-func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
+func FromFlags(pArgs *ProgArgs, args ...string) (string, error) {
 	var refCnt string
-	var configPath string
 
 	flags := flag.NewFlagSet(version.ProgramName, flag.ExitOnError)
 
 	klog.InitFlags(flags)
-
-	flags.StringVar(&configPath, "config", LegacyExtraConfigPath, "Configuration file path. Use this to set the exclude list.")
 
 	flags.BoolVar(&pArgs.Global.Debug, "debug", pArgs.Global.Debug, " Enable debug output.")
 	flags.StringVar(&pArgs.Global.KubeConfig, "kubeconfig", pArgs.Global.KubeConfig, "path to kubeconfig file.")
@@ -87,41 +84,40 @@ Special targets:
 
 	err := flags.Parse(args)
 	if err != nil {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
+		return DefaultConfigRoot, err
 	}
 
 	if pArgs.Version {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
+		return DefaultConfigRoot, nil
 	}
 
-	if pArgs.Global.Debug {
-		klog.Infof("using reference container: %q", refCnt)
-	}
 	if refCnt != "" {
+		if pArgs.Global.Debug {
+			klog.Infof("using reference container: %q", refCnt)
+		}
 		pArgs.RTE.ReferenceContainer, err = sharedcpuspool.ContainerIdentFromString(refCnt)
 		if err != nil {
-			return DefaultConfigRoot, LegacyExtraConfigPath, err
+			return DefaultConfigRoot, err
 		}
-	}
-	if pArgs.Global.Debug {
-		klog.Infof("reference container: %q", pArgs.RTE.ReferenceContainer.String())
+		if pArgs.Global.Debug {
+			klog.Infof("parsed reference container: %q", pArgs.RTE.ReferenceContainer.String())
+		}
 	}
 
 	params := flags.Args()
-	extraConfigPath, err := validateConfigRootPath(configPath)
-	if err != nil {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
-	}
 
 	if len(params) > 1 {
-		return DefaultConfigRoot, extraConfigPath, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
+		return DefaultConfigRoot, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
 	}
+
 	if len(params) == 0 {
-		return DefaultConfigRoot, extraConfigPath, nil
+		return DefaultConfigRoot, nil
 	}
+
 	configRoot, err := validateConfigRootPath(params[0])
 	if err != nil {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
+		return DefaultConfigRoot, err
 	}
-	return configRoot, FixExtraConfigPath(configRoot), nil
+
+	return configRoot, nil
 }

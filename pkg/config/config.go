@@ -99,7 +99,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 	// to learn about the config root, and the most robust way (bar only)
 	// to learn about the parameters is using flags.Parse(), so be it.
 	// the action will waste few cycles but is expected to be idempotent.
-	configRoot, extraConfigPath, err = FromFlags(&tmp, args...)
+	configRoot, err = FromFlags(&tmp, args...)
 	if err != nil {
 		return pArgs, err
 	}
@@ -119,7 +119,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 		klog.Infof("config defaults:{{\n%s}}", pArgs.ToYAMLString())
 	}
 
-	err = FromFiles(&pArgs, configRoot, extraConfigPath)
+	err = FromFiles(&pArgs, configRoot)
 	if err != nil {
 		return pArgs, err
 	}
@@ -132,7 +132,7 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 		klog.Infof("config from environment variables:{{\n%s}}", pArgs.ToYAMLString())
 	}
 
-	_, _, err = FromFlags(&pArgs, args...)
+	_, err = FromFlags(&pArgs, args...)
 	if err != nil {
 		return pArgs, err
 	}
