@@ -188,7 +188,7 @@ func ensureNotifyFilePath(notifyFilePath_ string) error {
 	}
 
 	baseDir := filepath.Dir(notifyFilePath)
-	err := os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0750)
 	if err != nil {
 		klog.Infof("error creating the notify path %q: %v", baseDir, err)
 		return err
