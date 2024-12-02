@@ -108,20 +108,12 @@ Special targets:
 	}
 
 	params := flags.Args()
-	extraConfigPath, err := validateConfigRootPath(configPath)
-	if err != nil {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
-	}
-
 	if len(params) > 1 {
-		return DefaultConfigRoot, extraConfigPath, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
+		return DefaultConfigRoot, configPath, fmt.Errorf("too many config roots given (%d), currently supported up to 1", len(params))
 	}
 	if len(params) == 0 {
-		return DefaultConfigRoot, extraConfigPath, nil
+		return DefaultConfigRoot, configPath, nil
 	}
-	configRoot, err := validateConfigRootPath(params[0])
-	if err != nil {
-		return DefaultConfigRoot, LegacyExtraConfigPath, err
-	}
+	configRoot := params[0]
 	return configRoot, FixExtraConfigPath(configRoot), nil
 }
