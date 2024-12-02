@@ -25,7 +25,7 @@ import (
 )
 
 func TestSetDefaults(t *testing.T) {
-	closer := setupTest(t)
+	_, closer := setupTest(t)
 	t.Cleanup(closer)
 
 	pArgs := ProgArgs{}

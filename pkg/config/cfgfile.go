@@ -44,6 +44,12 @@ func FixExtraConfigPath(configRoot string) string {
 }
 
 func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
+	if configRoot == "" {
+		return errors.New("configRoot is not allowed to be an empty string")
+	}
+	if extraConfigPath == "" {
+		return errors.New("extraConfigPath is not allowed to be an empty string")
+	}
 	err := fromDaemonFiles(pArgs, configRoot)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -94,17 +100,17 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 
 	// this directory may be missing, that's expected and fine
 	configletDir := filepath.Join(configPathRoot, "daemon", "config.yaml.d")
-	if configLets, err := os.ReadDir(configletDir); err == nil {
-		for _, configLet := range configLets {
-			if !configLet.Type().IsRegular() {
-				klog.Infof("configlet %q not regular file: ignored", configLet.Name())
+	if configlets, err := ReadConfigletDir(configletDir); err == nil {
+		for _, configlet := range configlets {
+			if !configlet.Type().IsRegular() {
+				klog.Infof("configlet %q not regular file: ignored", configlet.Name())
 				continue
 			}
-			configLetPath := filepath.Join(configletDir, configLet.Name())
+			configletPath := filepath.Join(configletDir, configlet.Name())
 			if pArgs.Global.Debug {
-				klog.Infof("loading configlet: %q", configLetPath)
+				klog.Infof("loading configlet: %q", configletPath)
 			}
-			err = loadConfiglet(confObj, configLetPath)
+			err = loadConfiglet(confObj, configletPath)
 			if err != nil {
 				return err
 			}
@@ -118,11 +124,11 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 }
 
 func loadConfiglet(confObj map[string]interface{}, configPath string) error {
-	obj := make(map[string]interface{})
-	data, err := os.ReadFile(configPath)
+	data, err := ReadConfiglet(configPath)
 	if err != nil {
 		return err
 	}
+	obj := make(map[string]interface{})
 	err = yaml.Unmarshal(data, &obj)
 	if err != nil {
 		return err
@@ -179,7 +185,7 @@ type config struct {
 
 func readExtraConfig(configPath string) (config, error) {
 	conf := config{}
-	data, err := os.ReadFile(configPath)
+	data, err := ReadConfiglet(configPath)
 	if err != nil {
 		// config is optional
 		if errors.Is(err, os.ErrNotExist) {

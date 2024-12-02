@@ -114,5 +114,6 @@ Special targets:
 	if len(params) == 0 {
 		return DefaultConfigRoot, configPath, nil
 	}
-	return params[0], FixExtraConfigPath(params[0]), nil
+	configRoot := params[0]
+	return configRoot, FixExtraConfigPath(configRoot), nil
 }
