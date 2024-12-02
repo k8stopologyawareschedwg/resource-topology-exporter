@@ -100,7 +100,7 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 
 	// this directory may be missing, that's expected and fine
 	configletDir := filepath.Join(configPathRoot, "daemon", "config.yaml.d")
-	if configlets, err := os.ReadDir(configletDir); err == nil {
+	if configlets, err := ReadConfigletDir(configletDir); err == nil {
 		for _, configlet := range configlets {
 			if !configlet.Type().IsRegular() {
 				klog.Infof("configlet %q not regular file: ignored", configlet.Name())
