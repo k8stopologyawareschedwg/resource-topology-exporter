@@ -44,19 +44,17 @@ func FixExtraConfigPath(configRoot string) string {
 }
 
 func FromFiles(pArgs *ProgArgs, configRoot, extraConfigPath string) error {
-	cfgRoot, err := validateConfigRootPath(configRoot)
-	if err != nil {
-		return err
+	if configRoot == "" {
+		return errors.New("configRoot is not allowed to be an empty string")
 	}
-	extraCfgPath, err := validateConfigRootPath(extraConfigPath)
-	if err != nil {
-		return err
+	if extraConfigPath == "" {
+		return errors.New("extraConfigPath is not allowed to be an empty string")
 	}
-	err = fromDaemonFiles(pArgs, cfgRoot)
+	err := fromDaemonFiles(pArgs, configRoot)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return fromExtraFile(pArgs, extraCfgPath)
+	return fromExtraFile(pArgs, extraConfigPath)
 }
 
 func fromExtraFile(pArgs *ProgArgs, extraConfigPath string) error {
@@ -108,11 +106,7 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 				klog.Infof("configlet %q not regular file: ignored", configlet.Name())
 				continue
 			}
-			configletPath, err := validateConfigPath(filepath.Join(configletDir, configlet.Name()))
-			if err != nil {
-				klog.Infof("could not load %q: %v", configlet.Name(), err)
-				continue
-			}
+			configletPath := filepath.Join(configletDir, configlet.Name())
 			if pArgs.Global.Debug {
 				klog.Infof("loading configlet: %q", configletPath)
 			}
@@ -130,11 +124,11 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 }
 
 func loadConfiglet(confObj map[string]interface{}, configPath string) error {
-	obj := make(map[string]interface{})
-	data, err := os.ReadFile(configPath)
+	data, err := ReadConfiglet(configPath)
 	if err != nil {
 		return err
 	}
+	obj := make(map[string]interface{})
 	err = yaml.Unmarshal(data, &obj)
 	if err != nil {
 		return err
@@ -191,7 +185,7 @@ type config struct {
 
 func readExtraConfig(configPath string) (config, error) {
 	conf := config{}
-	data, err := os.ReadFile(configPath)
+	data, err := ReadConfiglet(configPath)
 	if err != nil {
 		// config is optional
 		if errors.Is(err, os.ErrNotExist) {
