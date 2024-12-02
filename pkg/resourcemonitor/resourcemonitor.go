@@ -454,7 +454,7 @@ func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfinger
 		if !allowFilter(pr) {
 			continue
 		}
-		fp.AddPod(pr)
+		_ = fp.AddPod(pr)
 	}
 	return fp.Sign()
 }
@@ -598,7 +598,7 @@ func cpuCapacity(topo *ghw.TopologyInfo, nodeID int) int64 {
 func addNodeInformerEvent(c kubernetes.Interface, handler cache.ResourceEventHandlerFuncs) error {
 	factory := informers.NewSharedInformerFactory(c, 0)
 	nodeInformer := factory.Core().V1().Nodes().Informer()
-	nodeInformer.AddEventHandler(handler)
+	_, _ = nodeInformer.AddEventHandler(handler)
 	ctx := context.Background()
 	factory.Start(ctx.Done())
 	if !cache.WaitForCacheSync(ctx.Done(), nodeInformer.HasSynced) {
