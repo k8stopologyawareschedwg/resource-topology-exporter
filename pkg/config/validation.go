@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -43,35 +44,55 @@ func Validate(pArgs *ProgArgs) error {
 	return nil
 }
 
-func validateConfigPath(configletPath string) (string, error) {
-	configRoot := filepath.Clean(configletPath)
+func ReadConfigletDir(configPath string) ([]fs.DirEntry, error) {
+	// to make gosec happy, the validation logic must be in the same function on which we call `os.ReadFile`.
+	// IOW, it seems the linter cannot track variable sanitization across functions.
+	configRoot := filepath.Clean(configPath)
 	cfgRoot, err := filepath.EvalSymlinks(configRoot)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			// reset to original value, it somehow passed the symlink check
 			cfgRoot = configRoot
 		} else {
-			return "", fmt.Errorf("failed to validate configRoot path: %w", err)
+			return nil, fmt.Errorf("failed to validate config path: %w", err)
 		}
 	}
 	// else either success or checking a non-existing path. Which can be still OK.
 
 	pattern, err := IsConfigRootAllowed(cfgRoot, UserRunDir, UserHomeDir)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if pattern == "" {
-		return "", fmt.Errorf("failed to validate configRoot path %q: does not match any allowed pattern", cfgRoot)
+		return nil, fmt.Errorf("failed to validate configRoot path %q: does not match any allowed pattern", cfgRoot)
 	}
-	return cfgRoot, nil
-
+	return os.ReadDir(cfgRoot)
 }
 
-func validateConfigRootPath(configRoot string) (string, error) {
-	if configRoot == "" {
-		return "", fmt.Errorf("configRoot is not allowed to be an empty string")
+func ReadConfiglet(configPath string) ([]byte, error) {
+	// to make gosec happy, the validation logic must be in the same function on which we call `os.ReadFile`.
+	// IOW, it seems the linter cannot track variable sanitization across functions.
+	configRoot := filepath.Clean(configPath)
+	cfgRoot, err := filepath.EvalSymlinks(configRoot)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// reset to original value, it somehow passed the symlink check
+			cfgRoot = configRoot
+		} else {
+			return nil, fmt.Errorf("failed to validate config path: %w", err)
+		}
 	}
-	return validateConfigPath(configRoot)
+	// else either success or checking a non-existing path. Which can be still OK.
+
+	pattern, err := IsConfigRootAllowed(cfgRoot, UserRunDir, UserHomeDir)
+	if err != nil {
+		return nil, err
+	}
+	if pattern == "" {
+		return nil, fmt.Errorf("failed to validate configRoot path %q: does not match any allowed pattern", cfgRoot)
+	}
+
+	return os.ReadFile(cfgRoot)
 }
 
 // IsConfigRootAllowed checks if an *already cleaned and canonicalized* path is among the allowed list.
