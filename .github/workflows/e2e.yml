@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   e2e-ic:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       # TODO
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawarewg/resource-topology-exporter:ci
@@ -22,12 +22,12 @@ jobs:
       RTE_VERBOSE: 6
     steps:
     - name: checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: setup golang
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       id: go
       with:
         go-version: 1.19.3
