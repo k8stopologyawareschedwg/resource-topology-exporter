@@ -15,19 +15,19 @@ defaults:
 
 jobs:
   release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawareschedwg/resource-topology-exporter
       E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
       E2E_TOPOLOGY_MANAGER_SCOPE: container
     steps:
     - name: checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: setup golang
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       id: go
       with:
         go-version: 1.19.3
@@ -118,7 +118,7 @@ jobs:
 
     - name: archive kind logs
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: kind-logs
         path: /tmp/kind-logs
