@@ -19,12 +19,20 @@ package metrics
 import (
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-var nodeName string
+type Environ struct {
+	NodeName string
+	Logger   logr.Logger
+}
+
+var env Environ
 
 var (
 	PodResourceApiCallsFailure = promauto.With(ctrlmetrics.Registry).NewCounterVec(prometheus.CounterOpts{
@@ -50,7 +58,7 @@ var (
 
 func UpdateNodeResourceTopologyWritesMetric(operation, trigger string) {
 	NodeResourceTopologyWrites.With(prometheus.Labels{
-		"node":      nodeName,
+		"node":      env.NodeName,
 		"operation": operation,
 		"trigger":   trigger,
 	}).Inc()
@@ -58,14 +66,14 @@ func UpdateNodeResourceTopologyWritesMetric(operation, trigger string) {
 
 func UpdatePodResourceApiCallsFailureMetric(funcName string) {
 	PodResourceApiCallsFailure.With(prometheus.Labels{
-		"node":          nodeName,
+		"node":          env.NodeName,
 		"function_name": funcName,
 	}).Inc()
 }
 
 func UpdateOperationDelayMetric(opName, trigger string, operationDelay float64) {
 	OperationDelay.With(prometheus.Labels{
-		"node":           nodeName,
+		"node":           env.NodeName,
 		"operation_name": opName,
 		"trigger":        trigger,
 	}).Set(operationDelay)
@@ -73,15 +81,21 @@ func UpdateOperationDelayMetric(opName, trigger string, operationDelay float64) 
 
 func UpdateWakeupDelayMetric(trigger string, wakeupDelay float64) {
 	WakeupDelay.With(prometheus.Labels{
-		"node":    nodeName,
+		"node":    env.NodeName,
 		"trigger": trigger,
 	}).Set(wakeupDelay)
 }
 
 func Setup(nname string) error {
+	return SetupWithEnviron(Environ{
+		NodeName: nname,
+	})
+}
+
+func SetupWithEnviron(ev Environ) error {
 	var err error
 	var ok bool
-	var val string = nname
+	var val string = ev.NodeName
 	if val == "" {
 		val, ok = os.LookupEnv("NODE_NAME")
 		if !ok {
@@ -91,11 +105,15 @@ func Setup(nname string) error {
 	if err != nil {
 		return err
 	}
-	nodeName = val
+	ev.NodeName = val
+	if ev.Logger.Enabled() {
+		ctrllog.SetLogger(ev.Logger)
+	}
+	env = ev
 	return nil
 }
 
 // GetNodeName is meant for testing purposes
 func GetNodeName() string {
-	return nodeName
+	return env.NodeName
 }

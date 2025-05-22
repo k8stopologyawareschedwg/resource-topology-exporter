@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/config"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
@@ -53,6 +54,14 @@ func main() {
 		os.Exit(0)
 	}
 
+	// do as early as possible to make sure to fix the logger
+	err = metrics.SetupWithEnviron(metrics.Environ{
+		Logger: textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(parsedArgs.Global.Verbose))),
+	})
+	if err != nil {
+		klog.Fatalf("failed to setup metrics: %v", err)
+	}
+
 	k8scli, err := k8shelpers.GetK8sClient(parsedArgs.Global.KubeConfig)
 	if err != nil {
 		klog.Fatalf("failed to get a kubernetes core client: %v", err)
@@ -83,10 +92,6 @@ func main() {
 		}
 	}
 
-	err = metrics.Setup("")
-	if err != nil {
-		klog.Fatalf("failed to setup metrics: %v", err)
-	}
 	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewConfig(parsedArgs.RTE.MetricsAddress, parsedArgs.RTE.MetricsPort, parsedArgs.RTE.MetricsTLSCfg))
 	if err != nil {
 		klog.Fatalf("failed to setup metrics server: %v", err)
