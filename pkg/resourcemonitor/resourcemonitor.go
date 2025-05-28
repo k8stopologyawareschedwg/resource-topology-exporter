@@ -236,20 +236,21 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		return ScanResponse{}, err
 	}
 
+	respPodRes := resp.GetPodResources()
+	klog.V(6).InfoS("podresources list", "pods", collectPodsFromPodResources(respPodRes))
+
 	st := podfingerprint.MakeStatus(rm.nodeName)
 	scanRes := ScanResponse{
 		Attributes:  topologyv1alpha2.AttributeList{},
 		Annotations: map[string]string{},
 	}
 
-	respPodRes := resp.GetPodResources()
-
 	if rm.args.PodSetFingerprint {
-		podresFilter := numalocality.Required
+		podresVerify := numalocality.Verify
 		if rm.args.PodSetFingerprintMethod == podfingerprint.MethodAll {
-			podresFilter = podresfilter.AlwaysPass
+			podresVerify = podresfilter.VerifyAlwaysPass
 		}
-		pfpSign := ComputePodFingerprint(respPodRes, &st, podresFilter)
+		pfpSign := computePodFingerprintFromPodResources(respPodRes, &st, podresVerify)
 		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
 			Name:  podfingerprint.Attribute,
 			Value: pfpSign,
@@ -434,6 +435,37 @@ func (rm *resourceMonitor) updateNodeResources() error {
 	return nil
 }
 
+func computePodFingerprintFromPodResources(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, verifyFunc func(*podresourcesapi.PodResources) podresfilter.Result) string {
+	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
+	for _, pr := range podRes {
+		res := verifyFunc(pr)
+		if !res.Allow {
+			continue
+		}
+		_ = fp.AddPod(pr)
+	}
+	return fp.Sign()
+}
+
+func collectPodsFromPodResources(podRes []*podresourcesapi.PodResources) string {
+	var sb strings.Builder
+	for _, pr := range podRes {
+		desc := ""
+		nl := numalocality.Verify(pr)
+		if nl.Allow {
+			desc = "/" + nl.Ident + "=" + nl.Reason
+		}
+		// note the separator is 2 spaces
+		sb.WriteString("  " + pr.Namespace + "/" + pr.Name + desc)
+	}
+	val := sb.String()
+	if len(val) == 0 {
+		return ""
+	}
+	return val[2:]
+}
+
+// GetAllContainerDevices is deprecated and will be unexported in a future version
 func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace string, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
 	allCntRes := []*podresourcesapi.ContainerDevices{}
 	for _, pr := range podRes {
@@ -448,6 +480,7 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 	return allCntRes
 }
 
+// ComputePodFingerprint is deprecated and will be unexported in a future version
 func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, allowFilter func(*podresourcesapi.PodResources) bool) string {
 	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
 	for _, pr := range podRes {
