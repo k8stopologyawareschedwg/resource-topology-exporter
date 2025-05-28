@@ -18,38 +18,66 @@ package numalocality
 
 import (
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
 )
 
-func AlwaysPass(_ *podresourcesapi.PodResources) bool {
-	return true
-}
+const (
+	CPU    string = "cpu"
+	Memory string = "memory"
+	Device string = "device"
+)
 
-func Required(pr *podresourcesapi.PodResources) bool {
+func Verify(pr *podresourcesapi.PodResources) podresfilter.Result {
 	if pr == nil {
-		return false
+		return podresfilter.Result{
+			Allow: false,
+		}
 	}
 	for _, cr := range pr.Containers {
 		// there's no correct order for checks here, or faster.
 		// CPUs are the most frequent (because there's always here) exclusively
 		// assigned devices, so we start from here.
 		if len(cr.CpuIds) > 0 {
-			// exclusive CPUs
-			return true
+			return podresfilter.Result{
+				Allow:  true,
+				Ident:  cr.Name,
+				Reason: CPU,
+			}
 		}
 		for _, mem := range cr.Memory {
 			if IsPresent(mem.Topology) {
-				// exclusive memory
-				return true
+				return podresfilter.Result{
+					Allow:  true,
+					Ident:  cr.Name,
+					Reason: Memory,
+				}
 			}
 		}
 		for _, dev := range cr.Devices {
 			if len(dev.DeviceIds) > 0 && IsPresent(dev.Topology) {
-				// exclusive device
-				return true
+				return podresfilter.Result{
+					Allow:  true,
+					Ident:  cr.Name,
+					Reason: Device,
+				}
 			}
 		}
 	}
-	return false
+	return podresfilter.Result{
+		Allow: false,
+	}
+}
+
+// AlwaysPass is deprecated; if needed use pkg/pkodres/filter.VerifyAlwaysPass
+func AlwaysPass(_ *podresourcesapi.PodResources) bool {
+	return true
+}
+
+// Required is deprecated: use Verify instead
+func Required(pr *podresourcesapi.PodResources) bool {
+	got := Verify(pr)
+	return got.Allow
 }
 
 func IsPresent(topo *podresourcesapi.TopologyInfo) bool {
