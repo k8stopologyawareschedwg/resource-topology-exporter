@@ -6,7 +6,7 @@ import (
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 )
 
-func TestRequired(t *testing.T) {
+func TestVerify(t *testing.T) {
 	type testCase struct {
 		name     string
 		pr       *podresourcesapi.PodResources
@@ -87,8 +87,8 @@ func TestRequired(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := Required(tc.pr)
-			if tc.expected != got {
+			got := Verify(tc.pr)
+			if tc.expected != got.Allow {
 				t.Fatalf("expected=%v got=%v", tc.expected, got)
 			}
 		})
