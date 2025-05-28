@@ -20,6 +20,20 @@ import (
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 )
 
-func AlwaysPass(_ *podresourcesapi.PodResources) bool {
-	return true
+type Result struct {
+	Allow  bool
+	Ident  string // identifier of the object which drove the decision
+	Reason string // snakeCase single identifier reason of why the decision
+}
+
+func VerifyAlwaysPass(_ *podresourcesapi.PodResources) Result {
+	return Result{
+		Allow: true,
+	}
+}
+
+// AlwaysPass is deprecated: use VerifyAlwaysPass instead
+func AlwaysPass(pr *podresourcesapi.PodResources) bool {
+	ret := VerifyAlwaysPass(pr)
+	return ret.Allow
 }
