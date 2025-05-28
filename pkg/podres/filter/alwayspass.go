@@ -23,7 +23,7 @@ import (
 type Result struct {
 	Allow  bool
 	Ident  string // identifier of the object which drove the decision
-	Reason string // CamelCase single identifier reason of why the decision
+	Reason string // snakeCase single identifier reason of why the decision
 }
 
 func VerifyAlwaysPass(_ *podresourcesapi.PodResources) Result {
