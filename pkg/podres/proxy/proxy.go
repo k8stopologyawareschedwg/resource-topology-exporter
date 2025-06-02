@@ -24,9 +24,9 @@ import (
 
 	criutil "k8s.io/cri-client/pkg/util"
 	"k8s.io/klog/v2"
-	podresourcesv1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
+	podresourcesv1 "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 )
 
 // Proxy implements PodResourcesListerServer

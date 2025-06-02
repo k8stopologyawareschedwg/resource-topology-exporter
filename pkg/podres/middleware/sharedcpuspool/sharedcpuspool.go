@@ -10,9 +10,10 @@ import (
 	"google.golang.org/grpc"
 
 	"k8s.io/klog/v2"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"k8s.io/utils/cpuset"
+
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 )
 
 type ContainerIdent struct {

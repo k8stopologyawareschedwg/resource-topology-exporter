@@ -30,7 +30,8 @@ import (
 	informerscorve1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 )
 
 const terminalFieldSelector = "status.phase==Failed,status.phase==Succeeded"

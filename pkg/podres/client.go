@@ -27,7 +27,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"k8s.io/klog/v2"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 )
 
 const (

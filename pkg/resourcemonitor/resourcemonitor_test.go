@@ -23,10 +23,10 @@ import (
 	"strings"
 	"testing"
 
+	// to make the mock happy
+	v1 "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
-	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	cmp "github.com/google/go-cmp/cmp"
 	"github.com/jaypipes/ghw"
@@ -183,12 +183,12 @@ func TestNormalizeContainerDevices(t *testing.T) {
 
 	Convey("When normalizing the container devices from pod resources", t, func() {
 		res := NormalizeContainerDevices(availRes.GetDevices(), availRes.GetMemory(), availRes.GetCpuIds(), coreIDToNodeIDMap)
-		expected := []*podresourcesapi.ContainerDevices{
+		expected := []*v1.ContainerDevices{
 			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-0"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 0,
 						},
@@ -198,8 +198,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-1"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 0,
 						},
@@ -209,8 +209,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-2"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 0,
 						},
@@ -220,8 +220,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netAAA-3"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 0,
 						},
@@ -231,8 +231,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netBBB-0"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 1,
 						},
@@ -242,8 +242,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "fake.io/net",
 				DeviceIds:    []string{"netBBB-1"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 1,
 						},
@@ -253,8 +253,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "fake.io/gpu",
 				DeviceIds:    []string{"gpuAAA"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 1,
 						},
@@ -264,8 +264,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "cpu",
 				DeviceIds:    []string{"0", "2", "4", "6", "8", "10", "12", "14", "16", "18", "20", "22"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 0,
 						},
@@ -275,8 +275,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "cpu",
 				DeviceIds:    []string{"1", "3", "5", "7", "9", "11", "13", "15", "17", "19", "21", "23"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 1,
 						},
@@ -286,8 +286,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "memory",
 				DeviceIds:    []string{"1024"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 0,
 						},
@@ -297,8 +297,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "memory",
 				DeviceIds:    []string{"1024"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 1,
 						},
@@ -308,8 +308,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			{
 				ResourceName: "hugepages-2Mi",
 				DeviceIds:    []string{"1024"},
-				Topology: &podresourcesapi.TopologyInfo{
-					Nodes: []*podresourcesapi.NUMANode{
+				Topology: &v1.TopologyInfo{
+					Nodes: []*v1.NUMANode{
 						{
 							ID: 1,
 						},
