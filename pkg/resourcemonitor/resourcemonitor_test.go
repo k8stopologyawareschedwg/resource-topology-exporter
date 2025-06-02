@@ -453,9 +453,19 @@ func TestResourcesScan(t *testing.T) {
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
+		listRes := &v1.ListPodResourcesResponse{
+			PodResources: []*v1.PodResources{},
+			AppliedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			SupportedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+		}
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
+		mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(listRes, nil)
 		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
@@ -525,10 +535,6 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			resp := &v1.ListPodResourcesResponse{
-				PodResources: []*v1.PodResources{},
-			}
-			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			scanRes, err := resMon.Scan(ResourceExclude{}) // no pods allocation
 			So(err, ShouldBeNil)
 
@@ -550,9 +556,19 @@ func TestResourcesScan(t *testing.T) {
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
+		listRes := &v1.ListPodResourcesResponse{
+			PodResources: []*v1.PodResources{},
+			AppliedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			SupportedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+		}
 
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
+		mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(listRes, nil)
 		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
 
@@ -622,10 +638,6 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			resp := &v1.ListPodResourcesResponse{
-				PodResources: []*v1.PodResources{},
-			}
-			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			scanRes, err := resMon.Scan(ResourceExclude{}) // no pods allocation
 			So(err, ShouldBeNil)
 
@@ -703,31 +715,29 @@ func TestResourcesScan(t *testing.T) {
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
-
-		mockPodResClient := new(podres.MockPodResourcesListerClient)
-		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
-		So(err, ShouldBeNil)
-
-		Convey("When aggregating resources", func() {
-			resp := &v1.ListPodResourcesResponse{
-				PodResources: []*v1.PodResources{
-					{
-						Name:      "test-pod-0",
-						Namespace: "default",
-						Containers: []*v1.ContainerResources{
-							{
-								Name:   "test-cnt-0",
-								CpuIds: []int64{5, 7},
-								Devices: []*v1.ContainerDevices{
-									{
-										ResourceName: "fake.io/net",
-										DeviceIds:    []string{"netBBB"},
-										Topology: &v1.TopologyInfo{
-											Nodes: []*v1.NUMANode{
-												{
-													ID: 1,
-												},
+		listRes := &v1.ListPodResourcesResponse{
+			AppliedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			SupportedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			PodResources: []*v1.PodResources{
+				{
+					Name:      "test-pod-0",
+					Namespace: "default",
+					Containers: []*v1.ContainerResources{
+						{
+							Name:   "test-cnt-0",
+							CpuIds: []int64{5, 7},
+							Devices: []*v1.ContainerDevices{
+								{
+									ResourceName: "fake.io/net",
+									DeviceIds:    []string{"netBBB"},
+									Topology: &v1.TopologyInfo{
+										Nodes: []*v1.NUMANode{
+											{
+												ID: 1,
 											},
 										},
 									},
@@ -736,8 +746,16 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-			}
+			},
+		}
 
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
+		mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(listRes, nil)
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		So(err, ShouldBeNil)
+
+		Convey("When aggregating resources", func() {
 			expected := topologyv1alpha2.ZoneList{
 				topologyv1alpha2.Zone{
 					Name: "node-0",
@@ -821,7 +839,6 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
 
@@ -874,31 +891,23 @@ func TestResourcesScan(t *testing.T) {
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
-
-		mockPodResClient := new(podres.MockPodResourcesListerClient)
-		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
-		So(err, ShouldBeNil)
-
-		Convey("When aggregating resources", func() {
-			resp := &v1.ListPodResourcesResponse{
-				PodResources: []*v1.PodResources{
-					{
-						Name:      "test-pod-0",
-						Namespace: "default",
-						Containers: []*v1.ContainerResources{
-							{
-								Name:   "test-cnt-0",
-								CpuIds: []int64{5, 7},
-								Devices: []*v1.ContainerDevices{
-									{
-										ResourceName: "fake.io/net",
-										DeviceIds:    []string{"netBBB"},
-										Topology: &v1.TopologyInfo{
-											Nodes: []*v1.NUMANode{
-												{
-													ID: 1,
-												},
+		listRes := &v1.ListPodResourcesResponse{
+			PodResources: []*v1.PodResources{
+				{
+					Name:      "test-pod-0",
+					Namespace: "default",
+					Containers: []*v1.ContainerResources{
+						{
+							Name:   "test-cnt-0",
+							CpuIds: []int64{5, 7},
+							Devices: []*v1.ContainerDevices{
+								{
+									ResourceName: "fake.io/net",
+									DeviceIds:    []string{"netBBB"},
+									Topology: &v1.TopologyInfo{
+										Nodes: []*v1.NUMANode{
+											{
+												ID: 1,
 											},
 										},
 									},
@@ -907,8 +916,22 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-			}
+			},
+			AppliedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			SupportedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+		}
 
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
+		mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(listRes, nil)
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		So(err, ShouldBeNil)
+
+		Convey("When aggregating resources", func() {
 			expected := topologyv1alpha2.ZoneList{
 				topologyv1alpha2.Zone{
 					Name: "node-0",
@@ -992,7 +1015,6 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
 
@@ -1098,30 +1120,23 @@ func TestResourcesScan(t *testing.T) {
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
-		mockPodResClient := new(podres.MockPodResourcesListerClient)
-		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{RefreshNodeResources: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
-		So(err, ShouldBeNil)
-
-		Convey("When aggregating resources", func() {
-			resp := &v1.ListPodResourcesResponse{
-				PodResources: []*v1.PodResources{
-					{
-						Name:      "test-pod-0",
-						Namespace: "default",
-						Containers: []*v1.ContainerResources{
-							{
-								Name:   "test-cnt-0",
-								CpuIds: []int64{5, 7},
-								Devices: []*v1.ContainerDevices{
-									{
-										ResourceName: "fake.io/net",
-										DeviceIds:    []string{"netBBB"},
-										Topology: &v1.TopologyInfo{
-											Nodes: []*v1.NUMANode{
-												{
-													ID: 1,
-												},
+		listRes := &v1.ListPodResourcesResponse{
+			PodResources: []*v1.PodResources{
+				{
+					Name:      "test-pod-0",
+					Namespace: "default",
+					Containers: []*v1.ContainerResources{
+						{
+							Name:   "test-cnt-0",
+							CpuIds: []int64{5, 7},
+							Devices: []*v1.ContainerDevices{
+								{
+									ResourceName: "fake.io/net",
+									DeviceIds:    []string{"netBBB"},
+									Topology: &v1.TopologyInfo{
+										Nodes: []*v1.NUMANode{
+											{
+												ID: 1,
 											},
 										},
 									},
@@ -1130,8 +1145,21 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-			}
+			},
+			AppliedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			SupportedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+		}
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
+		mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(listRes, nil)
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{RefreshNodeResources: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		So(err, ShouldBeNil)
 
+		Convey("When aggregating resources", func() {
 			expected := topologyv1alpha2.ZoneList{
 				topologyv1alpha2.Zone{
 					Name: "node-0",
@@ -1215,7 +1243,6 @@ func TestResourcesScan(t *testing.T) {
 				},
 			}
 
-			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
 
@@ -1267,73 +1294,23 @@ func TestResourcesScan(t *testing.T) {
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
 		}
-
-		mockPodResClient := new(podres.MockPodResourcesListerClient)
-		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
-		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{PodSetFingerprint: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
-		So(err, ShouldBeNil)
-
-		Convey("When aggregating resources", func() {
-			allocRes := &v1.AllocatableResourcesResponse{
-				Devices: []*v1.ContainerDevices{
-					{
-						ResourceName: "fake.io/net",
-						DeviceIds:    []string{"netAAA"},
-						Topology: &v1.TopologyInfo{
-							Nodes: []*v1.NUMANode{
+		listRes := &v1.ListPodResourcesResponse{
+			PodResources: []*v1.PodResources{
+				{
+					Name:      "test-pod-0",
+					Namespace: "default",
+					Containers: []*v1.ContainerResources{
+						{
+							Name:   "test-cnt-0",
+							CpuIds: []int64{5, 7},
+							Devices: []*v1.ContainerDevices{
 								{
-									ID: 0,
-								},
-							},
-						},
-					},
-					{
-						ResourceName: "fake.io/net",
-						DeviceIds:    []string{"netBBB"},
-						Topology: &v1.TopologyInfo{
-							Nodes: []*v1.NUMANode{
-								{
-									ID: 1,
-								},
-							},
-						},
-					},
-					{
-						ResourceName: "fake.io/gpu",
-						DeviceIds:    []string{"gpuAAA"},
-						Topology: &v1.TopologyInfo{
-							Nodes: []*v1.NUMANode{
-								{
-									ID: 1,
-								},
-							},
-						},
-					},
-				},
-				CpuIds: []int64{
-					0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-					12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-				},
-			}
-
-			resp := &v1.ListPodResourcesResponse{
-				PodResources: []*v1.PodResources{
-					{
-						Name:      "test-pod-0",
-						Namespace: "default",
-						Containers: []*v1.ContainerResources{
-							{
-								Name:   "test-cnt-0",
-								CpuIds: []int64{5, 7},
-								Devices: []*v1.ContainerDevices{
-									{
-										ResourceName: "fake.io/net",
-										DeviceIds:    []string{"netBBB"},
-										Topology: &v1.TopologyInfo{
-											Nodes: []*v1.NUMANode{
-												{
-													ID: 1,
-												},
+									ResourceName: "fake.io/net",
+									DeviceIds:    []string{"netBBB"},
+									Topology: &v1.TopologyInfo{
+										Nodes: []*v1.NUMANode{
+											{
+												ID: 1,
 											},
 										},
 									},
@@ -1342,19 +1319,75 @@ func TestResourcesScan(t *testing.T) {
 						},
 					},
 				},
-			}
+			},
+			AppliedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+			SupportedFilters: &v1.ListPodResourcesFilterResponse{
+				ActiveOnly: true,
+			},
+		}
 
-			mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
+		mockPodResClient := new(podres.MockPodResourcesListerClient)
+		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
+		mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(listRes, nil)
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{PodSetFingerprint: true}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		So(err, ShouldBeNil)
+
+		Convey("When aggregating resources", func() {
+			/*
+				allocRes := &v1.AllocatableResourcesResponse{
+					Devices: []*v1.ContainerDevices{
+						{
+							ResourceName: "fake.io/net",
+							DeviceIds:    []string{"netAAA"},
+							Topology: &v1.TopologyInfo{
+								Nodes: []*v1.NUMANode{
+									{
+										ID: 0,
+									},
+								},
+							},
+						},
+						{
+							ResourceName: "fake.io/net",
+							DeviceIds:    []string{"netBBB"},
+							Topology: &v1.TopologyInfo{
+								Nodes: []*v1.NUMANode{
+									{
+										ID: 1,
+									},
+								},
+							},
+						},
+						{
+							ResourceName: "fake.io/gpu",
+							DeviceIds:    []string{"gpuAAA"},
+							Topology: &v1.TopologyInfo{
+								Nodes: []*v1.NUMANode{
+									{
+										ID: 1,
+									},
+								},
+							},
+						},
+					},
+					CpuIds: []int64{
+						0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+						12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+					},
+				}
+
+				mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
+			*/
 			scanRes, err := resMon.Scan(ResourceExclude{})
+			So(err, ShouldBeNil)
 
 			expectedFP := "pfp0v001fe53c4dbd2c5f4a0" // pre-computed and validated manually
 			fp, ok := scanRes.Annotations[podfingerprint.Annotation]
 			So(ok, ShouldBeTrue)
 			log.Printf("FP %q expected %q", fp, expectedFP)
 			So(cmp.Equal(fp, expectedFP), ShouldBeTrue)
-
-			So(err, ShouldBeNil)
 		})
 	})
 
