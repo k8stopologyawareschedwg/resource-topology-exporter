@@ -35,7 +35,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 
 	"github.com/jaypipes/ghw"
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
@@ -157,6 +158,7 @@ type resourceMonitor struct {
 	coreIDToNodeIDMap map[int]int
 	nodeCapacity      perNUMAResourceCounter
 	nodeAllocatable   perNUMAResourceCounter
+	listFilters       podresourcesapi.ListPodResourcesFilterRequest
 }
 
 func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)) (*resourceMonitor, error) {
@@ -206,6 +208,12 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 	} else {
 		klog.Infof("watching all namespaces")
 	}
+
+	if err := rm.updateServerInfo(); err != nil {
+		// carry on, not critical
+		klog.Warningf("cannot get server info: %v", err)
+	}
+
 	return rm, nil
 }
 
@@ -230,7 +238,13 @@ func WithNodeName(name string) func(*resourceMonitor) {
 func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
-	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
+
+	filt := rm.listFilters // always use a local copy
+	req := podresourcesapi.ListPodResourcesRequest{
+		Filters: &filt,
+	}
+
+	resp, err := rm.podResCli.List(ctx, &req)
 	if err != nil {
 		metrics.UpdatePodResourceApiCallsFailureMetric("list")
 		return ScanResponse{}, err
@@ -239,9 +253,20 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	respPodRes := resp.GetPodResources()
 	klog.V(6).InfoS("podresources list", "pods", collectPodsFromPodResources(respPodRes))
 
+	appliedFilters := resp.GetAppliedFilters()
+	if filt.GetActiveOnly() && !appliedFilters.GetActiveOnly() {
+		metrics.UpdatePodResourceApiCallsFailureMetric("list")
+		return ScanResponse{}, fmt.Errorf("list activeOnly requested supported %v applied %v", (appliedFilters != nil), appliedFilters.GetActiveOnly())
+	}
+
 	st := podfingerprint.MakeStatus(rm.nodeName)
 	scanRes := ScanResponse{
-		Attributes:  topologyv1alpha2.AttributeList{},
+		Attributes: topologyv1alpha2.AttributeList{
+			{
+				Name:  "podListingMethod",
+				Value: podListingMethodToString(appliedFilters),
+			},
+		},
 		Annotations: map[string]string{},
 	}
 
@@ -352,6 +377,32 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		// intentionally ignore error, we must keep going.
 	}
 	return scanRes, nil
+}
+
+func podListingMethodToString(appliedFilters *podresourcesapi.ListPodResourcesFilterResponse) string {
+	if appliedFilters == nil {
+		return "all"
+	}
+	if appliedFilters.GetActiveOnly() {
+		return "activeOnly"
+	}
+	return "all"
+}
+
+func (rm *resourceMonitor) updateServerInfo() error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
+	defer cancel()
+	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
+	if err != nil {
+		return err
+	}
+	supportedFilters := resp.GetSupportedFilters()
+	if supportedFilters == nil {
+		return fmt.Errorf("server does not support filtering")
+	}
+	rm.listFilters.ActiveOnly = supportedFilters.GetActiveOnly()
+	klog.Infof("list filters: activeOnly=%v", rm.listFilters.ActiveOnly)
+	return nil
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {

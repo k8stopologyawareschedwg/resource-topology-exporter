@@ -24,7 +24,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 )
 
 func TestFilterFrom(t *testing.T) {

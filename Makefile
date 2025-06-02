@@ -155,7 +155,7 @@ _out/mockery: outdir
 
 gen-mocks: deps-update _out/mockery
 	_out/mockery \
-		--dir=$(GOPATH)/pkg/mod/k8s.io/kubelet@$(KUBELET_MOD_VERSION)/pkg/apis/podresources/v1 \
+		--dir=pkg/podres/api/v1 \
 		--name=PodResourcesListerClient \
 		--structname=MockPodResourcesListerClient \
 		--filename=mock_PodResourcesListerClient.go \

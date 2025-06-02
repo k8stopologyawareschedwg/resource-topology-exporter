@@ -17,7 +17,7 @@ limitations under the License.
 package numalocality
 
 import (
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 
 	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
 )

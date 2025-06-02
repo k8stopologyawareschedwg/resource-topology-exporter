@@ -3,7 +3,7 @@ package numalocality
 import (
 	"testing"
 
-	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+	podresourcesapi "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/api/v1"
 )
 
 func TestVerify(t *testing.T) {
