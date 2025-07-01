@@ -12,7 +12,7 @@ defaults:
 
 jobs:
   e2e-ic:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       E2E_NODE_REFERENCE: true
       E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
@@ -103,7 +103,7 @@ jobs:
       matrix:
         mode: [http, httptls]
         address: ["0.0.0.0","127.120.110.100"]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       E2E_NODE_REFERENCE: true
       E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
