@@ -15,7 +15,7 @@ defaults:
 
 jobs:
   release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       RTE_CONTAINER_IMAGE: quay.io/k8stopologyawareschedwg/resource-topology-exporter
       E2E_TOPOLOGY_MANAGER_POLICY: single-numa-node
@@ -89,7 +89,7 @@ jobs:
         pushd _dist && sha256sum * >> ../SHA256SUMS && mv ../SHA256SUMS . && popd
 
     - name: upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
         path: _dist/*
@@ -118,7 +118,7 @@ jobs:
 
     - name: archive kind logs
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: kind-logs
         path: /tmp/kind-logs
