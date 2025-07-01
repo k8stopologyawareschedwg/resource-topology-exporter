@@ -1,5 +1,5 @@
 FROM  quay.io/centos/centos:stream9
-RUN dnf install -y hwdata && dnf clean -y all
+RUN dnf install -y hwdata nc && dnf clean -y all
 ADD _out/resource-topology-exporter /bin/resource-topology-exporter
 RUN mkdir -p /etc/rte /etc/secrets/rte/tls /etc/secrets/rte/ca
 
