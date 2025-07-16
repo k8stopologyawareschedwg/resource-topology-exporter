@@ -248,7 +248,7 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 			podNamespace, podName := pod.Namespace, pod.Name
 			ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, podNamespace, podName)
 
-			currNrt = getUpdatedNRT(f.TopoCli, topologyUpdaterNode.Name, *prevNrt, updateInterval)
+			currNrt = waitForPFPUpdate(f.TopoCli, topologyUpdaterNode.Name, *prevNrt, updateInterval)
 
 			pfpChanged := expectPodFingerprint(*prevNrt, "!=", *currNrt)
 			errMessage := "PFP did not change after pod creation"
@@ -320,6 +320,34 @@ func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string,
 		}
 		return true
 	}).WithTimeout(timeout+updateIntervalExtraSafety).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+	return currNrt
+}
+
+func waitForPFPUpdate(topologyClient *topologyclientset.Clientset, nodeName string, prevNrt v1alpha2.NodeResourceTopology, timeout time.Duration) *v1alpha2.NodeResourceTopology {
+	var err error
+	var currNrt *v1alpha2.NodeResourceTopology
+	pfp1, ok1 := extractPFP(prevNrt)
+	if !ok1 {
+		return nil
+	}
+	gomega.EventuallyWithOffset(1, func() bool {
+		currNrt, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			klog.Infof("failed to get the node topology resource: %v", err)
+			return false
+		}
+
+		pfp2, ok2 := extractPFP(*currNrt)
+		if !ok2 {
+			return false
+		}
+
+		if pfp2 == pfp1 {
+			klog.Infof("PFP of %s not yet updated - resource version not bumped", nodeName)
+			return false
+		}
+		return true
+	}).WithTimeout(timeout+updateIntervalExtraSafety).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated PFP for node topology")
 	return currNrt
 }
 
