@@ -90,9 +90,7 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 	confObj := make(map[string]interface{})
 
 	configPath := filepath.Join(configPathRoot, "daemon", "config.yaml")
-	if pArgs.Global.Debug {
-		klog.Infof("loading configlet: %q", configPath)
-	}
+	klog.Infof("loading configlet: %q", configPath)
 	err := loadConfiglet(confObj, configPath)
 	if err != nil {
 		return err
@@ -103,13 +101,11 @@ func fromDaemonFiles(pArgs *ProgArgs, configPathRoot string) error {
 	if configlets, err := ReadConfigletDir(configletDir); err == nil {
 		for _, configlet := range configlets {
 			if !configlet.Type().IsRegular() {
-				klog.Infof("configlet %q not regular file: ignored", configlet.Name())
+				klog.Infof("ignored configlet: %q (not regular file)", configlet.Name())
 				continue
 			}
 			configletPath := filepath.Join(configletDir, configlet.Name())
-			if pArgs.Global.Debug {
-				klog.Infof("loading configlet: %q", configletPath)
-			}
+			klog.Infof("loading configlet: %q", configletPath)
 			err = loadConfiglet(confObj, configletPath)
 			if err != nil {
 				return err

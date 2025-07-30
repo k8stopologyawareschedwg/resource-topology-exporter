@@ -209,7 +209,7 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 	klog.V(2).Infof("resmon: machine topology: %s", toJSON(rm.topo))
 
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
-	klog.V(2).Infof("resmon: CPU mapping: %s", mapIntIntToString(rm.coreIDToNodeIDMap))
+	klog.V(2).Infof("resmon: CPU mapping [coreid:numaid]: %s", mapIntIntToString(rm.coreIDToNodeIDMap))
 
 	if err := rm.updateNodeResources(); err != nil {
 		return nil, err
