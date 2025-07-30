@@ -66,6 +66,7 @@ func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodRe
 }
 
 func NewFromLister(ctx context.Context, cli podresourcesapi.PodResourcesListerClient, kcli kubernetes.Interface, resyncPeriod time.Duration, debug bool) (podresourcesapi.PodResourcesListerClient, error) {
+	klog.V(2).Infof("terminalpods: resyncPeriod: %v", resyncPeriod)
 	tweakFunc := func(opts *metav1.ListOptions) {
 		// A pod is in a terminal state if .status.phase in (Failed, Succeeded) is true.
 		opts.FieldSelector = terminalFieldSelector
@@ -79,6 +80,7 @@ func NewFromLister(ctx context.Context, cli podresourcesapi.PodResourcesListerCl
 			return nil, fmt.Errorf("caches failed to sync: %v", v)
 		}
 	}
+	klog.Infof("terminalpods: ready")
 	return &filteringClient{
 		debug:    debug,
 		cli:      cli,
