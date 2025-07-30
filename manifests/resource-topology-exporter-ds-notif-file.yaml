@@ -58,7 +58,13 @@ spec:
           - name: metrics-port
             containerPort: ${METRICS_PORT}
       - name: shared-pool-container
-        image: gcr.io/google_containers/pause-amd64:3.0
+        args:
+        - while true; do sleep 30s; done
+        command:
+        - /bin/sh
+        - -c
+        - --
+        image: ${RTE_CONTAINER_IMAGE}
       volumes:
       - name: host-sys
         hostPath:
