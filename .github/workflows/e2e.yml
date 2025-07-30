@@ -181,6 +181,5 @@ jobs:
         _out/rte-e2e.test -ginkgo.v -ginkgo.focus='\[RTE\].*\[Monitoring\]'
 
     - name: show RTE logs
-      if: ${{ failure() }}
       run: |
         kubectl logs -c resource-topology-exporter-container $( kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -- resource-topology-exporter ) || :
