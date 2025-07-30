@@ -40,11 +40,14 @@ func (items List) Clone() List {
 }
 
 func (items List) String() string {
-	var b strings.Builder
-	for _, item := range items {
-		fmt.Fprintf(&b, "- %s/%s\n", item.NamespacePattern, item.NamePattern)
+	if len(items) == 0 {
+		return ""
 	}
-	return b.String()
+	var sb strings.Builder
+	for _, item := range items {
+		fmt.Fprintf(&sb, ", %s/%s", item.NamespacePattern, item.NamePattern)
+	}
+	return sb.String()[2:]
 }
 
 type filteringClient struct {
@@ -100,7 +103,7 @@ func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodRe
 }
 
 func NewFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, podExcludes List) podresourcesapi.PodResourcesListerClient {
-	klog.Infof("> POD excludes:\n%s", podExcludes.String())
+	klog.V(2).Infof("podexclude: ignoring: [%s]", podExcludes.String())
 	return &filteringClient{
 		debug:       debug,
 		cli:         cli,
