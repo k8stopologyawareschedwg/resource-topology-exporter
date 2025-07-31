@@ -145,8 +145,30 @@ func (rel ResourceExclude) String() string {
 // mapping resource -> count
 type resourceCounter map[v1.ResourceName]int64
 
+func (rc resourceCounter) String() string {
+	if len(rc) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for key, val := range rc {
+		fmt.Fprintf(&sb, ", %s=%d", string(key), val)
+	}
+	return sb.String()[2:] // cuts first stray ", " sep
+}
+
 // mapping numa cell -> resource counter
 type perNUMAResourceCounter map[int]resourceCounter
+
+func (nrc perNUMAResourceCounter) String() string {
+	if len(nrc) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for key, val := range nrc {
+		fmt.Fprintf(&sb, "; %d=<%s>", key, val.String())
+	}
+	return sb.String()[2:] // cuts first stray "; " sep
+}
 
 type resourceMonitor struct {
 	nodeName          string
@@ -173,7 +195,7 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 		rm.nodeName = os.Getenv("NODE_NAME")
 	}
 
-	klog.Infof("resource monitor for %q starting", rm.nodeName)
+	klog.Infof("resmon: starting for node %q", rm.nodeName)
 
 	if rm.topo == nil {
 		topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
@@ -184,27 +206,30 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 		}
 		rm.topo = topo
 	}
-
-	klog.V(3).Infof("machine topology: %s", toJSON(rm.topo))
+	klog.V(2).Infof("resmon: machine topology: %s", toJSON(rm.topo))
 
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
+	klog.V(2).Infof("resmon: CPU mapping [coreid:numaid]: %s", mapIntIntToString(rm.coreIDToNodeIDMap))
 
 	if err := rm.updateNodeResources(); err != nil {
 		return nil, err
 	}
+	klog.V(2).Infof("resmon: initial capacity for node %q: %s", rm.nodeName, rm.nodeCapacity)
+	klog.V(2).Infof("resmon: initial allocatable for node %q: %s", rm.nodeName, rm.nodeAllocatable)
+
 	if !rm.args.RefreshNodeResources {
-		klog.Infof("getting node resources once")
+		klog.Infof("resmon: getting node resources once")
 	} else {
-		klog.Infof("tracking node resources")
+		klog.Infof("resmon: tracking node resources")
 		if err := addNodeInformerEvent(rm.k8sCli, cache.ResourceEventHandlerFuncs{UpdateFunc: rm.resUpdated}); err != nil {
 			return nil, err
 		}
 	}
 
 	if rm.args.Namespace != "" {
-		klog.Infof("watching namespace %q", rm.args.Namespace)
+		klog.Infof("resmon: watching namespace %q", rm.args.Namespace)
 	} else {
-		klog.Infof("watching all namespaces")
+		klog.Infof("resmon: watching all namespaces")
 	}
 	return rm, nil
 }
@@ -237,7 +262,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	}
 
 	respPodRes := resp.GetPodResources()
-	klog.V(6).InfoS("podresources list", "pods", collectPodsFromPodResources(respPodRes))
+	klog.V(6).InfoS("resmon: podresources list", "pods", collectPodsFromPodResources(respPodRes))
 
 	st := podfingerprint.MakeStatus(rm.nodeName)
 	scanRes := ScanResponse{
@@ -260,7 +285,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 			Value: rm.args.PodSetFingerprintMethod,
 		})
 		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
-		klog.V(6).Infof("pfp: " + st.Repr())
+		klog.V(6).Infof("resmon: pfp: " + st.Repr())
 	}
 
 	allDevs := GetAllContainerDevices(respPodRes, rm.args.Namespace, rm.coreIDToNodeIDMap)
@@ -279,7 +304,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 
 		costs, err := makeCostsPerNumaNode(rm.topo.Nodes, nodeID)
 		if err != nil {
-			klog.Warningf("cannot find costs for NUMA node %d: %v", nodeID, err)
+			klog.Warningf("resmon: cannot find costs for NUMA node %d: %v", nodeID, err)
 		} else {
 			zone.Costs = costs
 		}
@@ -314,13 +339,13 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 				// in case of non-native resources, let's tolerate and let's log only when very high levels are requested.
 				// In these cases the admin knows there could be A LOT of data in the logs.
 				if isNativeResource(resName) {
-					klog.Warningf("zero capacity for native resource %q on NUMA cell %d", resName, nodeID)
+					klog.Warningf("resmon: zero capacity for native resource %q on NUMA cell %d", resName, nodeID)
 				} else {
-					klog.V(5).Infof("zero capacity for extra resource %q on NUMA cell %d", resName, nodeID)
+					klog.V(5).Infof("resmon: zero capacity for extra resource %q on NUMA cell %d", resName, nodeID)
 				}
 			}
 			if resAlloc > resCapacity {
-				klog.Warningf("allocated more than capacity for %q on zone %q", resName.String(), zone.Name)
+				klog.Warningf("resmon: allocated more than capacity for %q on zone %q", resName.String(), zone.Name)
 				// we trust more kubelet than ourselves atm.
 				resCapacity = resAlloc
 			}
@@ -329,7 +354,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 
 			resAvail := resAlloc - resUsed
 			if resAvail < 0 {
-				klog.Warningf("negative size for %q on zone %q", resName.String(), zone.Name)
+				klog.Warningf("resmon: negative size for %q on zone %q", resName.String(), zone.Name)
 				resAvail = 0
 			}
 
@@ -348,7 +373,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
 		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
 		err := toFile(st, dir, file)
-		klog.V(6).InfoS("error dumping the pfp status", "fullPath", rm.args.PodSetFingerprintStatusFile, "statusFile", file, "err", err)
+		klog.V(6).InfoS("resmon: error dumping the pfp status", "fullPath", rm.args.PodSetFingerprintStatusFile, "statusFile", file, "err", err)
 		// intentionally ignore error, we must keep going.
 	}
 	return scanRes, nil
@@ -389,9 +414,9 @@ func (rm *resourceMonitor) resUpdated(old, new interface{}) {
 	// the status frequency update are configurable via the node-status-update-frequency option in Kubelet
 	if !reflect.DeepEqual(nOld.Status.Capacity, nNew.Status.Capacity) ||
 		!reflect.DeepEqual(nOld.Status.Allocatable, nNew.Status.Allocatable) {
-		klog.V(2).Infof("update node resources")
+		klog.V(2).Infof("resmon: update node resources")
 		if err := rm.updateNodeResources(); err != nil {
-			klog.ErrorS(err, "while updating node resources")
+			klog.ErrorS(err, "resmon: while updating node resources")
 		}
 	}
 }
@@ -499,7 +524,7 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 	for _, cpuID := range cpuIds {
 		nodeID, ok := coreIDToNodeIDMap[int(cpuID)]
 		if !ok {
-			klog.Warningf("cannot find the NUMA node for CPU %d", cpuID)
+			klog.Warningf("resmon: cannot find the NUMA node for CPU %d", cpuID)
 			continue
 		}
 		cpusPerNuma[nodeID] = append(cpusPerNuma[nodeID], fmt.Sprintf("%d", cpuID))
@@ -574,7 +599,6 @@ func MakeCoreIDToNodeIDMap(topo *ghw.TopologyInfo) map[int]int {
 			}
 		}
 	}
-	klog.V(5).Infof("CPU mapping: %s", mapIntIntToString(coreToNode))
 	return coreToNode
 }
 

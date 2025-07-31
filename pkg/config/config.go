@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kloglevel"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
@@ -154,6 +155,18 @@ func Finalize(pArgs *ProgArgs) error {
 	if pArgs.NRTupdater.Hostname == "" {
 		pArgs.NRTupdater.Hostname, err = os.Hostname()
 	}
+
+	// sync back klog settings
+	kloglevel.Set(CommandLine, klog.Level(pArgs.Global.Verbose)) // for consistency
+	if pArgs.Global.Debug {
+		VL, err := kloglevel.Get(CommandLine)
+		if err != nil {
+			klog.Errorf("cannot get back klog level: %v", err)
+		} else {
+			klog.Infof("klog V=%d", VL)
+		}
+	}
+
 	return err
 }
 
