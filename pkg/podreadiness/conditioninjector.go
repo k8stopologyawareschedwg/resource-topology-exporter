@@ -60,7 +60,7 @@ func (ci *ConditionInjector) Inject(cond v1.PodCondition) error {
 		pod.Status.Conditions = conds
 	}
 
-	klog.Infof("pod conditions: %v", pod.Status.Conditions)
+	klog.V(4).Infof("pod conditions: %v", pod.Status.Conditions)
 
 	_, err = ci.cs.CoreV1().Pods(ci.ns).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{})
 	return err

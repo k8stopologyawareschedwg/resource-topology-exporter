@@ -36,7 +36,21 @@ func (ci *ContainerIdent) String() string {
 	if ci == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s/%s/%s", ci.Namespace, ci.PodName, ci.ContainerName)
+	return ci.Namespace + "/" + ci.PodName + "/" + ci.ContainerName
+}
+
+func (ci *ContainerIdent) ToString() string {
+	if ci == nil {
+		return "<nil>"
+	}
+	if ci.Namespace == "" || ci.PodName == "" {
+		return "NONE"
+	}
+	ident := ci.Namespace + "/" + ci.PodName
+	if ci.ContainerName == "" {
+		return ident
+	}
+	return ident + "/" + ci.ContainerName
 }
 
 func (ci *ContainerIdent) IsEmpty() bool {
@@ -71,7 +85,6 @@ func ContainerIdentFromString(ident string) (*ContainerIdent, error) {
 		PodName:       strings.TrimSpace(items[1]),
 		ContainerName: strings.TrimSpace(items[2]),
 	}
-	klog.Infof("reference container: %s", cntIdent)
 	return cntIdent, nil
 }
 
@@ -140,6 +153,7 @@ func (fc *filteringClient) Get(ctx context.Context, in *podresourcesapi.GetPodRe
 }
 
 func NewFromLister(cli podresourcesapi.PodResourcesListerClient, debug bool, referenceContainer *ContainerIdent) podresourcesapi.PodResourcesListerClient {
+	klog.V(2).Infof("sharedcpuspool: reference container: %q", referenceContainer.ToString())
 	return &filteringClient{
 		debug:  debug,
 		cli:    cli,
