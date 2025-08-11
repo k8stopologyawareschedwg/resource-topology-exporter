@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
@@ -176,6 +178,24 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 // Check nrt.OwnerReferences for Node references and update it so it has only one Node reference,
 // the one to the Node with the same name as the NRT.
 func (te *NRTUpdater) updateOwnerReferences(nrt *v1alpha2.NodeResourceTopology) {
+	addDaemonSetOwner(nrt)
+	te.addNodeOwner(nrt)
+}
+
+func (te *NRTUpdater) makeAttributes() v1alpha2.AttributeList {
+	return v1alpha2.AttributeList{
+		{
+			Name:  "topologyManagerScope",
+			Value: te.tmConfig.Scope,
+		},
+		{
+			Name:  "topologyManagerPolicy",
+			Value: te.tmConfig.Policy,
+		},
+	}
+}
+
+func (te *NRTUpdater) addNodeOwner(nrt *v1alpha2.NodeResourceTopology) {
 	node, err := te.nodeGetter.Get(context.TODO(), nrt.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.Is(err, NotConfigured) {
@@ -191,18 +211,58 @@ func (te *NRTUpdater) updateOwnerReferences(nrt *v1alpha2.NodeResourceTopology) 
 		UID:        node.UID,
 	}
 
-	nrt.OwnerReferences = []metav1.OwnerReference{nodeReference}
+	addOwner(nrt, nodeReference)
 }
 
-func (te *NRTUpdater) makeAttributes() v1alpha2.AttributeList {
-	return v1alpha2.AttributeList{
-		{
-			Name:  "topologyManagerScope",
-			Value: te.tmConfig.Scope,
-		},
-		{
-			Name:  "topologyManagerPolicy",
-			Value: te.tmConfig.Policy,
-		},
+func addDaemonSetOwner(nrt *v1alpha2.NodeResourceTopology) {
+	name, ok := os.LookupEnv("REFERENCE_POD_NAME")
+	if !ok {
+		resetOwnerReferences(nrt, "DaemonSet")
+		return
+	}
+	uid, ok := os.LookupEnv("REFERENCE_UID")
+	if !ok {
+		resetOwnerReferences(nrt, "DaemonSet")
+		return
+	}
+
+	dsReference := metav1.OwnerReference{
+		APIVersion: "apps/v1",
+		Kind:       "DaemonSet",
+		Name:       name,
+		UID:        types.UID(uid),
+	}
+
+	addOwner(nrt, dsReference)
+}
+
+func addOwner(nrt *v1alpha2.NodeResourceTopology, ref metav1.OwnerReference) {
+	if nrt.OwnerReferences == nil {
+		nrt.OwnerReferences = []metav1.OwnerReference{ref}
+		return
+	}
+
+	for idx, owner := range nrt.OwnerReferences {
+		if owner.Kind == ref.Kind {
+			nrt.OwnerReferences[idx] = ref
+			return
+		}
+	}
+	nrt.OwnerReferences = append(nrt.OwnerReferences, ref)
+}
+
+func resetOwnerReferences(nrt *v1alpha2.NodeResourceTopology, kind string) {
+	if nrt.OwnerReferences == nil {
+		return
+	}
+	if len(nrt.OwnerReferences) == 1 {
+		nrt.OwnerReferences = []metav1.OwnerReference{}
+		return
+	}
+
+	for idx, owner := range nrt.OwnerReferences {
+		if owner.Kind == kind {
+			nrt.OwnerReferences = append(nrt.OwnerReferences[:idx], nrt.OwnerReferences[idx+1:]...)
+		}
 	}
 }

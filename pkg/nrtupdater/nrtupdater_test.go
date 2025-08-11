@@ -18,6 +18,7 @@ package nrtupdater
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	clientk8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
@@ -173,11 +175,23 @@ func TestUpdateOwnerReferences(t *testing.T) {
 		},
 	}
 
-	expected := metav1.OwnerReference{
+	expectedNodeRef := metav1.OwnerReference{
 		Kind:       node.Kind,
 		Name:       node.Name,
 		APIVersion: node.APIVersion,
 		UID:        node.UID,
+	}
+
+	dsName := "rte-ds"
+	dsUID := "4ead2ef1-38f5-4457-9a59-cd62421fb334"
+	_ = os.Setenv("REFERENCE_POD_NAME", dsName)
+	_ = os.Setenv("REFERENCE_UID", dsUID)
+
+	expectedDaemonSetRef := metav1.OwnerReference{
+		Kind:       "DaemonSet",
+		Name:       dsName,
+		APIVersion: "apps/v1",
+		UID:        types.UID(dsUID),
 	}
 
 	var nrtUpd *NRTUpdater
@@ -206,7 +220,11 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkOwnerReferences(t, obj, expected)
+	checkOwnerReferences(t, obj, expectedNodeRef)
+	checkOwnerReferences(t, obj, expectedDaemonSetRef)
+
+	_ = os.Unsetenv("REFERENCE_POD_NAME")
+	_ = os.Unsetenv("REFERENCE_UID")
 
 	err = nrtUpd.Update(
 		MonitorInfo{Zones: v1alpha2.ZoneList{zoneInfo}},
@@ -218,7 +236,14 @@ func TestUpdateOwnerReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get the NRT object from tracker: %v", err)
 	}
-	checkOwnerReferences(t, obj, expected)
+	checkOwnerReferences(t, obj, expectedNodeRef)
+	nrtObj, _ := obj.(*v1alpha2.NodeResourceTopology)
+	for _, owner := range nrtObj.OwnerReferences {
+		if owner.Kind == expectedDaemonSetRef.Kind {
+			//practically should never be in this state but still
+			t.Fatalf("DaemonSet owner should not exist in NRT object")
+		}
+	}
 }
 
 func checkTMConfig(t *testing.T, obj runtime.Object, expectedConf TMConfig) {
@@ -260,17 +285,17 @@ func checkOwnerReferences(t *testing.T, obj runtime.Object, expected metav1.Owne
 		t.Fatalf("provided object is not a NodeResourceTopology")
 	}
 
-	nodeReferences := []metav1.OwnerReference{}
+	references := []metav1.OwnerReference{}
 	for _, own := range nrtObj.OwnerReferences {
-		if own.Kind == "Node" {
-			nodeReferences = append(nodeReferences, own)
+		if own.Kind == expected.Kind {
+			references = append(references, own)
 		}
 	}
 
-	if len(nodeReferences) != 1 {
-		t.Fatalf("unexpected number of node OwnerReferences: %#v", nodeReferences)
+	if len(references) != 1 {
+		t.Fatalf("unexpected number of %q OwnerReferences: %#v", expected.Kind, references)
 	}
-	if !reflect.DeepEqual(nodeReferences[0], expected) {
-		t.Fatalf("unexpected node OwnerReference. got=%+#v expected=%+#v", nodeReferences[0], expected)
+	if !reflect.DeepEqual(references[0], expected) {
+		t.Fatalf("unexpected %q OwnerReference. got=%+#v expected=%+#v", expected.Kind, references[0], expected)
 	}
 }
