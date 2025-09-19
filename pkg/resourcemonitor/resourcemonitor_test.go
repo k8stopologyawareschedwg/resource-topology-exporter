@@ -38,6 +38,7 @@ import (
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
+	"github.com/openshift-kni/debug-tools/pkg/pfpstatus/record"
 )
 
 func TestMakeCoreIDToNodeIDMap(t *testing.T) {
@@ -456,10 +457,17 @@ func TestResourcesScan(t *testing.T) {
 			},
 		}
 
+		args := Args{PodSetFingerprint: true, PodSetFingerprintStatusFile: "/run/pfpstatus/dump.json"}
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
-		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, args, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
+		if maxPFPStatusRecords == 1 {
+			So(recorder.Len(), ShouldEqual, 1)
+			So(recorder.Content()[0], ShouldEqual, record.RecordedStatus{})
+		} else {
+			So(recorder.Len(), ShouldEqual, 0)
+		}
 
 		Convey("When aggregating resources", func() {
 			expected := topologyv1alpha2.ZoneList{
@@ -531,8 +539,11 @@ func TestResourcesScan(t *testing.T) {
 				PodResources: []*v1.PodResources{},
 			}
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
+
 			scanRes, err := resMon.Scan(ResourceExclude{}) // no pods allocation
 			So(err, ShouldBeNil)
+			So(recorder.Len(), ShouldEqual, 1)
+			So(recorder.Content()[0], ShouldNotEqual, record.RecordedStatus{})
 
 			res := scanRes.SortedZones()
 			log.Printf("result=%v", res)
@@ -877,10 +888,17 @@ func TestResourcesScan(t *testing.T) {
 			},
 		}
 
+		args := Args{PodSetFingerprint: true, PodSetFingerprintStatusFile: "/run/pfpstatus/dump.json"}
 		mockPodResClient := new(podres.MockPodResourcesListerClient)
 		mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(allocRes, nil)
-		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, Args{}, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
+		resMon, err := NewResourceMonitor(Handle{PodResCli: mockPodResClient}, args, WithNodeName("TEST"), WithTopology(&fakeTopo), WithK8sClient(fake.NewSimpleClientset()))
 		So(err, ShouldBeNil)
+		if maxPFPStatusRecords == 1 {
+			So(recorder.Len(), ShouldEqual, 1)
+			So(recorder.Content()[0], ShouldEqual, record.RecordedStatus{})
+		} else {
+			So(recorder.Len(), ShouldEqual, 0)
+		}
 
 		Convey("When aggregating resources", func() {
 			resp := &v1.ListPodResourcesResponse{
@@ -997,6 +1015,8 @@ func TestResourcesScan(t *testing.T) {
 			mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
 			scanRes, err := resMon.Scan(excludeList)
 			So(err, ShouldBeNil)
+			So(recorder.Len(), ShouldEqual, 1)
+			So(recorder.Content()[0], ShouldNotEqual, record.RecordedStatus{})
 
 			res := scanRes.Zones.DeepCopy()
 			// Check if resources were excluded correctly

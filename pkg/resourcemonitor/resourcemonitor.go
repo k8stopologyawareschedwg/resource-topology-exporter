@@ -41,6 +41,7 @@ import (
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
+	"github.com/openshift-kni/debug-tools/pkg/pfpstatus/record"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
@@ -52,7 +53,11 @@ import (
 const (
 	defaultPodResourcesTimeout = 10 * time.Second
 	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
+
+	maxPFPStatusRecords = 1
 )
+
+var recorder *record.NodeRecorder
 
 type ResourceExclude map[string][]string
 
@@ -231,6 +236,13 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 	} else {
 		klog.Infof("resmon: watching all namespaces")
 	}
+
+	var err error
+	recorder, err = record.NewNodeRecorder(rm.nodeName, time.Now, record.WithCapacity(maxPFPStatusRecords))
+	if err != nil {
+		klog.Info("Failed to create PFPStatus recorder", "error", err)
+	}
+
 	return rm, nil
 }
 
@@ -371,8 +383,14 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	scanRes.Zones = zones
 
 	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
+		err = recorder.Push(st)
+		if err != nil {
+			klog.V(4).InfoS("resmon: failed to push PFPStatus to the node recorder", "nodeName", st.NodeName, "err", err)
+			return scanRes, nil
+		}
+
 		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
-		err := toFile(st, dir, file)
+		err = record.DumpToFile(dir, file, recorder.Content())
 		klog.V(6).Infof("resmon: error dumping the pfp status fullPath=%q statusFile=%q err=%v", rm.args.PodSetFingerprintStatusFile, file, err)
 		// intentionally ignore error, we must keep going.
 	}
