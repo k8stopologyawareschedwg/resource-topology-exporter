@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
 )
 
@@ -149,9 +147,6 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 	pArgs.RTE.ReferenceContainer, err = sharedcpuspool.ContainerIdentFromString(refCnt)
 	if err != nil {
 		return err
-	}
-	if pArgs.Global.Debug {
-		klog.Infof("reference container: %+v", pArgs.RTE.ReferenceContainer)
 	}
 
 	var maxEventsPerTimeUnit int = -1
