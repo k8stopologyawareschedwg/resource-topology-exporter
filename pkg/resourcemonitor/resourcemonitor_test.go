@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 
@@ -182,7 +183,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 	coreIDToNodeIDMap := getExpectedCoreToNodeMap()
 
 	Convey("When normalizing the container devices from pod resources", t, func() {
-		res := NormalizeContainerDevices(availRes.GetDevices(), availRes.GetMemory(), availRes.GetCpuIds(), coreIDToNodeIDMap)
+		VL := klog.V(999) // so high that means "never" in practice
+		res := NormalizeContainerDevices(VL, availRes.GetDevices(), availRes.GetMemory(), availRes.GetCpuIds(), coreIDToNodeIDMap)
 		expected := []*podresourcesapi.ContainerDevices{
 			{
 				ResourceName: "fake.io/net",
