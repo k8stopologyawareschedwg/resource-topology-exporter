@@ -206,10 +206,10 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 		}
 		rm.topo = topo
 	}
-	klog.V(2).Infof("resmon: machine topology: %s", toJSON(rm.topo))
+	klog.V(4).Infof("resmon: machine topology: %s", toJSON(rm.topo))
 
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
-	klog.V(2).Infof("resmon: CPU mapping [coreid:numaid]: %s", mapIntIntToString(rm.coreIDToNodeIDMap))
+	klog.V(4).Infof("resmon: CPU mapping [coreid:numaid]: %s", mapIntIntToString(rm.coreIDToNodeIDMap))
 
 	if err := rm.updateNodeResources(); err != nil {
 		return nil, err
@@ -262,7 +262,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	}
 
 	respPodRes := resp.GetPodResources()
-	klog.V(6).InfoS("resmon: podresources list", "pods", collectPodsFromPodResources(respPodRes))
+	klog.V(6).Infof("resmon: podresources list: %s", collectPodsFromPodResources(respPodRes))
 
 	st := podfingerprint.MakeStatus(rm.nodeName)
 	scanRes := ScanResponse{
@@ -373,7 +373,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
 		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
 		err := toFile(st, dir, file)
-		klog.V(6).InfoS("resmon: error dumping the pfp status", "fullPath", rm.args.PodSetFingerprintStatusFile, "statusFile", file, "err", err)
+		klog.V(6).Infof("resmon: error dumping the pfp status fullPath=%q statusFile=%q err=%v", rm.args.PodSetFingerprintStatusFile, file, err)
 		// intentionally ignore error, we must keep going.
 	}
 	return scanRes, nil
@@ -518,6 +518,7 @@ func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfinger
 }
 
 func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
+	klog.V(6).Infof("normalizing devices count=%d", len(devices))
 	contDevs := append([]*podresourcesapi.ContainerDevices{}, devices...)
 
 	cpusPerNuma := make(map[int][]string)
@@ -531,6 +532,7 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 	}
 
 	for nodeID, cpuList := range cpusPerNuma {
+		klog.V(6).Infof("normalizing CPUs NUMANode=%d, count=%d", nodeID, len(cpuList))
 		contDevs = append(contDevs, &podresourcesapi.ContainerDevices{
 			ResourceName: string(v1.ResourceCPU),
 			DeviceIds:    cpuList,
@@ -549,6 +551,7 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 		}
 
 		for _, node := range block.GetTopology().GetNodes() {
+			klog.V(6).Infof("normalizing Memory NUMANode=%d size=%v", node.ID, blockSize)
 			contDevs = append(contDevs, &podresourcesapi.ContainerDevices{
 				ResourceName: block.MemoryType,
 				DeviceIds:    []string{fmt.Sprintf("%d", blockSize)},
@@ -560,6 +563,8 @@ func NormalizeContainerDevices(devices []*podresourcesapi.ContainerDevices, memo
 			})
 		}
 	}
+
+	klog.V(4).Infof("normalized container devices: entries=%d from %d devices %d memoryBlocks %d cpuIDs", len(contDevs), len(devices), len(memoryBlocks), len(cpuIds))
 	return contDevs
 }
 
@@ -587,6 +592,7 @@ func ContainerDevicesToPerNUMAResourceCounters(devices []*podresourcesapi.Contai
 			perNUMARc[nodeID] = nodeRes
 		}
 	}
+	klog.V(6).Infof("resmon: from %d devices: %s", len(devices), perNUMARc.String())
 	return perNUMARc
 }
 
