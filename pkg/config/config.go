@@ -156,14 +156,21 @@ func Finalize(pArgs *ProgArgs) error {
 		pArgs.NRTupdater.Hostname, err = os.Hostname()
 	}
 
+	origin := "config"
+	verb := klog.Level(pArgs.Global.Verbose)
+	VL, err := kloglevel.Get(CommandLine)
+	if err == nil && VL > verb {
+		origin = "flags"
+		verb = VL
+	}
 	// sync back klog settings
-	kloglevel.Set(CommandLine, klog.Level(pArgs.Global.Verbose)) // for consistency
+	kloglevel.Set(CommandLine, verb)
 	if pArgs.Global.Debug {
-		VL, err := kloglevel.Get(CommandLine)
+		VL, err = kloglevel.Get(CommandLine)
 		if err != nil {
 			klog.Errorf("cannot get back klog level: %v", err)
 		} else {
-			klog.Infof("klog V=%d", VL)
+			klog.Infof("klog V=%d (%s)", VL, origin)
 		}
 	}
 
