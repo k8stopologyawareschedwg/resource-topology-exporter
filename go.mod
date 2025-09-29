@@ -11,7 +11,7 @@ require (
 	github.com/jaypipes/ghw v0.16.0
 	github.com/jeremywohl/flatten/v2 v2.0.0-20211013061545-07e4a09fb8e4
 	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.1.1
-	github.com/k8stopologyawareschedwg/podfingerprint v0.2.2
+	github.com/k8stopologyawareschedwg/podfingerprint v0.2.3
 	github.com/mdomke/git-semver v1.0.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
