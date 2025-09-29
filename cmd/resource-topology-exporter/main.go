@@ -12,6 +12,7 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8shelpers"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/pfpdump"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/podexclude"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/middleware/sharedcpuspool"
@@ -90,6 +91,14 @@ func main() {
 	err = metricssrv.Setup(parsedArgs.RTE.MetricsMode, metricssrv.NewConfig(parsedArgs.RTE.MetricsAddress, parsedArgs.RTE.MetricsPort, parsedArgs.RTE.MetricsTLSCfg))
 	if err != nil {
 		klog.Fatalf("failed to setup metrics server: %v", err)
+	}
+
+	if parsedArgs.Resourcemonitor.PodSetFingerprint {
+		ctx := context.TODO()
+		hnd := pfpdump.Handle{
+			Dumpfile: parsedArgs.Resourcemonitor.PodSetFingerprintStatusFile,
+		}
+		pfpdump.Execute(hnd, ctx)
 	}
 
 	hnd := resourcetopologyexporter.Handle{

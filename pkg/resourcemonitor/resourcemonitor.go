@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -286,6 +285,8 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		})
 		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
 		klog.V(6).Infof("resmon: pfp: " + st.Repr())
+
+		podfingerprint.MarkCompleted(st)
 	}
 
 	allDevs := GetAllContainerDevices(respPodRes, rm.args.Namespace, rm.coreIDToNodeIDMap)
@@ -369,13 +370,6 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		zones = append(zones, zone)
 	}
 	scanRes.Zones = zones
-
-	if rm.args.PodSetFingerprint && rm.args.PodSetFingerprintStatusFile != "" {
-		dir, file := filepath.Split(rm.args.PodSetFingerprintStatusFile)
-		err := toFile(st, dir, file)
-		klog.V(6).Infof("resmon: error dumping the pfp status fullPath=%q statusFile=%q err=%v", rm.args.PodSetFingerprintStatusFile, file, err)
-		// intentionally ignore error, we must keep going.
-	}
 	return scanRes, nil
 }
 
@@ -676,31 +670,6 @@ func addNodeInformerEvent(c kubernetes.Interface, handler cache.ResourceEventHan
 // isNativeResource return true if the given resource is a core kubernetes resource (e.g. not provided by external device plugins)
 func isNativeResource(resName v1.ResourceName) bool {
 	return resName == v1.ResourceCPU || resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix)
-}
-
-func toFile(st podfingerprint.Status, dir, file string) error {
-	data, err := json.Marshal(st)
-	if err != nil {
-		return err
-	}
-
-	dst, err := os.CreateTemp(dir, "__"+file)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(dst.Name()) // either way, we need to get rid of this
-
-	_, err = dst.Write(data)
-	if err != nil {
-		return err
-	}
-
-	err = dst.Close()
-	if err != nil {
-		return err
-	}
-
-	return os.Rename(dst.Name(), filepath.Join(dir, file))
 }
 
 func PFPMethodSupported() string {

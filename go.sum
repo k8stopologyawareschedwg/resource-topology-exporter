@@ -138,8 +138,8 @@ github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.1.1 h1:BI3L7hNqRvXtB42FO4NI/0ZjDDVRPOMBDFLShhFtf28=
 github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.1.1/go.mod h1:AkACMQGiTgCt0lQw3m7TTU8PLH9lYKNK5e9DqFf5VuM=
-github.com/k8stopologyawareschedwg/podfingerprint v0.2.2 h1:iFHPfZInM9pz2neye5RdmORMp1hPmte1EGJYpOOzZVg=
-github.com/k8stopologyawareschedwg/podfingerprint v0.2.2/go.mod h1:C23pM15t06dXg/OihGlqBvnYzLr+MXDXJ7zMfbNAyXI=
+github.com/k8stopologyawareschedwg/podfingerprint v0.2.3 h1:nVKmzn6g7CHhDtB+jG85Db/B/ALRY9VLh5ueAfVPEHU=
+github.com/k8stopologyawareschedwg/podfingerprint v0.2.3/go.mod h1:E0bjgihZTSwRIJVjNV45Lm0C/j5w+YkGSnfpYXoI8Ws=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
