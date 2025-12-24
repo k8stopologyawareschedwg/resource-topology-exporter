@@ -134,3 +134,5 @@ replace (
 	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.32.3
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.32.3
 )
+
+replace github.com/jaypipes/ghw => github.com/ffromani/ghw v0.18.9999
