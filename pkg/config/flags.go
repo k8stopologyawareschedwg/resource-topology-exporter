@@ -86,12 +86,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	CommandLine.Int64Var(&pArgs.RTE.MaxEventsPerTimeUnit, "max-events-per-second", pArgs.RTE.MaxEventsPerTimeUnit, "Max times per second resources will be scanned and updated")
 
 	CommandLine.BoolVar(&pArgs.Version, "version", pArgs.Version, "Output version and exit")
-	CommandLine.StringVar(&pArgs.DumpConfig, "dump-config", pArgs.DumpConfig, `dump the current configuration to the given file path. Empty string (default) disable the dumping.
-Special targets:
-. "-" for stdout.
-. ".andexit" stdout and exit right after.
-. ".log" to dump in the log".`,
-	)
+	CommandLine.Var(&DumpConfigValue{DumpConfig: &pArgs.DumpConfig}, "dump-config", `dump the current configuration to either stdout (use "-") or the log (use ".log").`)
 
 	err := CommandLine.Parse(args)
 	if err != nil {
@@ -124,4 +119,23 @@ Special targets:
 	}
 	configRoot := params[0]
 	return configRoot, FixExtraConfigPath(configRoot), nil
+}
+
+type DumpConfigValue struct {
+	DumpConfig *string
+}
+
+func (v DumpConfigValue) String() string {
+	if v.DumpConfig == nil {
+		return ""
+	}
+	return *v.DumpConfig
+}
+
+func (v DumpConfigValue) Set(s string) error {
+	if s != DumpConfigStdout && s != DumpConfigAbort && s != DumpConfigLog {
+		return fmt.Errorf("invalid dump config target: %q", s)
+	}
+	*v.DumpConfig = s
+	return nil
 }
