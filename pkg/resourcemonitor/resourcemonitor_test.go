@@ -30,7 +30,7 @@ import (
 	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	cmp "github.com/google/go-cmp/cmp"
-	"github.com/jaypipes/ghw"
+	ghwtopology "github.com/jaypipes/ghw/pkg/topology"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -41,7 +41,7 @@ import (
 )
 
 func TestMakeCoreIDToNodeIDMap(t *testing.T) {
-	fakeTopo := ghw.TopologyInfo{}
+	fakeTopo := ghwtopology.Info{}
 	Convey("When recovering test topology from JSON data", t, func() {
 		err := json.Unmarshal([]byte(testTopology), &fakeTopo)
 		So(err, ShouldBeNil)
@@ -361,7 +361,7 @@ func TestNormalizeContainerDevices(t *testing.T) {
 // - a pod with non-integral CPUs and devices, we need to not decrement the CPUs but do that for devices.
 
 func TestResourcesScan(t *testing.T) {
-	fakeTopo := ghw.TopologyInfo{}
+	fakeTopo := ghwtopology.Info{}
 	Convey("When recovering test topology from JSON data", t, func() {
 		err := json.Unmarshal([]byte(testTopology), &fakeTopo)
 		So(err, ShouldBeNil)
