@@ -36,7 +36,8 @@ import (
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
-	"github.com/jaypipes/ghw"
+	ghwoption "github.com/jaypipes/ghw/pkg/option"
+	ghwtopology "github.com/jaypipes/ghw/pkg/topology"
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
@@ -174,7 +175,7 @@ type resourceMonitor struct {
 	args              Args
 	podResCli         podresourcesapi.PodResourcesListerClient
 	k8sCli            kubernetes.Interface
-	topo              *ghw.TopologyInfo
+	topo              *ghwtopology.Info
 	coreIDToNodeIDMap map[int]int
 	nodeCapacity      perNUMAResourceCounter
 	nodeAllocatable   perNUMAResourceCounter
@@ -197,7 +198,7 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 	klog.Infof("resmon: starting for node %q", rm.nodeName)
 
 	if rm.topo == nil {
-		topo, err := ghw.Topology(ghw.WithPathOverrides(ghw.PathOverrides{
+		topo, err := ghwtopology.New(ghwoption.WithPathOverrides(ghwoption.PathOverrides{
 			"/sys": args.SysfsRoot,
 		}))
 		if err != nil {
@@ -233,7 +234,7 @@ func NewResourceMonitor(hnd Handle, args Args, options ...func(*resourceMonitor)
 	return rm, nil
 }
 
-func WithTopology(topo *ghw.TopologyInfo) func(*resourceMonitor) {
+func WithTopology(topo *ghwtopology.Info) func(*resourceMonitor) {
 	return func(rm *resourceMonitor) {
 		rm.topo = topo
 	}
@@ -593,7 +594,7 @@ func ContainerDevicesToPerNUMAResourceCounters(devices []*podresourcesapi.Contai
 	return perNUMARc
 }
 
-func MakeCoreIDToNodeIDMap(topo *ghw.TopologyInfo) map[int]int {
+func MakeCoreIDToNodeIDMap(topo *ghwtopology.Info) map[int]int {
 	coreToNode := make(map[int]int)
 	for _, node := range topo.Nodes {
 		for _, core := range node.Cores {
@@ -606,7 +607,7 @@ func MakeCoreIDToNodeIDMap(topo *ghw.TopologyInfo) map[int]int {
 }
 
 // makeCostsPerNumaNode builds the cost map to reach all the known NUMA zones (mapping (numa zone) -> cost) starting from the given NUMA zone.
-func makeCostsPerNumaNode(nodes []*ghw.TopologyNode, nodeIDSrc int) ([]topologyv1alpha2.CostInfo, error) {
+func makeCostsPerNumaNode(nodes []*ghwtopology.Node, nodeIDSrc int) ([]topologyv1alpha2.CostInfo, error) {
 	nodeSrc := findNodeByID(nodes, nodeIDSrc)
 	if nodeSrc == nil {
 		return nil, fmt.Errorf("unknown node: %d", nodeIDSrc)
@@ -627,7 +628,7 @@ func makeZoneName(nodeID int) string {
 	return fmt.Sprintf("node-%d", nodeID)
 }
 
-func findNodeByID(nodes []*ghw.TopologyNode, nodeID int) *ghw.TopologyNode {
+func findNodeByID(nodes []*ghwtopology.Node, nodeID int) *ghwtopology.Node {
 	for _, node := range nodes {
 		if node.ID == nodeID {
 			return node
@@ -646,7 +647,7 @@ func inExcludeSet(excludeSet map[string]sets.Set[string], resName v1.ResourceNam
 	return false
 }
 
-func cpuCapacity(topo *ghw.TopologyInfo, nodeID int) int64 {
+func cpuCapacity(topo *ghwtopology.Info, nodeID int) int64 {
 	nodeSrc := findNodeByID(topo.Nodes, nodeID)
 	logicalCoresPerNUMA := 0
 	for _, core := range nodeSrc.Cores {
