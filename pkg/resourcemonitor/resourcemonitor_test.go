@@ -34,6 +34,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
@@ -352,8 +353,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 
 		log.Printf("result=%v", res)
 		log.Printf("expected=%v", expected)
-		log.Printf("diff=%s", cmp.Diff(res, expected))
-		So(cmp.Equal(res, expected), ShouldBeTrue)
+		log.Printf("diff=%s", cmp.Diff(res, expected, protocmp.Transform()))
+		So(cmp.Equal(res, expected, protocmp.Transform()), ShouldBeTrue)
 	})
 }
 
