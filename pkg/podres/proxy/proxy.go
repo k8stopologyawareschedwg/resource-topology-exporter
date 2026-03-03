@@ -31,6 +31,7 @@ import (
 
 // Proxy implements PodResourcesListerServer
 type Proxy struct {
+	podresourcesv1.UnimplementedPodResourcesListerServer
 	cli      podresourcesv1.PodResourcesListerClient
 	cleanup  podres.CleanupFunc
 	lst      net.Listener

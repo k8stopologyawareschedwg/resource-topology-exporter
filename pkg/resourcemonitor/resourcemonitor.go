@@ -543,7 +543,7 @@ func NormalizeContainerDevices(lh klog.Verbose, devices []*podresourcesapi.Conta
 	}
 
 	for _, block := range memoryBlocks {
-		blockSize := block.GetSize_()
+		blockSize := block.GetSize()
 		if blockSize == 0 {
 			continue
 		}
