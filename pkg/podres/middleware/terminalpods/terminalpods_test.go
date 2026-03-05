@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,10 +121,10 @@ func TestFilterFrom(t *testing.T) {
 			return tc.resp.GetPodResources()[i].Name < tc.resp.GetPodResources()[j].Name
 		})
 		sort.SliceStable(tc.expectedResp.GetPodResources(), func(i, j int) bool {
-			return tc.resp.GetPodResources()[i].Name < tc.resp.GetPodResources()[j].Name
+			return tc.expectedResp.GetPodResources()[i].Name < tc.expectedResp.GetPodResources()[j].Name
 		})
-		if diff := cmp.Diff(tc.resp, tc.expectedResp); diff != "" {
-			t.Errorf("Test%d failed: diff: %s", i, diff)
+		if diff := cmp.Diff(tc.resp, tc.expectedResp, protocmp.Transform()); diff != "" {
+			t.Errorf("Test%d failed: diff (-want +got):\n%s", i, diff)
 		}
 	}
 }

@@ -34,6 +34,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
@@ -142,7 +143,7 @@ func TestNormalizeContainerDevices(t *testing.T) {
 		Memory: []*v1.ContainerMemory{
 			{
 				MemoryType: "memory",
-				Size_:      1024,
+				Size:       1024,
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
 						{
@@ -153,7 +154,7 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			},
 			{
 				MemoryType: "memory",
-				Size_:      1024,
+				Size:       1024,
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
 						{
@@ -164,7 +165,7 @@ func TestNormalizeContainerDevices(t *testing.T) {
 			},
 			{
 				MemoryType: "hugepages-2Mi",
-				Size_:      1024,
+				Size:       1024,
 				Topology: &v1.TopologyInfo{
 					Nodes: []*v1.NUMANode{
 						{
@@ -352,8 +353,8 @@ func TestNormalizeContainerDevices(t *testing.T) {
 
 		log.Printf("result=%v", res)
 		log.Printf("expected=%v", expected)
-		log.Printf("diff=%s", cmp.Diff(res, expected))
-		So(cmp.Equal(res, expected), ShouldBeTrue)
+		log.Printf("diff=%s", cmp.Diff(res, expected, protocmp.Transform()))
+		So(cmp.Equal(res, expected, protocmp.Transform()), ShouldBeTrue)
 	})
 }
 
