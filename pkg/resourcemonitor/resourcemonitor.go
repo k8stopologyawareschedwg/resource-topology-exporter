@@ -285,7 +285,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 			Value: rm.args.PodSetFingerprintMethod,
 		})
 		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
-		klog.V(6).Infof("resmon: pfp: " + st.Repr())
+		klog.V(6).Infof("resmon: pfp: %s", st.Repr())
 
 		podfingerprint.MarkCompleted(st)
 	}
