@@ -46,6 +46,10 @@ build-dbg: build-tools
 	-ldflags "-X github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/version.version=$(shell _out/git-semver)" \
 	-o _out/resource-topology-exporter cmd/resource-topology-exporter/main.go
 
+.PHONY: build-pause
+build-pause: outdir
+	gcc -Wall -g -Os -static -o _out/pause tools/pause/main.c
+
 .PHONY: gofmt
 gofmt:
 	@echo "Running gofmt"
@@ -75,7 +79,7 @@ clean:
 	rm -rf _out
 
 .PHONY: image
-image:
+image: build-tools
 	@echo "building image"
 	$(RUNTIME) build -f images/Dockerfile -t $(RTE_CONTAINER_IMAGE) --build-arg VERSION=$(shell _out/git-semver) --build-arg GIT_COMMIT=$(shell git log -1 --format=%H) .
 
