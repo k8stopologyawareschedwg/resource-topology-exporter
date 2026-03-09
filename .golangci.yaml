@@ -10,7 +10,6 @@ linters:
   enable:
     - errcheck
     - bodyclose
-    - exportloopref
     - gosimple
     - govet
     - ineffassign
