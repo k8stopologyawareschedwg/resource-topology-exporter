@@ -43,6 +43,10 @@ jobs:
       run: |
         make build-e2e
 
+    - name: build main binary
+      run: |
+        make build
+
     - name: build image
       run: |
         RTE_CONTAINER_IMAGE=${{ env.RTE_CONTAINER_IMAGE }}:${{ env.RELEASE_VERSION }} RUNTIME=docker make image
