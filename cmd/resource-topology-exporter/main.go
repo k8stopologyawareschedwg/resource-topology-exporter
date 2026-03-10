@@ -32,20 +32,9 @@ func main() {
 	}
 
 	if parsedArgs.DumpConfig != "" {
-		conf := parsedArgs.ToYAMLString()
-
-		if parsedArgs.DumpConfig == "-" {
-			fmt.Println(conf)
-		} else if parsedArgs.DumpConfig == ".andexit" {
-			fmt.Println(conf)
+		done := config.HandleDumpConfig(parsedArgs)
+		if done {
 			os.Exit(0)
-		} else if parsedArgs.DumpConfig == ".log" {
-			klog.Infof("current configuration:\n%s", conf)
-		} else {
-			err = os.WriteFile(parsedArgs.DumpConfig, []byte(conf), 0644)
-			if err != nil {
-				klog.Fatalf("failed to write the config to %q: %v", parsedArgs.DumpConfig, err)
-			}
 		}
 	}
 
