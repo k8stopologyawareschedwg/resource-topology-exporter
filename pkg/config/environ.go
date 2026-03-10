@@ -47,6 +47,13 @@ func TopologyManagerScopeFromEnv() string {
 	return ""
 }
 
+func PodSetFingerprintStatusFileFromEnv() string {
+	if val, ok := os.LookupEnv("PFP_STATUS_FILE"); ok {
+		return val
+	}
+	return ""
+}
+
 func FromEnv(pArgs *ProgArgs) {
 	if pArgs.NRTupdater.Hostname == "" {
 		pArgs.NRTupdater.Hostname = HostNameFromEnv()
@@ -65,5 +72,8 @@ func FromEnv(pArgs *ProgArgs) {
 	}
 	if pArgs.RTE.MetricsAddress == "" {
 		pArgs.RTE.MetricsAddress = metricssrv.AddressFromEnv()
+	}
+	if pArgs.Resourcemonitor.PodSetFingerprintStatusFile == "" {
+		pArgs.Resourcemonitor.PodSetFingerprintStatusFile = PodSetFingerprintStatusFileFromEnv()
 	}
 }
