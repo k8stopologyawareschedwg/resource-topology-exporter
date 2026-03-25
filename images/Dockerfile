@@ -5,7 +5,7 @@ RUN dnf --enablerepo=crb install -y glibc-static
 COPY . .
 RUN make build-pause
 
-FROM docker.io/golang:1.24 AS builder-rte
+FROM docker.io/golang:1.25 AS builder-rte
 WORKDIR /go/src/rte
 COPY . .
 RUN make build
