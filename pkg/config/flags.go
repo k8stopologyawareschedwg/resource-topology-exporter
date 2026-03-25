@@ -76,6 +76,8 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	CommandLine.StringVar(&pArgs.RTE.MetricsTLSCfg.CertFile, "metrics-cert-file", pArgs.RTE.MetricsTLSCfg.CertFile, "certificate file name for TLS metrics serving")
 	CommandLine.StringVar(&pArgs.RTE.MetricsTLSCfg.KeyFile, "metrics-key-file", pArgs.RTE.MetricsTLSCfg.KeyFile, "key file name for TLS metrics serving")
 	CommandLine.BoolVar(&pArgs.RTE.MetricsTLSCfg.WantCliAuth, "metrics-want-cli-auth", pArgs.RTE.MetricsTLSCfg.WantCliAuth, "Toggle if client certificate and authentication is required")
+	CommandLine.StringVar(&pArgs.RTE.MetricsTLSCfg.MinTLSVersion, "metrics-tls-min-version", pArgs.RTE.MetricsTLSCfg.MinTLSVersion, "Minimum TLS version for HTTPS metrics (e.g. VersionTLS12, VersionTLS13). Empty uses Go defaults for TLS handshake. Use the same names as kube-apiserver --tls-min-version.")
+	CommandLine.StringVar(&pArgs.RTE.MetricsTLSCfg.CipherSuites, "metrics-tls-cipher-suites", pArgs.RTE.MetricsTLSCfg.CipherSuites, "Comma-separated TLS 1.2 cipher suite names for HTTPS metrics (crypto/tls names as for kube-apiserver --tls-cipher-suites). Ignored when min version is TLS 1.3. Empty uses Go defaults.")
 
 	CommandLine.StringVar(&refCnt, "reference-container", pArgs.RTE.ReferenceContainer.String(), "Reference container, used to learn about the shared cpu pool\n See: https://github.com/kubernetes/kubernetes/issues/102190\n format of spec is namespace/podname/containername.\n Alternatively, you can use the env vars REFERENCE_NAMESPACE, REFERENCE_POD_NAME, REFERENCE_CONTAINER_NAME.")
 
