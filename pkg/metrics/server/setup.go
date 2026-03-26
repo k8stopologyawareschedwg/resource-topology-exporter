@@ -54,10 +54,14 @@ func NewDefaultTLSConfig() TLSConfig {
 }
 
 type TLSConfig struct {
-	CertsDir    string `json:"certsDir,omitempty"`
-	CertFile    string `json:"certFile,omitempty"`
-	KeyFile     string `json:"keyFile,omitempty"`
-	WantCliAuth bool   `json:"wantCliAuth,omitempty"`
+	CertsDir      string `json:"certsDir,omitempty"`
+	CertFile      string `json:"certFile,omitempty"`
+	KeyFile       string `json:"keyFile,omitempty"`
+	WantCliAuth   bool   `json:"wantCliAuth,omitempty"`
+	MinTLSVersion string `json:"minTLSVersion,omitempty"`
+	// CipherSuites is a comma-separated list of TLS 1.2 cipher names as accepted by
+	// k8s.io/component-base/cli/flag.TLSCipherSuites (same as kube-apiserver --tls-cipher-suites).
+	CipherSuites string `json:"cipherSuites,omitempty"`
 }
 
 type Config struct {
@@ -80,9 +84,12 @@ func NewDefaultConfig() Config {
 
 func (conf TLSConfig) Clone() TLSConfig {
 	return TLSConfig{
-		CertsDir: conf.CertsDir,
-		CertFile: conf.CertFile,
-		KeyFile:  conf.KeyFile,
+		CertsDir:      conf.CertsDir,
+		CertFile:      conf.CertFile,
+		KeyFile:       conf.KeyFile,
+		WantCliAuth:   conf.WantCliAuth,
+		MinTLSVersion: conf.MinTLSVersion,
+		CipherSuites:  conf.CipherSuites,
 	}
 }
 
@@ -161,15 +168,22 @@ func Setup(mode string, conf Config) error {
 		return fmt.Errorf("unknown mode: %v", mode)
 	}
 
+	var tlsOpts []func(*tls.Config)
+	if secureServing {
+		var err error
+		tlsOpts, err = buildSecureMetricsTLSOpts(conf.TLS)
+		if err != nil {
+			return err
+		}
+	}
+
 	opts := ctrlmetricssrv.Options{
 		SecureServing: secureServing,
 		BindAddress:   conf.BindAddress(),
 		CertDir:       conf.TLS.CertsDir,
 		CertName:      conf.TLS.CertFile,
 		KeyName:       conf.TLS.KeyFile,
-		TLSOpts: []func(*tls.Config){
-			WithClientAuth(conf.TLS.WantCliAuth),
-		},
+		TLSOpts:       tlsOpts,
 	}
 	srv, err := ctrlmetricssrv.NewServer(opts, nil, nil)
 	if err != nil {

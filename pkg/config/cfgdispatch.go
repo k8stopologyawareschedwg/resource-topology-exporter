@@ -129,6 +129,8 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "topologyExporter.metricsTLS.certFile", out: &pArgs.RTE.MetricsTLSCfg.CertFile},
 		{key: "topologyExporter.metricsTLS.keyFile", out: &pArgs.RTE.MetricsTLSCfg.KeyFile},
 		{key: "topologyExporter.metricsTLS.wantCliAuth", out: &pArgs.RTE.MetricsTLSCfg.WantCliAuth},
+		{key: "topologyExporter.metricsTLS.minTLSVersion", out: &pArgs.RTE.MetricsTLSCfg.MinTLSVersion},
+		{key: "topologyExporter.metricsTLS.cipherSuites", out: &pArgs.RTE.MetricsTLSCfg.CipherSuites},
 	}
 
 	for _, cb := range cbs {
