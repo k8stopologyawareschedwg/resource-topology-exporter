@@ -30,7 +30,7 @@ jobs:
       uses: actions/setup-go@v4
       id: go
       with:
-        go-version: 1.24
+        go-version: 1.25
 
     - name: verify modules
       run: go mod verify
