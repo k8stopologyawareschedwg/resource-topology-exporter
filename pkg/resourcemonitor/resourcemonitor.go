@@ -40,6 +40,7 @@ import (
 	ghwtopology "github.com/jaypipes/ghw/pkg/topology"
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
 	topologyv1alpha2 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
+	"github.com/k8stopologyawareschedwg/numaplacement"
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
@@ -52,6 +53,10 @@ import (
 const (
 	defaultPodResourcesTimeout = 10 * time.Second
 	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
+)
+
+const (
+	TMPolicySingleNUMANode = "single-numa-node"
 )
 
 type ResourceExclude map[string][]string
@@ -75,6 +80,7 @@ type Args struct {
 	PodSetFingerprintStatusFile string          `json:"podSetFingerprintStatusFile,omitempty"`
 	PodExclude                  podexclude.List `json:"podExclude,omitempty"`
 	ExcludeTerminalPods         bool            `json:"excludeTerminalPods,omitempty"`
+	TopologyManagerPolicy       string          `json:"topologyManagerPolicy,omitempty"`
 }
 
 func (args Args) Clone() Args {
@@ -270,12 +276,13 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 		Annotations: map[string]string{},
 	}
 
+	payload := numaplacement.Payload{}
 	if rm.args.PodSetFingerprint {
 		podresVerify := numalocality.Verify
 		if rm.args.PodSetFingerprintMethod == podfingerprint.MethodAll {
 			podresVerify = podresfilter.VerifyAlwaysPass
 		}
-		pfpSign := computePodFingerprintFromPodResources(respPodRes, &st, podresVerify)
+		pfpSign, filteredPodRes := computePodFingerprintFromPodResources(respPodRes, &st, podresVerify)
 		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
 			Name:  podfingerprint.Attribute,
 			Value: pfpSign,
@@ -285,9 +292,17 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 			Value: rm.args.PodSetFingerprintMethod,
 		})
 		scanRes.Annotations[podfingerprint.Annotation] = pfpSign
-		klog.V(6).Infof("resmon: pfp: %s", st.Repr())
-
+		klog.V(6).Infof("pfp: %s", st.Repr())
 		podfingerprint.MarkCompleted(st)
+
+		payload, err = rm.encodeContainerAffinities(filteredPodRes)
+		if err != nil {
+			klog.Errorf("failed to encode container affinities: %v", err)
+		}
+		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
+			Name:  numaplacement.AttributeMetadata,
+			Value: payload.PackMetadata(),
+		})
 	}
 
 	allDevs := GetAllContainerDevices(respPodRes, rm.args.Namespace, rm.coreIDToNodeIDMap)
@@ -295,6 +310,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 
 	excludeSet := excludeList.ToMapSet()
 	zones := make(topologyv1alpha2.ZoneList, 0, len(rm.topo.Nodes))
+
 	// if there are no allocatable resources under a NUMA we might ended up with holes in the NRT objects.
 	// this is why we're using the topology info and not the nodeAllocatable
 	for nodeID := range rm.topo.Nodes {
@@ -302,6 +318,15 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 			Name:      makeZoneName(nodeID),
 			Type:      "Node",
 			Resources: make(topologyv1alpha2.ResourceInfoList, 0),
+		}
+
+		if payload.Containers > 0 {
+			if nodeID != payload.BusiestNode && len(payload.Vectors[nodeID]) > 0 {
+				zone.Attributes = append(zone.Attributes, topologyv1alpha2.AttributeInfo{
+					Name:  numaplacement.AttributeVector,
+					Value: numaplacement.Prefix + numaplacement.Version + payload.Vectors[nodeID],
+				})
+			}
 		}
 
 		costs, err := makeCostsPerNumaNode(rm.topo.Nodes, nodeID)
@@ -372,6 +397,48 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	}
 	scanRes.Zones = zones
 	return scanRes, nil
+}
+
+func (rm *resourceMonitor) encodeContainerAffinities(podRes []*podresourcesapi.PodResources) (numaplacement.Payload, error) {
+	if rm.args.TopologyManagerPolicy != TMPolicySingleNUMANode {
+		klog.Infof("resmon: topology manager policy is not single-numa-node, skipping container affinity encoding")
+		return numaplacement.Payload{}, nil
+	}
+
+	if len(podRes) == 0 {
+		klog.Infof("resmon: no filtered pod resources, skipping container affinity encoding")
+		return numaplacement.Payload{}, nil
+	}
+
+	enc, err := numaplacement.NewEncoder(len(rm.topo.Nodes))
+	if err != nil {
+		return numaplacement.Payload{}, fmt.Errorf("error creating encoder: %w", err)
+	}
+
+	if len(rm.topo.Nodes) == 1 {
+		return enc.Result()
+	}
+
+	for _, pr := range podRes {
+		for _, cnt := range pr.Containers {
+			res := numalocality.VerifyContainer(cnt)
+			if !res.Allow {
+				continue
+			}
+
+			numaNodeID, err := numalocality.FindContainerSingleNUMAPlacement(rm.coreIDToNodeIDMap, cnt)
+			if err != nil {
+				klog.Errorf("error finding NUMA node for container %s: %v", cnt.Name, err)
+				continue
+			}
+
+			enc.EncodeContainer(pr.Namespace, pr.Name, cnt.Name, numaNodeID)
+			klog.V(6).InfoS("resmon: encoded container NUMA affinity", "container", pr.Namespace+"/"+pr.Name+"/"+cnt.Name, "numaNodeID", numaNodeID)
+		}
+	}
+
+	return enc.Result()
+
 }
 
 func (rm *resourceMonitor) updateNodeCapacity() error {
@@ -455,18 +522,6 @@ func (rm *resourceMonitor) updateNodeResources() error {
 	return nil
 }
 
-func computePodFingerprintFromPodResources(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, verifyFunc func(*podresourcesapi.PodResources) podresfilter.Result) string {
-	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
-	for _, pr := range podRes {
-		res := verifyFunc(pr)
-		if !res.Allow {
-			continue
-		}
-		_ = fp.AddPod(pr)
-	}
-	return fp.Sign()
-}
-
 func collectPodsFromPodResources(podRes []*podresourcesapi.PodResources) string {
 	var sb strings.Builder
 	for _, pr := range podRes {
@@ -500,16 +555,18 @@ func GetAllContainerDevices(podRes []*podresourcesapi.PodResources, namespace st
 	return allCntRes
 }
 
-// ComputePodFingerprint is deprecated and will be unexported in a future version
-func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, allowFilter func(*podresourcesapi.PodResources) bool) string {
+func computePodFingerprintFromPodResources(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, verifyFunc func(*podresourcesapi.PodResources) podresfilter.Result) (string, []*podresourcesapi.PodResources) {
 	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
+	var filteredPodRes []*podresourcesapi.PodResources
 	for _, pr := range podRes {
-		if !allowFilter(pr) {
+		res := verifyFunc(pr)
+		if !res.Allow {
 			continue
 		}
 		_ = fp.AddPod(pr)
+		filteredPodRes = append(filteredPodRes, pr)
 	}
-	return fp.Sign()
+	return fp.Sign(), filteredPodRes
 }
 
 func NormalizeContainerDevices(lh klog.Verbose, devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
