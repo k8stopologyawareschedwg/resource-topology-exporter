@@ -46,6 +46,17 @@ var (
 		Name: "rte_wakeup_delay_milliseconds",
 		Help: "The wakeup delay of the monitor code, milliseconds",
 	}, []string{"node", "trigger"})
+
+	NodeResourceTopologyPatchFailure = promauto.With(ctrlmetrics.Registry).NewCounterVec(prometheus.CounterOpts{
+		Name: "rte_noderesourcetopology_patch_failures_total",
+		Help: "The total number of times the NodeResourceTopology patching failed",
+	}, []string{"node", "trigger"})
+
+	NodeResourceTopologyPatchSizeRatio = promauto.With(ctrlmetrics.Registry).NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "rte_noderesourcetopology_patch_size_ratio",
+		Help:    "The ratio of patch size to full object size (0.0 to 1.0)",
+		Buckets: []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
+	}, []string{"node"})
 )
 
 func UpdateNodeResourceTopologyWritesMetric(operation, trigger string) {
@@ -56,7 +67,7 @@ func UpdateNodeResourceTopologyWritesMetric(operation, trigger string) {
 	}).Inc()
 }
 
-func UpdatePodResourceApiCallsFailureMetric(funcName string) {
+func UpdatePodResourceApiCallsFailuresMetric(funcName string) {
 	PodResourceApiCallsFailure.With(prometheus.Labels{
 		"node":          nodeName,
 		"function_name": funcName,
@@ -76,6 +87,19 @@ func UpdateWakeupDelayMetric(trigger string, wakeupDelay float64) {
 		"node":    nodeName,
 		"trigger": trigger,
 	}).Set(wakeupDelay)
+}
+
+func UpdateNodeResourceTopologyPatchFailuresMetric(trigger string) {
+	NodeResourceTopologyPatchFailure.With(prometheus.Labels{
+		"node":    nodeName,
+		"trigger": trigger,
+	}).Inc()
+}
+
+func UpdateNodeResourceTopologyPatchSizeRatioMetric(ratio float64) {
+	NodeResourceTopologyPatchSizeRatio.With(prometheus.Labels{
+		"node": nodeName,
+	}).Observe(ratio)
 }
 
 func Setup(nname string) error {

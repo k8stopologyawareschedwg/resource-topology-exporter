@@ -2,6 +2,7 @@ package nrtupdater
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -9,6 +10,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/klog/v2"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha2"
@@ -23,6 +26,10 @@ import (
 const (
 	RTEUpdatePeriodic = "periodic"
 	RTEUpdateReactive = "reactive"
+)
+
+var (
+	ErrMissingPreviousNRT = errors.New("missing previous NRT data")
 )
 
 // Command line arguments
@@ -141,8 +148,88 @@ func (te *NRTUpdater) sendData(ctx context.Context, cli topologyclientset.Interf
 	return err
 }
 
+type NRTPatchInfo struct {
+	Patch        []byte
+	FullObjBytes int
+}
+
+func (pi NRTPatchInfo) SizeRatio() float64 {
+	if pi.FullObjBytes == 0 {
+		return 1.0
+	}
+	return float64(len(pi.Patch)) / float64(pi.FullObjBytes)
+}
+
+func MakeNRTPatch(nrtOld, nrtNew *v1alpha2.NodeResourceTopology) (NRTPatchInfo, string, error) {
+	nrtOldJSON, err := json.Marshal(nrtOld)
+	if err != nil {
+		return NRTPatchInfo{}, "marshal_previous", err
+	}
+
+	nrtNewJSON, err := json.Marshal(nrtNew)
+	if err != nil {
+		return NRTPatchInfo{}, "marshal_current", err
+	}
+
+	patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(nrtOldJSON, nrtNewJSON, nrtOldJSON)
+	if err != nil {
+		return NRTPatchInfo{}, "make_patch", err
+	}
+	return NRTPatchInfo{
+		Patch:        patch,
+		FullObjBytes: len(nrtNewJSON),
+	}, "", nil
+}
+
+func (te *NRTUpdater) patchNRT(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
+	if te.prevNRT == nil {
+		// we intentionally don't log nor record a metric because this can happen in the regular flow and it's a benign error.
+		return nil, ErrMissingPreviousNRT
+	}
+
+	// make the patch ignore metadata, otherwise the patch will attempt
+	// to remove them, and the apiserver will (correctly) refuse it,
+	// falling back to the update path
+	nrtNew := te.prevNRT.DeepCopy()
+	te.updateNRTInfo(nrtNew, info)
+	te.updateOwnerReferences(ctx, nrtNew)
+
+	patchInfo, reason, err := MakeNRTPatch(te.prevNRT, nrtNew)
+	if err != nil {
+		metrics.UpdateNodeResourceTopologyPatchFailuresMetric(reason)
+		klog.Infof("failed to create a patch for the APIServer: %v", err)
+		return nil, err
+	}
+
+	ratio := patchInfo.SizeRatio()
+	klog.V(7).Infof("nrtupdater patch size %d bytes, full object %d bytes, ratio %.2f", len(patchInfo.Patch), patchInfo.FullObjBytes, ratio)
+	metrics.UpdateNodeResourceTopologyPatchSizeRatioMetric(ratio)
+
+	// The NodeResourceTopology API types lack patchStrategy/patchMergeKey struct tags,
+	// so strategic merge patch would fall back to JSON merge patch behavior anyway.
+	// We use MergePatchType to match the actual semantics.
+	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Patch(ctx, te.prevNRT.Name, types.MergePatchType, patchInfo.Patch, metav1.PatchOptions{})
+	if err != nil {
+		metrics.UpdateNodeResourceTopologyPatchFailuresMetric("send_patch")
+		klog.Infof("failed to send a patch to the APIServer: %v", err)
+		return nil, err
+	}
+
+	te.prevNRT = nrtUpdated
+	return nrtUpdated, nil
+}
+
 func (te *NRTUpdater) sendObjectPatch(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
-	return nil, errors.New("not yet implemented")
+	nrtObj, err := te.patchNRT(ctx, cli, info)
+	if err != nil {
+		nrtObj, err = te.sendObjectUpdate(ctx, cli, info)
+		if err != nil {
+			return nil, err
+		}
+		te.prevNRT = nrtObj
+		return nrtObj, nil
+	}
+	return nrtObj, nil
 }
 
 func (te *NRTUpdater) sendObjectUpdate(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
