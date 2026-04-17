@@ -27,17 +27,21 @@ const (
 
 // Command line arguments
 type Args struct {
-	NoPublish  bool   `json:"noPublish,omitempty"`
-	Oneshot    bool   `json:"oneShot,omitempty"`
-	Hostname   string `json:"hostname,omitempty"`
-	KubeConfig string `json:"kubeConfig,omitempty"`
+	NoPublish   bool   `json:"noPublish,omitempty"`
+	Oneshot     bool   `json:"oneShot,omitempty"`
+	Hostname    string `json:"hostname,omitempty"`
+	KubeConfig  string `json:"kubeConfig,omitempty"`
+	PatchMode   bool   `json:"patchMode,omitempty"`
+	PatchResync int    `json:"patchResync,omitempty"`
 }
 
 func (args Args) Clone() Args {
 	return Args{
-		NoPublish: args.NoPublish,
-		Oneshot:   args.Oneshot,
-		Hostname:  args.Hostname,
+		NoPublish:   args.NoPublish,
+		Oneshot:     args.Oneshot,
+		Hostname:    args.Hostname,
+		PatchMode:   args.PatchMode,
+		PatchResync: args.PatchResync,
 	}
 }
 
@@ -56,6 +60,8 @@ type NRTUpdater struct {
 	stopChan   chan struct{}
 	nodeGetter NodeGetter
 	nrtCli     topologyclientset.Interface
+	sendObject func(context.Context, topologyclientset.Interface, MonitorInfo) (*v1alpha2.NodeResourceTopology, error)
+	prevNRT    *v1alpha2.NodeResourceTopology
 }
 
 type MonitorInfo struct {
@@ -76,17 +82,25 @@ func NewNRTUpdater(nodeGetter NodeGetter, nrtCli topologyclientset.Interface, ar
 	if nrtCli == nil {
 		return nil, fmt.Errorf("missing NRT client interface")
 	}
-	return &NRTUpdater{
+	upd := NRTUpdater{
 		args:       args,
 		tmConfig:   tmconf,
 		stopChan:   make(chan struct{}),
 		nodeGetter: nodeGetter,
 		nrtCli:     nrtCli,
-	}, nil
+	}
+	if args.PatchMode {
+		klog.Infof("operation mode: patch")
+		upd.sendObject = upd.sendObjectPatch
+	} else {
+		klog.Infof("operation mode: get+update")
+		upd.sendObject = upd.sendObjectUpdate
+	}
+	return &upd, nil
 }
 
-func (te *NRTUpdater) Update(info MonitorInfo) error {
-	return te.updateWithClient(te.nrtCli, info)
+func (te *NRTUpdater) Update(ctx context.Context, info MonitorInfo) error {
+	return te.sendData(ctx, te.nrtCli, info)
 }
 
 func (te *NRTUpdater) Stop() {
@@ -99,7 +113,7 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 		case info := <-infoChannel:
 			tsBegin := time.Now()
 			condStatus := v1.ConditionTrue
-			if err := te.Update(info); err != nil {
+			if err := te.Update(context.Background(), info); err != nil {
 				klog.Warningf("failed to update: %v", err)
 				condStatus = v1.ConditionFalse
 			}
@@ -118,14 +132,21 @@ func (te *NRTUpdater) Run(infoChannel <-chan MonitorInfo, condChan chan v1.PodCo
 	}
 }
 
-func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info MonitorInfo) error {
+func (te *NRTUpdater) sendData(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) error {
 	klog.V(7).Infof("update: sending zone: %v", dump.Object(info.Zones))
-
 	if te.args.NoPublish {
 		return nil
 	}
+	_, err := te.sendObject(ctx, cli, info)
+	return err
+}
 
-	nrt, err := cli.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), te.args.Hostname, metav1.GetOptions{})
+func (te *NRTUpdater) sendObjectPatch(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (te *NRTUpdater) sendObjectUpdate(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
+	nrt, err := cli.TopologyV1alpha2().NodeResourceTopologies().Get(ctx, te.args.Hostname, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		nrtNew := v1alpha2.NodeResourceTopology{
 			ObjectMeta: metav1.ObjectMeta{
@@ -134,30 +155,32 @@ func (te *NRTUpdater) updateWithClient(cli topologyclientset.Interface, info Mon
 			},
 		}
 		te.updateNRTInfo(&nrtNew, info)
+		te.updateOwnerReferences(ctx, &nrtNew)
 
-		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(context.TODO(), &nrtNew, metav1.CreateOptions{})
+		nrtCreated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Create(ctx, &nrtNew, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("update failed for NRT instance: %w", err)
+			return nil, fmt.Errorf("update failed for NRT instance: %w", err)
 		}
 		metrics.UpdateNodeResourceTopologyWritesMetric("create", info.UpdateReason())
 		klog.V(2).Infof("nrtupdater created NRT instance: %v", dump.Object(nrtCreated))
-		return nil
+		return nrtCreated, nil
 	}
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	nrtMutated := nrt.DeepCopy()
 	te.updateNRTInfo(nrtMutated, info)
+	te.updateOwnerReferences(ctx, nrtMutated)
 
-	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Update(context.TODO(), nrtMutated, metav1.UpdateOptions{})
+	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Update(ctx, nrtMutated, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("update failed for NRT instance: %w", err)
+		return nil, fmt.Errorf("update failed for NRT instance: %w", err)
 	}
 	metrics.UpdateNodeResourceTopologyWritesMetric("update", info.UpdateReason())
 	klog.V(7).Infof("nrtupdater changed CRD instance: %v", dump.Object(nrtUpdated))
-	return nil
+	return nrtUpdated, nil
 }
 
 func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info MonitorInfo) {
@@ -167,16 +190,14 @@ func (te *NRTUpdater) updateNRTInfo(nrt *v1alpha2.NodeResourceTopology, info Mon
 	nrt.Attributes = info.Attributes.DeepCopy()
 	nrt.Attributes = append(nrt.Attributes, te.makeAttributes()...)
 	// TODO: check for duplicate attributes?
-
-	te.updateOwnerReferences(nrt)
 }
 
 // updateOwnerReferences ensure nrt.OwnerReferences include a reference to the Node with the same name as the NRT
 //
 // Check nrt.OwnerReferences for Node references and update it so it has only one Node reference,
 // the one to the Node with the same name as the NRT.
-func (te *NRTUpdater) updateOwnerReferences(nrt *v1alpha2.NodeResourceTopology) {
-	node, err := te.nodeGetter.Get(context.TODO(), nrt.Name, metav1.GetOptions{})
+func (te *NRTUpdater) updateOwnerReferences(ctx context.Context, nrt *v1alpha2.NodeResourceTopology) {
+	node, err := te.nodeGetter.Get(ctx, nrt.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.Is(err, NotConfigured) {
 			return
