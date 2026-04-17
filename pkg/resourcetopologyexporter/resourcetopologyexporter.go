@@ -91,7 +91,7 @@ func Execute(hnd Handle, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs res
 		if err != nil {
 			return err
 		}
-		condIn.Run(condChan)
+		go condIn.Run(context.Background(), condChan)
 	}
 
 	eventSource, err := createEventSource(&rteArgs)

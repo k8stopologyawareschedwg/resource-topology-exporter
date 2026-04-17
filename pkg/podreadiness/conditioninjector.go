@@ -35,9 +35,9 @@ func NewConditionInjector(cs kubernetes.Interface) (*ConditionInjector, error) {
 	}, nil
 }
 
-func (ci *ConditionInjector) Inject(cond v1.PodCondition) error {
+func (ci *ConditionInjector) Inject(ctx context.Context, cond v1.PodCondition) error {
 	conditionExist := false
-	pod, err := ci.cs.CoreV1().Pods(ci.ns).Get(context.TODO(), ci.podName, metav1.GetOptions{})
+	pod, err := ci.cs.CoreV1().Pods(ci.ns).Get(ctx, ci.podName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -62,18 +62,20 @@ func (ci *ConditionInjector) Inject(cond v1.PodCondition) error {
 
 	klog.V(4).Infof("pod conditions: %v", pod.Status.Conditions)
 
-	_, err = ci.cs.CoreV1().Pods(ci.ns).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{})
+	_, err = ci.cs.CoreV1().Pods(ci.ns).UpdateStatus(ctx, pod, metav1.UpdateOptions{})
 	return err
 }
 
-func (ci *ConditionInjector) Run(condChan <-chan v1.PodCondition) {
-	go func() {
-		for {
-			cond := <-condChan
-			err := ci.Inject(cond)
+func (ci *ConditionInjector) Run(ctx context.Context, condChan <-chan v1.PodCondition) {
+	for {
+		select {
+		case cond := <-condChan:
+			err := ci.Inject(ctx, cond)
 			if err != nil {
 				klog.Errorf("failed to update pod status with condition: %v", cond)
 			}
+		case <-ctx.Done():
+			return
 		}
-	}()
+	}
 }
