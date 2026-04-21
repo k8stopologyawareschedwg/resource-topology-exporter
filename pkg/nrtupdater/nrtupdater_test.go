@@ -40,7 +40,7 @@ import (
 var nrtResource = schema.GroupVersionResource{Group: "topology.node.k8s.io", Version: "v1alpha2", Resource: "noderesourcetopologies"}
 
 type updateModeTestCase struct {
-	name     string
+	name      string
 	patchMode bool
 }
 
@@ -63,7 +63,7 @@ func testUpdateTMPolicy(t *testing.T, patchMode bool) {
 	nodeName := "test-node"
 
 	args := Args{
-		Hostname: nodeName,
+		Hostname:  nodeName,
 		PatchMode: patchMode,
 	}
 	var nrtUpd *NRTUpdater
@@ -177,7 +177,7 @@ func testUpdateOwnerReferences(t *testing.T, patchMode bool) {
 	nodeName := "test-node"
 
 	args := Args{
-		Hostname: nodeName,
+		Hostname:  nodeName,
 		PatchMode: patchMode,
 	}
 	tmConfig := TMConfig{
@@ -487,7 +487,7 @@ func TestPatchMode(t *testing.T) {
 	nodeName := "test-node"
 
 	args := Args{
-		Hostname: nodeName,
+		Hostname:  nodeName,
 		PatchMode: true,
 	}
 	tmConfig := TMConfig{
@@ -573,7 +573,7 @@ func TestPatchModeFallbackOnError(t *testing.T) {
 	nodeName := "test-node"
 
 	args := Args{
-		Hostname: nodeName,
+		Hostname:  nodeName,
 		PatchMode: true,
 	}
 	tmConfig := TMConfig{

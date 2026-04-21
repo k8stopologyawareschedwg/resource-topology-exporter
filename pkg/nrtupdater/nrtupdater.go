@@ -69,6 +69,7 @@ type NRTUpdater struct {
 	nrtCli     topologyclientset.Interface
 	sendObject func(context.Context, topologyclientset.Interface, MonitorInfo) (*v1alpha2.NodeResourceTopology, error)
 	prevNRT    *v1alpha2.NodeResourceTopology
+	patchCount int
 }
 
 type MonitorInfo struct {
@@ -219,16 +220,30 @@ func (te *NRTUpdater) patchNRT(ctx context.Context, cli topologyclientset.Interf
 	return nrtUpdated, nil
 }
 
-func (te *NRTUpdater) sendObjectPatch(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
-	nrtObj, err := te.patchNRT(ctx, cli, info)
-	if err != nil {
-		nrtObj, err = te.sendObjectUpdate(ctx, cli, info)
-		if err != nil {
-			return nil, err
-		}
-		te.prevNRT = nrtObj
-		return nrtObj, nil
+func (te *NRTUpdater) needsResync() bool {
+	if te.args.PatchResync <= 0 {
+		return false
 	}
+	return te.patchCount >= te.args.PatchResync
+}
+
+func (te *NRTUpdater) sendObjectPatch(ctx context.Context, cli topologyclientset.Interface, info MonitorInfo) (*v1alpha2.NodeResourceTopology, error) {
+	if !te.needsResync() {
+		nrtObj, err := te.patchNRT(ctx, cli, info)
+		if err == nil {
+			te.patchCount++
+			return nrtObj, nil
+		}
+	} else {
+		klog.V(2).Infof("nrtupdater forcing resync after %d patches", te.patchCount)
+	}
+
+	nrtObj, err := te.sendObjectUpdate(ctx, cli, info)
+	if err != nil {
+		return nil, err
+	}
+	te.prevNRT = nrtObj
+	te.patchCount = 0
 	return nrtObj, nil
 }
 
