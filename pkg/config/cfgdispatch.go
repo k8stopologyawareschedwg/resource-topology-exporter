@@ -69,11 +69,18 @@ func (cm configMap) Duration(key string, out *time.Duration) error {
 	if !ok {
 		return nil
 	}
-	j, ok := val.(float64)
-	if !ok {
-		return fmt.Errorf("key %q has non-float64 value representation %T", key, val)
+	switch v := val.(type) {
+	case float64:
+		*out = time.Duration(v)
+	case string:
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("key %q: %w", key, err)
+		}
+		*out = d
+	default:
+		return fmt.Errorf("key %q has unsupported value type %T", key, val)
 	}
-	*out = time.Duration(j)
 	return nil
 }
 
@@ -118,6 +125,7 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "resourceMonitor.exposeTiming", out: &pArgs.Resourcemonitor.ExposeTiming},
 		{key: "resourceMonitor.podSetFingerprintStatusFile", out: &pArgs.Resourcemonitor.PodSetFingerprintStatusFile},
 		{key: "resourceMonitor.excludeTerminalPods", out: &pArgs.Resourcemonitor.ExcludeTerminalPods},
+		{key: "topologyExporter.kubeletConfigFile", out: &pArgs.RTE.KubeletConfigFile},
 		{key: "topologyExporter.podResourcesSocketPath", out: &pArgs.RTE.PodResourcesSocketPath},
 		{key: "topologyExporter.sleepInterval", out: &pArgs.RTE.SleepInterval},
 		{key: "topologyExporter.podReadinessEnable", out: &pArgs.RTE.PodReadinessEnable},
