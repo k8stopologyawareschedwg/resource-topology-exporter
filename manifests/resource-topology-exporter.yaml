@@ -11,7 +11,7 @@ metadata:
 rules:
 - apiGroups: ["topology.node.k8s.io"]
   resources: ["noderesourcetopologies"]
-  verbs: ["create", "update", "get", "list"]
+  verbs: ["create", "update", "patch", "get", "list"]
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get"]
@@ -56,6 +56,9 @@ data:
     global:
       verbose: ${RTE_VERBOSE}
       debug: true
+    nrtUpdater:
+      patchMode: ${RTE_PATCH_MODE}
+      patchResync: ${RTE_PATCH_RESYNC}
     resourceMonitor:
       exposeTiming: true
       refreshNodeResources: true

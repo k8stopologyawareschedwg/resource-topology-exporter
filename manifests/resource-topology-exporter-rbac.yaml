@@ -11,7 +11,7 @@ metadata:
 rules:
 - apiGroups: ["topology.node.k8s.io"]
   resources: ["noderesourcetopologies"]
-  verbs: ["create", "update", "get", "list"]
+  verbs: ["create", "update", "get", "list", "patch"]
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get"]

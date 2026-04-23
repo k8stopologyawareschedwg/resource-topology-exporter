@@ -24,6 +24,9 @@ data:
     global:
       verbose: 6
       debug: true
+    nrtUpdater:
+      patchMode: false
+      patchResync: 10
     resourceMonitor:
       exposeTiming: true
       refreshNodeResources: true
