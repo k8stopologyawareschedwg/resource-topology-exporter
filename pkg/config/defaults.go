@@ -29,6 +29,8 @@ const (
 
 func SetDefaults(pArgs *ProgArgs) {
 	pArgs.Global.Verbose = 2
+	pArgs.NRTupdater.PatchMode = true
+	pArgs.NRTupdater.PatchResync = 10
 	pArgs.Resourcemonitor.SysfsRoot = "/sys"
 	pArgs.Resourcemonitor.PodSetFingerprint = true
 	pArgs.Resourcemonitor.PodSetFingerprintMethod = podfingerprint.MethodWithExclusiveResources

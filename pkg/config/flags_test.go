@@ -47,12 +47,12 @@ func TestPatchMode(t *testing.T) {
 	_, closer := setupTest(t)
 	t.Cleanup(closer)
 
-	pArgs, err := LoadArgs("--patch-mode")
+	pArgs, err := LoadArgs("--patch-mode=false")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !pArgs.NRTupdater.PatchMode {
-		t.Errorf("patchmode should be true")
+	if pArgs.NRTupdater.PatchMode {
+		t.Errorf("patchmode should be false")
 	}
 }
 
@@ -70,8 +70,8 @@ func TestOneshot(t *testing.T) {
 	if !pArgs.NRTupdater.NoPublish {
 		t.Errorf("nopublish should be true")
 	}
-	if pArgs.NRTupdater.PatchMode {
-		t.Errorf("patchmode should be false (default)")
+	if !pArgs.NRTupdater.PatchMode {
+		t.Errorf("patchmode should be true (default)")
 	}
 }
 

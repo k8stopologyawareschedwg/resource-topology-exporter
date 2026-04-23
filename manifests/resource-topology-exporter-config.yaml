@@ -25,8 +25,8 @@ data:
       verbose: 6
       debug: true
     nrtUpdater:
-      patchMode: false
-      patchResync: 10
+      patchMode: true
+      patchResync: 60
     resourceMonitor:
       exposeTiming: true
       refreshNodeResources: true

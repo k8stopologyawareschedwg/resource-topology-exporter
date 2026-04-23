@@ -136,6 +136,8 @@ jobs:
       RTE_METRICS_MODE: ${{ matrix.mode }}
       METRICS_ADDRESS: ${{ matrix.address }}
       METRICS_PORT: "2112"
+      RTE_PATCH_MODE: true
+      RTE_PATCH_RESYNC: 10
       RTE_POLL_INTERVAL: 10s
       RTE_VERBOSE: 6
     steps:
@@ -170,6 +172,8 @@ jobs:
         RTE_METRICS_MODE=${RTE_METRICS_MODE} \
         METRICS_ADDRESS=${METRICS_ADDRESS} \
         METRICS_PORT=${METRICS_PORT} \
+        RTE_PATCH_MODE=${RTE_PATCH_MODE} \
+        RTE_PATCH_RESYNC=${RTE_PATCH_RESYNC} \
         RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} \
         RTE_VERBOSE=${RTE_VERBOSE} \
         make gen-manifests | tee rte-e2e.yaml
