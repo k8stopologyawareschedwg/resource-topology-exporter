@@ -18,11 +18,15 @@ limitations under the License.
 package rtepod
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -77,7 +81,8 @@ func FindRTEContainerName(rtePod *corev1.Pod) (string, error) {
 	return "", fmt.Errorf("no container uses %q as command or argument", rteExecutable)
 }
 
-func FindNotificationFilePath(rtePod *corev1.Pod) (string, error) {
+func FindNotificationFilePath(ctx context.Context, cli *kubernetes.Clientset, rtePod *corev1.Pod) (string, error) {
+	// try CLI args first (legacy)
 	for idx := 0; idx < len(rtePod.Spec.Containers); idx++ {
 		cnt := rtePod.Spec.Containers[idx] // shortcut
 		if len(cnt.Command) > 0 && strings.Contains(cnt.Command[0], rteExecutable) {
@@ -88,7 +93,39 @@ func FindNotificationFilePath(rtePod *corev1.Pod) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("no container uses %q as an argument option", notificationFileOption)
+	return findNotifyFilePathFromConfigMap(ctx, cli, rtePod)
+}
+
+func findNotifyFilePathFromConfigMap(ctx context.Context, cli *kubernetes.Clientset, rtePod *corev1.Pod) (string, error) {
+	for _, vol := range rtePod.Spec.Volumes {
+		if vol.ConfigMap == nil {
+			continue
+		}
+		if !strings.Contains(vol.ConfigMap.Name, "daemon") {
+			continue
+		}
+		cm, err := cli.CoreV1().ConfigMaps(rtePod.Namespace).Get(ctx, vol.ConfigMap.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to get configmap %q: %w", vol.ConfigMap.Name, err)
+		}
+		data, ok := cm.Data["config.yaml"]
+		if !ok {
+			continue
+		}
+		var cfg map[string]any
+		if err := yaml.Unmarshal([]byte(data), &cfg); err != nil {
+			continue
+		}
+		te, ok := cfg["topologyExporter"].(map[string]any)
+		if !ok {
+			continue
+		}
+		notifyPath, ok := te["notifyFilePath"].(string)
+		if ok && notifyPath != "" {
+			return notifyPath, nil
+		}
+	}
+	return "", fmt.Errorf("cannot find notification file path from CLI args or daemon configmap")
 }
 
 func isRTEContainer(cnt corev1.Container) bool {
