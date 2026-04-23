@@ -68,6 +68,36 @@ func TestReadResourceExclude(t *testing.T) {
 	}
 }
 
+func TestMetricsAddressFromConfig(t *testing.T) {
+	testDir, closer := setupTest(t)
+	t.Cleanup(closer)
+
+	confRoot := filepath.Join(testDir, "test-metrics-address")
+	daemonDir := filepath.Join(confRoot, "daemon")
+	if err := os.MkdirAll(daemonDir, 0755); err != nil {
+		t.Fatalf("unexpected error creating daemon dir: %v", err)
+	}
+
+	cfgContent := `topologyExporter:
+  metricsAddress: 192.168.1.100
+`
+	if err := os.WriteFile(filepath.Join(daemonDir, "config.yaml"), []byte(cfgContent), 0644); err != nil {
+		t.Fatalf("unexpected error writing config: %v", err)
+	}
+
+	var pArgs ProgArgs
+	SetDefaults(&pArgs)
+	extraPath := FixExtraConfigPath(confRoot)
+	if err := FromFiles(&pArgs, confRoot, extraPath); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "192.168.1.100"
+	if pArgs.RTE.MetricsAddress != expected {
+		t.Errorf("MetricsAddress: got %q expected %q", pArgs.RTE.MetricsAddress, expected)
+	}
+}
+
 func TestFromFiles(t *testing.T) {
 	testDir, closer := setupTest(t)
 	t.Cleanup(closer)
