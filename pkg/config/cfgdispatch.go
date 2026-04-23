@@ -108,6 +108,8 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "nrtUpdater.noPublish", out: &pArgs.NRTupdater.NoPublish},
 		{key: "nrtUpdater.oneShot", out: &pArgs.NRTupdater.Oneshot},
 		{key: "nrtUpdater.hostname", out: &pArgs.NRTupdater.Hostname},
+		{key: "nrtUpdater.patchMode", out: &pArgs.NRTupdater.PatchMode},
+		{key: "nrtUpdater.patchResync", out: &pArgs.NRTupdater.PatchResync},
 		{key: "resourceMonitor.namespace", out: &pArgs.Resourcemonitor.Namespace},
 		{key: "resourceMonitor.sysfsRoot", out: &pArgs.Resourcemonitor.SysfsRoot},
 		{key: "resourceMonitor.refreshNodeResources", out: &pArgs.Resourcemonitor.RefreshNodeResources},

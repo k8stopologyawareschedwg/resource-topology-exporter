@@ -15,7 +15,16 @@ defaults:
     shell: bash
 
 jobs:
-  e2e-rte-main:
+  e2e-rte:
+    strategy:
+      matrix:
+        include:
+          - name: update
+            patch_mode: false
+            patch_resync: 0
+          - name: patch
+            patch_mode: true
+            patch_resync: 10
     runs-on: ubuntu-latest
     env:
       E2E_NODE_REFERENCE: true
@@ -26,6 +35,8 @@ jobs:
       RTE_METRICS_MODE: http
       RTE_POLL_INTERVAL: 10s
       RTE_VERBOSE: 4
+      RTE_PATCH_MODE: ${{ matrix.patch_mode }}
+      RTE_PATCH_RESYNC: ${{ matrix.patch_resync }}
     steps:
     - name: checkout sources
       uses: actions/checkout@v4
@@ -62,6 +73,8 @@ jobs:
         RTE_METRICS_MODE=${RTE_METRICS_MODE} \
         RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} \
         RTE_VERBOSE=${RTE_VERBOSE} \
+        RTE_PATCH_MODE=${RTE_PATCH_MODE} \
+        RTE_PATCH_RESYNC=${RTE_PATCH_RESYNC} \
         make gen-manifests | tee rte-e2e.yaml
 
     - name: create K8S kind cluster
@@ -123,6 +136,8 @@ jobs:
       RTE_METRICS_MODE: ${{ matrix.mode }}
       METRICS_ADDRESS: ${{ matrix.address }}
       METRICS_PORT: "2112"
+      RTE_PATCH_MODE: true
+      RTE_PATCH_RESYNC: 10
       RTE_POLL_INTERVAL: 10s
       RTE_VERBOSE: 6
     steps:
@@ -157,6 +172,8 @@ jobs:
         RTE_METRICS_MODE=${RTE_METRICS_MODE} \
         METRICS_ADDRESS=${METRICS_ADDRESS} \
         METRICS_PORT=${METRICS_PORT} \
+        RTE_PATCH_MODE=${RTE_PATCH_MODE} \
+        RTE_PATCH_RESYNC=${RTE_PATCH_RESYNC} \
         RTE_POLL_INTERVAL=${RTE_POLL_INTERVAL} \
         RTE_VERBOSE=${RTE_VERBOSE} \
         make gen-manifests | tee rte-e2e.yaml

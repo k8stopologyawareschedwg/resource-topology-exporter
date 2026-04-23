@@ -2,6 +2,8 @@ global:
   verbose: 5
 nrtUpdater:
   hostname: node.kubelab.io
+  patchMode: true
+  patchResync: 10
 resourceMonitor:
   podSetFingerprint: true
   podSetFingerprintMethod: with-exclusive-resources

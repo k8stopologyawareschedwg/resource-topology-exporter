@@ -52,6 +52,8 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	CommandLine.BoolVar(&pArgs.NRTupdater.NoPublish, "no-publish", pArgs.NRTupdater.NoPublish, "Do not publish discovered features to the cluster-local Kubernetes API server.")
 	CommandLine.BoolVar(&pArgs.NRTupdater.Oneshot, "oneshot", pArgs.NRTupdater.Oneshot, "Update once and exit.")
 	CommandLine.StringVar(&pArgs.NRTupdater.Hostname, "hostname", pArgs.NRTupdater.Hostname, "Override the node hostname.")
+	CommandLine.BoolVar(&pArgs.NRTupdater.PatchMode, "patch-mode", pArgs.NRTupdater.PatchMode, "Send updates using patches.")
+	CommandLine.IntVar(&pArgs.NRTupdater.PatchResync, "patch-resync", pArgs.NRTupdater.PatchResync, "Force a full get+update resync every N patch cycles. 0 means never resync.")
 
 	CommandLine.StringVar(&pArgs.Resourcemonitor.Namespace, "watch-namespace", pArgs.Resourcemonitor.Namespace, "Namespace to watch pods for. Use \"\" for all namespaces.")
 	CommandLine.StringVar(&pArgs.Resourcemonitor.SysfsRoot, "sysfs", pArgs.Resourcemonitor.SysfsRoot, "Top-level component path of sysfs.")

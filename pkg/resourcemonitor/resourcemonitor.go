@@ -257,7 +257,7 @@ func (rm *resourceMonitor) Scan(excludeList ResourceExclude) (ScanResponse, erro
 	defer cancel()
 	resp, err := rm.podResCli.List(ctx, &podresourcesapi.ListPodResourcesRequest{})
 	if err != nil {
-		metrics.UpdatePodResourceApiCallsFailureMetric("list")
+		metrics.UpdatePodResourceApiCallsFailuresMetric("list")
 		return ScanResponse{}, err
 	}
 
@@ -421,7 +421,7 @@ func (rm *resourceMonitor) updateNodeAllocatable() error {
 	defer cancel()
 	allocRes, err := rm.podResCli.GetAllocatableResources(ctx, &podresourcesapi.AllocatableResourcesRequest{})
 	if err != nil {
-		metrics.UpdatePodResourceApiCallsFailureMetric("get_allocatable_resources")
+		metrics.UpdatePodResourceApiCallsFailuresMetric("get_allocatable_resources")
 		return err
 	}
 
