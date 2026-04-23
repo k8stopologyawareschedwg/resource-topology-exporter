@@ -54,20 +54,25 @@ metadata:
 data:
   config.yaml: |
     global:
-      verbose: ${RTE_VERBOSE}
       debug: true
     nrtUpdater:
       patchMode: ${RTE_PATCH_MODE}
       patchResync: ${RTE_PATCH_RESYNC}
     resourceMonitor:
+      sysfsRoot: /host-sys
       exposeTiming: true
       refreshNodeResources: true
     topologyExporter:
+      sleepInterval: ${RTE_POLL_INTERVAL}
+      kubeletConfigFile: /host-var/lib/kubelet/config.yaml
+      podResourcesSocketPath: unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
+      notifyFilePath: /host-run/rte/notify
       addNRTOwnerEnable: true
       podReadinessEnable: true
+      metricsMode: ${RTE_METRICS_MODE}
       metricsTLS:
         certsDir: /etc/secrets/rte
-        wantCliAuth: true
+        wantCliAuth: ${RTE_METRICS_CLI_AUTH}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -92,14 +97,8 @@ spec:
         command:
         - /bin/resource-topology-exporter
         args:
+          - -v=${RTE_VERBOSE}
           - --dump-config=.log
-          - --sleep-interval=${RTE_POLL_INTERVAL}
-          - --metrics-mode=${RTE_METRICS_MODE}
-          - --metrics-want-cli-auth=${RTE_METRICS_CLI_AUTH}
-          - --sysfs=/host-sys
-          - --kubelet-config-file=/host-var/lib/kubelet/config.yaml
-          - --podresources-socket=unix:///host-var/lib/kubelet/pod-resources/kubelet.sock
-          - --notify-file=/host-run/rte/notify
         env:
         - name: NODE_NAME
           valueFrom:
