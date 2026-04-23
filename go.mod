@@ -9,6 +9,7 @@ require (
 	github.com/jaypipes/ghw v0.21.3-0.20260109185716-ee0aed93f45d
 	github.com/jeremywohl/flatten/v2 v2.0.0-20211013061545-07e4a09fb8e4
 	github.com/k8stopologyawareschedwg/noderesourcetopology-api v0.1.1
+	github.com/k8stopologyawareschedwg/numaplacement v0.0.0-20260415075341-05c4e9728963
 	github.com/k8stopologyawareschedwg/podfingerprint v0.2.3
 	github.com/mdomke/git-semver v1.0.0
 	github.com/onsi/ginkgo/v2 v2.27.2

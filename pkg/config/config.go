@@ -151,6 +151,8 @@ func LoadArgs(args ...string) (ProgArgs, error) {
 }
 
 func Finalize(pArgs *ProgArgs) error {
+	pArgs.Resourcemonitor.TopologyManagerPolicy = pArgs.RTE.TopologyManagerPolicy
+
 	var err error
 	if pArgs.NRTupdater.Hostname == "" {
 		pArgs.NRTupdater.Hostname, err = os.Hostname()
