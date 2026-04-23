@@ -304,20 +304,21 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 })
 
 func getUpdatedNRT(topologyClient *topologyclientset.Clientset, nodeName string, prevNrt v1alpha2.NodeResourceTopology, timeout time.Duration) *v1alpha2.NodeResourceTopology {
+	ginkgo.GinkgoHelper()
+	effectiveTimeout := timeout + updateIntervalExtraSafety
+	klog.Infof("waiting for NRT %q update: timeout %v (base %v + safety %v) prev resourceVersion=%v", nodeName, effectiveTimeout, timeout, updateIntervalExtraSafety, prevNrt.ObjectMeta.ResourceVersion)
 	var err error
 	var currNrt *v1alpha2.NodeResourceTopology
-	gomega.EventuallyWithOffset(1, func() bool {
+	gomega.Eventually(func() error {
 		currNrt, err = topologyClient.TopologyV1alpha2().NodeResourceTopologies().Get(context.TODO(), nodeName, metav1.GetOptions{})
 		if err != nil {
-			klog.Infof("failed to get the node topology resource: %v", err)
-			return false
+			return fmt.Errorf("failed to get the node topology resource: %w", err)
 		}
 		if currNrt.ObjectMeta.ResourceVersion == prevNrt.ObjectMeta.ResourceVersion {
-			klog.Infof("resource %s not yet updated - resource version not bumped", nodeName)
-			return false
+			return fmt.Errorf("resource %s not yet updated - resource version not bumped", nodeName)
 		}
-		return true
-	}).WithTimeout(timeout+updateIntervalExtraSafety).WithPolling(1*time.Second).Should(gomega.BeTrue(), "didn't get updated node topology info")
+		return nil
+	}).WithTimeout(effectiveTimeout).WithPolling(1*time.Second).Should(gomega.Succeed(), "didn't get updated node topology info")
 	return currNrt
 }
 
@@ -404,7 +405,8 @@ func estimateUpdateInterval(nrt v1alpha2.NodeResourceTopology) (time.Duration, s
 		return fallbackInterval, "estimated", nil
 	}
 	updateInterval, err := time.ParseDuration(updateIntervalAnn)
-	if err != nil {
+	if err != nil || updateInterval <= 0 {
+		klog.Warningf("annotation %q has unusable value %q (parsed=%v err=%v), falling back to %v", k8sannotations.UpdateInterval, updateIntervalAnn, updateInterval, err, fallbackInterval)
 		return fallbackInterval, "estimated", err
 	}
 	return updateInterval, "computed", nil
