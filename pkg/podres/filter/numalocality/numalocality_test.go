@@ -95,30 +95,30 @@ func TestVerify(t *testing.T) {
 	}
 }
 
-func TestIsPresent(t *testing.T) {
+func TestGetNUMAID(t *testing.T) {
 	type testCase struct {
 		name     string
 		topo     *podresourcesapi.TopologyInfo
-		expected bool
+		expected int
 	}
 
 	testCases := []testCase{
 		{
 			name:     "nil",
 			topo:     nil,
-			expected: false,
+			expected: -1,
 		},
 		{
 			name:     "nil nodes",
 			topo:     &podresourcesapi.TopologyInfo{},
-			expected: false,
+			expected: -1,
 		},
 		{
 			name: "empty nodes",
 			topo: &podresourcesapi.TopologyInfo{
 				Nodes: []*podresourcesapi.NUMANode{},
 			},
-			expected: false,
+			expected: -1,
 		},
 		{
 			name: "any NUMA locality",
@@ -129,7 +129,7 @@ func TestIsPresent(t *testing.T) {
 					},
 				},
 			},
-			expected: false,
+			expected: -1,
 		},
 		{
 			name: "defined NUMA locality",
@@ -140,13 +140,13 @@ func TestIsPresent(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected: 1,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := IsPresent(tc.topo)
+			got := GetNUMAID(tc.topo)
 			if tc.expected != got {
 				t.Fatalf("expected=%v got=%v", tc.expected, got)
 			}

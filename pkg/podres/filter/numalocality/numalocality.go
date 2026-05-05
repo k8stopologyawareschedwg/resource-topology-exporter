@@ -56,18 +56,18 @@ func Required(pr *podresourcesapi.PodResources) bool {
 	return got.Allow
 }
 
-func IsPresent(topo *podresourcesapi.TopologyInfo) bool {
+func GetNUMAID(topo *podresourcesapi.TopologyInfo) int {
 	if topo == nil || topo.Nodes == nil {
-		return false
+		return -1
 	}
 	// if Nodes is not given, this means "don't care about locality". It's a legal representation.
 	for _, node := range topo.Nodes {
 		// setting node.ID == -1 is also a legal representation for "don't care about locality".
 		if node.ID >= 0 {
-			return true
+			return int(node.ID)
 		}
 	}
-	return false
+	return -1
 }
 
 func VerifyContainer(cnt *podresourcesapi.ContainerResources) podresfilter.Result {
@@ -88,7 +88,7 @@ func VerifyContainer(cnt *podresourcesapi.ContainerResources) podresfilter.Resul
 		}
 	}
 	for _, mem := range cnt.Memory {
-		if IsPresent(mem.Topology) {
+		if GetNUMAID(mem.Topology) != -1 {
 			return podresfilter.Result{
 				Allow:  true,
 				Ident:  cnt.Name,
@@ -97,7 +97,7 @@ func VerifyContainer(cnt *podresourcesapi.ContainerResources) podresfilter.Resul
 		}
 	}
 	for _, dev := range cnt.Devices {
-		if len(dev.DeviceIds) > 0 && IsPresent(dev.Topology) {
+		if len(dev.DeviceIds) > 0 && GetNUMAID(dev.Topology) != -1 {
 			return podresfilter.Result{
 				Allow:  true,
 				Ident:  cnt.Name,
