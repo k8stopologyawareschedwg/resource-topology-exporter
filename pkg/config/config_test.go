@@ -24,6 +24,10 @@ import (
 	"testing"
 
 	"sigs.k8s.io/yaml"
+
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcetopologyexporter"
 )
 
 func TestLoadArgs(t *testing.T) {
@@ -79,6 +83,28 @@ func TestUserHomeDirWithoutEnv(t *testing.T) {
 	_, err := UserHomeDir()
 	if !errors.Is(err, SkipDirectory) {
 		t.Fatalf("returned unexpected error: %v", err)
+	}
+}
+
+func TestFinalizeSyncsTopologyManagerPolicy(t *testing.T) {
+	pArgs := ProgArgs{
+		NRTupdater: nrtupdater.Args{
+			Hostname: "test-node",
+		},
+		RTE: resourcetopologyexporter.Args{
+			TopologyManagerPolicy: "single-numa-node",
+		},
+		Resourcemonitor: resourcemonitor.Args{
+			TopologyManagerPolicy: "restricted",
+		},
+	}
+
+	err := Finalize(&pArgs)
+	if err != nil {
+		t.Fatalf("Finalize returned unexpected error: %v", err)
+	}
+	if pArgs.Resourcemonitor.TopologyManagerPolicy != pArgs.RTE.TopologyManagerPolicy {
+		t.Fatalf("TopologyManagerPolicy mismatch: got %q want %q", pArgs.Resourcemonitor.TopologyManagerPolicy, pArgs.RTE.TopologyManagerPolicy)
 	}
 }
 

@@ -174,6 +174,8 @@ func Finalize(pArgs *ProgArgs) error {
 		}
 	}
 
+	pArgs.Resourcemonitor.TopologyManagerPolicy = pArgs.RTE.TopologyManagerPolicy
+
 	return err
 }
 

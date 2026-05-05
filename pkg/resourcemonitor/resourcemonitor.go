@@ -52,6 +52,8 @@ import (
 const (
 	defaultPodResourcesTimeout = 10 * time.Second
 	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
+
+	TopologyManagerPolicySingleNUMANode = "single-numa-node"
 )
 
 type ResourceExclude map[string][]string
@@ -75,6 +77,7 @@ type Args struct {
 	PodSetFingerprintStatusFile string          `json:"podSetFingerprintStatusFile,omitempty"`
 	PodExclude                  podexclude.List `json:"podExclude,omitempty"`
 	ExcludeTerminalPods         bool            `json:"excludeTerminalPods,omitempty"`
+	TopologyManagerPolicy       string          `json:"topologyManagerPolicy,omitempty"`
 }
 
 func (args Args) Clone() Args {
