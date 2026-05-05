@@ -17,6 +17,8 @@ limitations under the License.
 package numalocality
 
 import (
+	"fmt"
+
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	podresfilter "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres/filter"
@@ -109,4 +111,45 @@ func VerifyContainer(cnt *podresourcesapi.ContainerResources) podresfilter.Resul
 	return podresfilter.Result{
 		Allow: false,
 	}
+}
+
+// ResolveContainerPlacement finds the single NUMA node placement for a container;
+// it returns the NUMA node ID if found, otherwise it returns -1.
+// IMPORTANT: multiple-NUMA affinity is not supported (yet), thus this should be called only
+// on single NUMA node topology manager policy.
+func ResolveContainerPlacement(coreIDToNodeIDMap map[int]int, cnt *podresourcesapi.ContainerResources) (bool, int, error) {
+	eligibleForPlacement := true
+	if cnt == nil {
+		return !eligibleForPlacement, -1, fmt.Errorf("nil container resources")
+	}
+
+	if len(cnt.CpuIds) > 0 {
+		nodeID, ok := coreIDToNodeIDMap[int(cnt.CpuIds[0])]
+		if !ok {
+			//should never happen
+			return eligibleForPlacement, -1, fmt.Errorf("CPU ID %d not found in coreIDToNodeIDMap", cnt.CpuIds[0])
+		}
+		return eligibleForPlacement, nodeID, nil
+	}
+
+	// TODO: handle multi-NUMAs for devices
+	// we need to know if on multi-NUMA topology this data is available by
+	// the pod-resources API or if it needs other means to get the NUMA node ID
+	// https://redhat.atlassian.net/browse/CNF-23537
+	// currently this assumes single NUMA node for all devices containers
+	for _, dev := range cnt.Devices {
+		nodeID := GetNUMAID(dev.Topology)
+		if len(dev.DeviceIds) > 0 && nodeID != -1 {
+			return eligibleForPlacement, nodeID, nil
+		}
+	}
+
+	for _, mem := range cnt.Memory {
+		nodeID := GetNUMAID(mem.Topology)
+		if nodeID != -1 {
+			return eligibleForPlacement, nodeID, nil
+		}
+	}
+
+	return !eligibleForPlacement, -1, nil
 }

@@ -154,5 +154,138 @@ func TestGetNUMAID(t *testing.T) {
 	}
 }
 
-// {"pod_resources":[{"name":"image-registry-78b84dc9f9-zwxtk","namespace":"image-registry","containers":[{"name":"registry"}]}]}
-// {"pod_resources":[{"name":"image-registry-78b84dc9f9-zwxtk","namespace":"image-registry","containers":[{"name":"registry"}]}, {"name":"network-check-source-677bdb7d9-lqrcb","namespace":"network-diagnostics","containers":[{"name":"check-endpoints"}]},{"name":"network-check-target-m9mlq","namespace":"network-diagnostics","containers":[{"name":"network-check-target-container"}]}]}
+func TestResolveContainerPlacement(t *testing.T) {
+	coreIDToNodeIDMap := map[int]int{
+		0: 0,
+		1: 1,
+	}
+
+	type testCase struct {
+		name             string
+		cnt              *podresourcesapi.ContainerResources
+		expectedEligible bool
+		expectedNodeID   int
+		expectError      bool
+	}
+
+	testCases := []testCase{
+		{
+			name:             "nil container",
+			cnt:              nil,
+			expectedEligible: false,
+			expectedNodeID:   -1,
+			expectError:      true,
+		},
+		{
+			name: "cpu placement found",
+			cnt: &podresourcesapi.ContainerResources{
+				Name:   "cpu-found",
+				CpuIds: []int64{1},
+			},
+			expectedEligible: true,
+			expectedNodeID:   1,
+			expectError:      false,
+		},
+		{
+			name: "cpu placement missing from map",
+			cnt: &podresourcesapi.ContainerResources{
+				Name:   "cpu-missing",
+				CpuIds: []int64{9},
+			},
+			// Missing CPU in core map is treated as an error while still eligible for placement semantics.
+			expectedEligible: true,
+			expectedNodeID:   -1,
+			expectError:      true,
+		},
+		{
+			name: "device placement found",
+			cnt: &podresourcesapi.ContainerResources{
+				Name: "dev-found",
+				Devices: []*podresourcesapi.ContainerDevices{
+					{
+						ResourceName: "example.com/gpu",
+						DeviceIds:    []string{"gpu-0"},
+						Topology: &podresourcesapi.TopologyInfo{
+							Nodes: []*podresourcesapi.NUMANode{{ID: 0}},
+						},
+					},
+				},
+			},
+			expectedEligible: true,
+			expectedNodeID:   0,
+			expectError:      false,
+		},
+		{
+			name: "memory placement found after non-matching device",
+			cnt: &podresourcesapi.ContainerResources{
+				Name: "mem-found",
+				Devices: []*podresourcesapi.ContainerDevices{
+					{
+						ResourceName: "example.com/fpga",
+						DeviceIds:    []string{"fpga-0"},
+						Topology: &podresourcesapi.TopologyInfo{
+							Nodes: []*podresourcesapi.NUMANode{{ID: -1}},
+						},
+					},
+				},
+				Memory: []*podresourcesapi.ContainerMemory{
+					{
+						MemoryType: "memory",
+						Size:       1024,
+						Topology: &podresourcesapi.TopologyInfo{
+							Nodes: []*podresourcesapi.NUMANode{{ID: 1}},
+						},
+					},
+				},
+			},
+			expectedEligible: true,
+			expectedNodeID:   1,
+			expectError:      false,
+		},
+		{
+			name: "no placement detected",
+			cnt: &podresourcesapi.ContainerResources{
+				Name: "no-placement",
+				Devices: []*podresourcesapi.ContainerDevices{
+					{
+						ResourceName: "example.com/nic",
+						DeviceIds:    []string{},
+						Topology: &podresourcesapi.TopologyInfo{
+							Nodes: []*podresourcesapi.NUMANode{{ID: 0}},
+						},
+					},
+				},
+				Memory: []*podresourcesapi.ContainerMemory{
+					{
+						MemoryType: "memory",
+						Size:       1024,
+						Topology: &podresourcesapi.TopologyInfo{
+							Nodes: []*podresourcesapi.NUMANode{{ID: -1}},
+						},
+					},
+				},
+			},
+			expectedEligible: false,
+			expectedNodeID:   -1,
+			expectError:      false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			eligible, nodeID, err := ResolveContainerPlacement(coreIDToNodeIDMap, tc.cnt)
+			if tc.expectError && err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !tc.expectError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if eligible != tc.expectedEligible {
+				t.Fatalf("expected eligible=%v got=%v", tc.expectedEligible, eligible)
+			}
+			if nodeID != tc.expectedNodeID {
+				t.Fatalf("expected nodeID=%d got=%d", tc.expectedNodeID, nodeID)
+			}
+		})
+	}
+}

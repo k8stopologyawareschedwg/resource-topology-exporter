@@ -18,6 +18,7 @@ package resourcemonitor
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"sort"
 	"strings"
@@ -31,6 +32,7 @@ import (
 
 	cmp "github.com/google/go-cmp/cmp"
 	ghwtopology "github.com/jaypipes/ghw/pkg/topology"
+	"github.com/k8stopologyawareschedwg/numaplacement"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -1361,6 +1363,261 @@ func TestResourcesScan(t *testing.T) {
 		})
 	})
 
+}
+
+func twoNUMANodesTopoForEncode() *ghwtopology.Info {
+	return &ghwtopology.Info{
+		Nodes: []*ghwtopology.Node{
+			{ID: 0},
+			{ID: 1},
+		},
+	}
+}
+
+func TestEncodeContainerAffinities(t *testing.T) {
+	t.Run("skips_when_topology_manager_policy_is_not_single_numa_node", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args: Args{TopologyManagerPolicy: "restricted"},
+			topo: twoNUMANodesTopoForEncode(),
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns",
+				Name:      "pod",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "c", CpuIds: []int64{0}},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		assert.Equal(t, numaplacement.Payload{}, got)
+	})
+
+	t.Run("skips_when_zero_filtered_pod_resources", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args: Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo: twoNUMANodesTopoForEncode(),
+		}
+		got, err := rm.computeNUMAPlacementPayload(nil)
+		assert.NoError(t, err)
+		assert.Equal(t, numaplacement.Payload{}, got)
+
+		got, err = rm.computeNUMAPlacementPayload([]*podresourcesapi.PodResources{})
+		assert.NoError(t, err)
+		assert.Equal(t, numaplacement.Payload{}, got)
+	})
+
+	t.Run("new_encoder_fails_when_topology_has_zero_numa_nodes", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args: Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo: &ghwtopology.Info{Nodes: []*ghwtopology.Node{}},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns",
+				Name:      "pod",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "c", CpuIds: []int64{0}},
+				},
+			},
+		}
+		_, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, numaplacement.ErrInconsistentNUMANodes))
+	})
+
+	t.Run("skips_containers_that_are_not_eligible_for_placement", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args:              Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo:              twoNUMANodesTopoForEncode(),
+			coreIDToNodeIDMap: map[int]int{0: 0},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns",
+				Name:      "pod",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "empty"},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		want := numaplacement.Payload{
+			Containers:     0,
+			NUMANodes:      2,
+			BusiestNode:    0,
+			VectorEncoding: numaplacement.VectorEncodingLEB89,
+			Vectors:        map[int]string{},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
+
+	t.Run("single_numa_topology_short_circuits_without_encoding_containers", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args:              Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo:              &ghwtopology.Info{Nodes: []*ghwtopology.Node{{ID: 0}}},
+			coreIDToNodeIDMap: map[int]int{0: 0},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns1",
+				Name:      "pod1",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "cnt1", CpuIds: []int64{0}},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		want := numaplacement.Payload{
+			Containers:     0,
+			NUMANodes:      1,
+			BusiestNode:    0,
+			VectorEncoding: numaplacement.VectorEncodingLEB89,
+			Vectors:        map[int]string{},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
+
+	t.Run("encodes_cpu_affinity", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args:              Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo:              twoNUMANodesTopoForEncode(),
+			coreIDToNodeIDMap: map[int]int{0: 1},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns1",
+				Name:      "pod1",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "cnt1", CpuIds: []int64{0}},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		want := numaplacement.Payload{
+			Containers:     1,
+			NUMANodes:      2,
+			BusiestNode:    1,
+			VectorEncoding: numaplacement.VectorEncodingLEB89,
+			Vectors:        map[int]string{},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
+
+	t.Run("encodes_device_topology_when_no_cpus", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args:              Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo:              twoNUMANodesTopoForEncode(),
+			coreIDToNodeIDMap: map[int]int{},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns1",
+				Name:      "pod1",
+				Containers: []*podresourcesapi.ContainerResources{
+					{
+						Name: "cnt1",
+						Devices: []*podresourcesapi.ContainerDevices{
+							{
+								ResourceName: "fake.io/gpu",
+								DeviceIds:    []string{"gpu0"},
+								Topology: &podresourcesapi.TopologyInfo{
+									Nodes: []*podresourcesapi.NUMANode{{ID: 0}},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		want := numaplacement.Payload{
+			Containers:     1,
+			NUMANodes:      2,
+			BusiestNode:    0,
+			VectorEncoding: numaplacement.VectorEncodingLEB89,
+			Vectors:        map[int]string{},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
+
+	t.Run("encodes_memory_topology_when_no_cpus_or_devices", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args:              Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo:              twoNUMANodesTopoForEncode(),
+			coreIDToNodeIDMap: map[int]int{},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns1",
+				Name:      "pod1",
+				Containers: []*podresourcesapi.ContainerResources{
+					{
+						Name: "cnt1",
+						Memory: []*podresourcesapi.ContainerMemory{
+							{
+								MemoryType: "memory",
+								Size:       1024,
+								Topology: &podresourcesapi.TopologyInfo{
+									Nodes: []*podresourcesapi.NUMANode{{ID: 1}},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		want := numaplacement.Payload{
+			Containers:     1,
+			NUMANodes:      2,
+			BusiestNode:    1,
+			VectorEncoding: numaplacement.VectorEncodingLEB89,
+			Vectors:        map[int]string{},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
+
+	t.Run("multiple_pods_mixed_skip_and_encode", func(t *testing.T) {
+		rm := &resourceMonitor{
+			args:              Args{TopologyManagerPolicy: TopologyManagerPolicySingleNUMANode},
+			topo:              twoNUMANodesTopoForEncode(),
+			coreIDToNodeIDMap: map[int]int{0: 0, 1: 1},
+		}
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns1",
+				Name:      "pod-a",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "skip-me"},
+					{Name: "ok", CpuIds: []int64{0}},
+				},
+			},
+			{
+				Namespace: "ns2",
+				Name:      "pod-b",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "ok2", CpuIds: []int64{1}},
+				},
+			},
+		}
+		got, err := rm.computeNUMAPlacementPayload(podRes)
+		assert.NoError(t, err)
+		want := numaplacement.Payload{
+			Containers:     2,
+			NUMANodes:      2,
+			BusiestNode:    0,
+			VectorEncoding: numaplacement.VectorEncodingLEB89,
+			Vectors:        map[int]string{1: "!"},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
 }
 
 func getExpectedCoreToNodeMap() map[int]int {
