@@ -35,33 +35,9 @@ func Verify(pr *podresourcesapi.PodResources) podresfilter.Result {
 		}
 	}
 	for _, cr := range pr.Containers {
-		// there's no correct order for checks here, or faster.
-		// CPUs are the most frequent (because there's always here) exclusively
-		// assigned devices, so we start from here.
-		if len(cr.CpuIds) > 0 {
-			return podresfilter.Result{
-				Allow:  true,
-				Ident:  cr.Name,
-				Reason: CPU,
-			}
-		}
-		for _, mem := range cr.Memory {
-			if IsPresent(mem.Topology) {
-				return podresfilter.Result{
-					Allow:  true,
-					Ident:  cr.Name,
-					Reason: Memory,
-				}
-			}
-		}
-		for _, dev := range cr.Devices {
-			if len(dev.DeviceIds) > 0 && IsPresent(dev.Topology) {
-				return podresfilter.Result{
-					Allow:  true,
-					Ident:  cr.Name,
-					Reason: Device,
-				}
-			}
+		res := VerifyContainer(cr)
+		if res.Allow {
+			return res
 		}
 	}
 	return podresfilter.Result{
@@ -92,4 +68,45 @@ func IsPresent(topo *podresourcesapi.TopologyInfo) bool {
 		}
 	}
 	return false
+}
+
+func VerifyContainer(cnt *podresourcesapi.ContainerResources) podresfilter.Result {
+	if cnt == nil {
+		return podresfilter.Result{
+			Allow: false,
+		}
+	}
+
+	// there's no correct order for checks here, or faster.
+	// CPUs are the most frequent (because there's always here) exclusively
+	// assigned devices, so we start from here.
+	if len(cnt.CpuIds) > 0 {
+		return podresfilter.Result{
+			Allow:  true,
+			Ident:  cnt.Name,
+			Reason: CPU,
+		}
+	}
+	for _, mem := range cnt.Memory {
+		if IsPresent(mem.Topology) {
+			return podresfilter.Result{
+				Allow:  true,
+				Ident:  cnt.Name,
+				Reason: Memory,
+			}
+		}
+	}
+	for _, dev := range cnt.Devices {
+		if len(dev.DeviceIds) > 0 && IsPresent(dev.Topology) {
+			return podresfilter.Result{
+				Allow:  true,
+				Ident:  cnt.Name,
+				Reason: Device,
+			}
+		}
+	}
+
+	return podresfilter.Result{
+		Allow: false,
+	}
 }
