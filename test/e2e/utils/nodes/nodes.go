@@ -95,6 +95,30 @@ func FilterNodesWithEnoughCores(nodes []corev1.Node, cpuAmount string) ([]corev1
 	return resNodes, nil
 }
 
+func FilterNodesWithEnoughResource(nodes []corev1.Node, resourceName corev1.ResourceName, resourceAmount resource.Quantity) ([]corev1.Node, error) {
+	klog.Infof("checking request %v on %d nodes", resourceAmount.String(), len(nodes))
+
+	resNodes := []corev1.Node{}
+	for _, node := range nodes {
+		availResource, ok := node.Status.Allocatable[corev1.ResourceName(resourceName)]
+		if !ok || availResource.IsZero() {
+			klog.Infof("node %q has no allocatable %q", node.Name, resourceName)
+			continue
+		}
+
+		if availResource.Cmp(resourceAmount) < 1 {
+			klog.Infof("node %q available %q %v requested %v", node.Name, resourceName, availResource.String(), resourceAmount.String())
+			continue
+		}
+
+		// TODO account for node base load
+		klog.Infof("node %q has enough resources, cluster OK", node.Name)
+		resNodes = append(resNodes, node)
+	}
+
+	return resNodes, nil
+}
+
 // LabelNode will add new set of labels to a given node
 func LabelNode(cs kubernetes.Interface, node *corev1.Node, newLabels map[string]string) error {
 	labelsMap := make(map[string]string)

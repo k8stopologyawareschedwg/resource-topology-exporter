@@ -27,7 +27,10 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
+	"github.com/k8stopologyawareschedwg/numaplacement"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	clientset "k8s.io/client-go/kubernetes"
@@ -257,6 +260,149 @@ var _ = ginkgo.Describe("[RTE][InfraConsuming] Resource topology exporter", func
 				dumpPods(f.K8SCli, topologyUpdaterNode.Name, errMessage)
 			}
 			gomega.Expect(pfpChanged).To(gomega.BeTrue(), errMessage)
+		})
+
+		// Node-level numaplacement.AttributeMetadata is published when pod fingerprinting is enabled; it holds
+		// PackMetadata() from encoded container NUMA affinities (see resourcemonitor Scan + encodeContainerAffinities).
+		// It is not a per-zone field; on single-NUMA nodes the encoder short-circuits and the value may stay empty
+		// or unchanged when pods change.
+		ginkgo.Context("[numaplacement] node-level container affinity metadata", func() {
+			ginkgo.It("should remain stable while workloads are unchanged", func() {
+				prevNrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
+				klog.Infof("Initial NRT: %q generation=%v resourceVersion=%v", prevNrt.Name, prevNrt.Generation, prevNrt.ResourceVersion)
+
+				if _, ok := findAttribute(prevNrt.Attributes, podfingerprint.Attribute); !ok {
+					ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
+				}
+				metaBefore, ok := findAttribute(prevNrt.Attributes, numaplacement.AttributeMetadata)
+				if !ok {
+					ginkgo.Skip("numaplacement metadata attribute not found - RTE may not expose container NUMA affinity encoding")
+				}
+
+				dumpPods(f.K8SCli, topologyUpdaterNode.Name, "reference pods")
+
+				updateInterval, method, err := estimateUpdateInterval(*prevNrt)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				klog.Infof("%s update interval: %s", method, updateInterval)
+
+				maxSteps := 3
+				for step := 0; step < maxSteps; step++ {
+					klog.Infof("waiting for %s: %d/%d", updateInterval, step+1, maxSteps)
+					time.Sleep(updateInterval)
+				}
+
+				// note we don't test no pods have been added/deleted. This is because the suite is supposed to own the cluster while it runs
+				// IOW, if we don't create/delete pods explicitly, noone else is supposed to do
+				currNrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
+				klog.Infof("Current NRT: %q generation=%v resourceVersion=%v", currNrt.Name, currNrt.Generation, currNrt.ResourceVersion)
+
+				metaAfter, ok := findAttribute(currNrt.Attributes, numaplacement.AttributeMetadata)
+				gomega.Expect(ok).To(gomega.BeTrue(), "attribute %q missing after wait", numaplacement.AttributeMetadata)
+
+				if metaBefore != metaAfter {
+					dumpPods(f.K8SCli, topologyUpdaterNode.Name, "after numaplacement metadata mismatch")
+					_ = dumpRTELogs(f.K8SCli, topologyUpdaterNode.Name)
+				}
+
+				gomega.Expect(metaAfter).To(gomega.Equal(metaBefore), "numaplacement metadata attribute changed unexpectedly")
+			})
+
+			ginkgo.It("should use the packed metadata prefix when the value is non-empty", func() {
+				nrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
+				if _, ok := findAttribute(nrt.Attributes, podfingerprint.Attribute); !ok {
+					ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
+				}
+				meta, ok := findAttribute(nrt.Attributes, numaplacement.AttributeMetadata)
+				if !ok {
+					ginkgo.Skip("numaplacement metadata attribute not found")
+				}
+				gomega.Expect(meta).ToNot(gomega.BeEmpty(), "numaplacement metadata is empty")
+				gomega.Expect(meta).To(gomega.HavePrefix(numaplacement.Prefix + numaplacement.Version))
+			})
+
+			ginkgo.DescribeTable("numaplacement metadata on multi-NUMA nodes when pods are added and removed",
+				func(qos corev1.PodQOSClass, resources corev1.ResourceList, expectPlacementMetadataChange bool) {
+					for resName, resQty := range resources {
+						nodes, err := e2enodes.FilterNodesWithEnoughResource(workerNodes, resName, resQty)
+						gomega.Expect(err).ToNot(gomega.HaveOccurred())
+						if len(nodes) < 1 {
+							ginkgo.Skip("not enough allocatable resources for this test")
+						}
+					}
+
+					prevNrt := e2enodetopology.GetNodeTopology(f.TopoCli, topologyUpdaterNode.Name)
+					if _, ok := findAttribute(prevNrt.Attributes, podfingerprint.Attribute); !ok {
+						ginkgo.Skip("pod fingerprinting attribute not found - assuming disabled")
+					}
+					metaBefore, ok := findAttribute(prevNrt.Attributes, numaplacement.AttributeMetadata)
+					if !ok {
+						ginkgo.Skip("numaplacement metadata attribute not found")
+					}
+					if len(prevNrt.Zones) < 2 {
+						ginkgo.Skip("single NUMA zone in NRT: affinity encoding does not vary with pod set (encoder short-circuit)")
+					}
+
+					dumpPods(f.K8SCli, topologyUpdaterNode.Name, "reference pods")
+
+					updateInterval, method, err := estimateUpdateInterval(*prevNrt)
+					gomega.Expect(err).ToNot(gomega.HaveOccurred())
+					klog.Infof("%s update interval: %s", method, updateInterval)
+
+					sleeperPod := e2epods.MakeSleeperPod(qos, resources)
+					pod, err := e2epods.CreateSync(f, sleeperPod)
+					gomega.Expect(err).ToNot(gomega.HaveOccurred())
+					podNamespace, podName := pod.Namespace, pod.Name
+					ginkgo.DeferCleanup(e2epods.DeletePodSyncByName, f, podNamespace, podName)
+
+					withPodNrt := getUpdatedNRT(f.TopoCli, topologyUpdaterNode.Name, *prevNrt, updateInterval)
+					metaWithPod, ok := findAttribute(withPodNrt.Attributes, numaplacement.AttributeMetadata)
+					gomega.Expect(ok).To(gomega.BeTrue(), "attribute %q missing after pod creation", numaplacement.AttributeMetadata)
+
+					if expectPlacementMetadataChange {
+						if metaWithPod == metaBefore {
+							dumpPods(f.K8SCli, topologyUpdaterNode.Name, "metadata unchanged after pod creation")
+							_ = dumpRTELogs(f.K8SCli, topologyUpdaterNode.Name)
+						}
+						gomega.Expect(metaWithPod).ToNot(gomega.Equal(metaBefore), "numaplacement metadata did not change after a workload with exclusive CPU placement was scheduled")
+					} else {
+						if metaWithPod != metaBefore {
+							dumpPods(f.K8SCli, topologyUpdaterNode.Name, "metadata changed unexpectedly for workload without exclusive CPU")
+							_ = dumpRTELogs(f.K8SCli, topologyUpdaterNode.Name)
+						}
+						gomega.Expect(metaWithPod).To(gomega.Equal(metaBefore), "numaplacement metadata should stay unchanged for workloads that do not get exclusive CPUs in the pod-resources API")
+					}
+
+					err = e2epods.DeletePodSyncByName(f, podNamespace, podName)
+					gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+					afterDeleteNrt := getUpdatedNRT(f.TopoCli, topologyUpdaterNode.Name, *withPodNrt, updateInterval)
+					metaAfter, ok := findAttribute(afterDeleteNrt.Attributes, numaplacement.AttributeMetadata)
+					gomega.Expect(ok).To(gomega.BeTrue())
+					if metaAfter != metaBefore {
+						dumpPods(f.K8SCli, topologyUpdaterNode.Name, "metadata mismatch after pod deletion")
+						_ = dumpRTELogs(f.K8SCli, topologyUpdaterNode.Name)
+					}
+					gomega.Expect(metaAfter).To(gomega.Equal(metaBefore), "numaplacement metadata should return to baseline after pod removal")
+				},
+				ginkgo.Entry("guaranteed pod", corev1.PodQOSGuaranteed, corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1000m"),
+					corev1.ResourceMemory: resource.MustParse("250Mi"),
+				}, true),
+				ginkgo.Entry("burstable pod - nothing exclusive", corev1.PodQOSBurstable, corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1000m"),
+					corev1.ResourceMemory: resource.MustParse("250Mi"),
+				}, false),
+				ginkgo.Entry("burstable pod - exclusive device", corev1.PodQOSBurstable, corev1.ResourceList{
+					corev1.ResourceCPU: resource.MustParse("1000m"),
+					corev1.ResourceName(e2etestenv.GetDeviceName()): resource.MustParse("1"),
+				}, true),
+				ginkgo.Entry("best effort pod - nothing exclusive", corev1.PodQOSBestEffort,
+					corev1.ResourceList{}, false),
+				ginkgo.Entry("best effort pod - exclusive device", corev1.PodQOSBestEffort,
+					corev1.ResourceList{
+						corev1.ResourceName(e2etestenv.GetDeviceName()): resource.MustParse("1"),
+					}, true),
+			)
 		})
 	})
 	ginkgo.Context("with refresh-node-resources enabled", func() {

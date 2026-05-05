@@ -42,44 +42,23 @@ const (
 )
 
 func MakeGuaranteedSleeperPod(cpuLimit string) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "sleeper-gu-pod",
-		},
-		Spec: corev1.PodSpec{
-			NodeSelector:  map[string]string{e2etestconsts.TestNodeLabel: ""},
-			RestartPolicy: corev1.RestartPolicyNever,
-			Containers: []corev1.Container{
-				{
-					Name:  "sleeper-gu-cnt",
-					Image: CentosImage,
-					// 1 hour (or >= 1h in general) is "forever" for our purposes
-					Command: []string{"/bin/sleep", "1h"},
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							// we use 1 core because that's the minimal meaningful quantity
-							corev1.ResourceName(corev1.ResourceCPU): resource.MustParse(cpuLimit),
-							// any random reasonable amount is fine
-							corev1.ResourceName(corev1.ResourceMemory): resource.MustParse("100Mi"),
-						},
-					},
-				},
-			},
-		},
-	}
+	return MakeSleeperPod(corev1.PodQOSGuaranteed, corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse(cpuLimit),
+		corev1.ResourceMemory: resource.MustParse("100Mi"),
+	})
 }
 
-func MakeBestEffortSleeperPod() *corev1.Pod {
-	return &corev1.Pod{
+func MakeSleeperPod(qos corev1.PodQOSClass, resources corev1.ResourceList) *corev1.Pod {
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "sleeper-be-pod",
+			Name: "sleeper-pod",
 		},
 		Spec: corev1.PodSpec{
 			NodeSelector:  map[string]string{e2etestconsts.TestNodeLabel: ""},
 			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
-					Name:  "sleeper-be-cnt",
+					Name:  "sleeper-cnt",
 					Image: CentosImage,
 					// 1 hour (or >= 1h in general) is "forever" for our purposes
 					Command: []string{"/bin/sleep", "1h"},
@@ -87,6 +66,20 @@ func MakeBestEffortSleeperPod() *corev1.Pod {
 			},
 		},
 	}
+
+	if qos == corev1.PodQOSBestEffort {
+		return pod
+	}
+
+	pod.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+		Requests: resources,
+	}
+	if qos == corev1.PodQOSBurstable {
+		return pod
+	}
+
+	pod.Spec.Containers[0].Resources.Limits = resources
+	return pod
 }
 
 func DeletePodSyncByName(f *fixture.Fixture, podNamespace, podName string) error {

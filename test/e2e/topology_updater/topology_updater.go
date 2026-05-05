@@ -123,7 +123,7 @@ var _ = ginkgo.Describe("[TopologyUpdater][InfraConsuming] Node topology updater
 			ginkgo.By("getting the initial topology information")
 			initialNodeTopo := e2enodetopology.GetNodeTopologyWithResource(f.TopoCli, topologyUpdaterNode.Name, devName)
 			ginkgo.By("creating a pod consuming resources from the shared, non-exclusive CPU pool (best-effort QoS)")
-			sleeperPod := e2epods.MakeBestEffortSleeperPod()
+			sleeperPod := e2epods.MakeSleeperPod(corev1.PodQOSBestEffort, corev1.ResourceList{})
 
 			pod, err := e2epods.CreateSync(f, sleeperPod)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
