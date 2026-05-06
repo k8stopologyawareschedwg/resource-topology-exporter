@@ -493,25 +493,48 @@ func (rm *resourceMonitor) computeNUMAPlacementPayload(podRes []*podresourcesapi
 		return enc.Result()
 	}
 
+	cntsToEncode, err := GetEligibleContainersForNUMAPlacement(podRes, rm.coreIDToNodeIDMap)
+	if err != nil {
+		return numaplacement.Payload{}, err
+	}
+
+	enc.Encode(cntsToEncode...)
+	klog.V(6).InfoS("resmon: encoded containers NUMA affinity", "containers", toString(cntsToEncode))
+	return enc.Result()
+}
+
+func toString(affs []numaplacement.ContainerAffinity) string {
+	var sb strings.Builder
+	for _, aff := range affs {
+		sb.WriteString(aff.ID.String() + " -> " + strconv.Itoa(aff.NUMANode) + "\n")
+	}
+	return sb.String()
+}
+func GetEligibleContainersForNUMAPlacement(podRes []*podresourcesapi.PodResources, coreIDToNodeIDMap map[int]int) ([]numaplacement.ContainerAffinity, error) {
+	cntsToEncode := []numaplacement.ContainerAffinity{}
 	for _, pr := range podRes {
 		for _, cnt := range pr.Containers {
-			eligibleForPlacement, numaNodeID, err := numalocality.ResolveContainerPlacement(rm.coreIDToNodeIDMap, cnt)
+			eligibleForPlacement, numaNodeID, err := numalocality.ResolveContainerPlacement(coreIDToNodeIDMap, cnt)
 			if !eligibleForPlacement {
 				continue
 			}
 
 			if err != nil || numaNodeID == -1 {
-				return numaplacement.Payload{}, fmt.Errorf("failed to find NUMA node for container with exclusive resources %s. numaNodeID: %d, err: %v", cnt.Name, numaNodeID, err)
+				return []numaplacement.ContainerAffinity{}, fmt.Errorf("failed to find NUMA node for container with exclusive resources %s. numaNodeID: %d, err: %v", cnt.Name, numaNodeID, err)
 			}
 
-			enc.EncodeContainer(pr.Namespace, pr.Name, cnt.Name, numaNodeID)
-			klog.V(6).InfoS("resmon: encoded container NUMA affinity", "container", pr.Namespace+"/"+pr.Name+"/"+cnt.Name, "numaNodeID", numaNodeID)
+			cntsToEncode = append(cntsToEncode, numaplacement.ContainerAffinity{
+				ID: numaplacement.ContainerID{
+					Namespace:     pr.Namespace,
+					PodName:       pr.Name,
+					ContainerName: cnt.Name,
+				},
+				NUMANode: numaNodeID,
+			})
 		}
 	}
-	return enc.Result()
-
+	return cntsToEncode, nil
 }
-
 func computePodFingerprintFromPodResources(podRes []*podresourcesapi.PodResources, st *podfingerprint.Status, verifyFunc func(*podresourcesapi.PodResources) podresfilter.Result) (string, []*podresourcesapi.PodResources) {
 	fp := podfingerprint.NewTracingFingerprint(len(podRes), st)
 	var filteredPodRes []*podresourcesapi.PodResources

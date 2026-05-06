@@ -1620,6 +1620,143 @@ func TestEncodeContainerAffinities(t *testing.T) {
 	})
 }
 
+func TestGetEligibleContainersForNUMAPlacement(t *testing.T) {
+	t.Run("returns_only_eligible_containers", func(t *testing.T) {
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns1",
+				Name:      "pod-a",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "skip-empty"},
+					{Name: "cpu-bound", CpuIds: []int64{10}},
+					{
+						Name: "dev-bound",
+						Devices: []*podresourcesapi.ContainerDevices{
+							{
+								ResourceName: "fake.io/gpu",
+								DeviceIds:    []string{"gpu0"},
+								Topology: &podresourcesapi.TopologyInfo{
+									Nodes: []*podresourcesapi.NUMANode{{ID: 1}},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Namespace: "ns2",
+				Name:      "pod-b",
+				Containers: []*podresourcesapi.ContainerResources{
+					{
+						Name: "mem-bound",
+						Memory: []*podresourcesapi.ContainerMemory{
+							{
+								MemoryType: "memory",
+								Size:       2048,
+								Topology: &podresourcesapi.TopologyInfo{
+									Nodes: []*podresourcesapi.NUMANode{{ID: 0}},
+								},
+							},
+						},
+					},
+					{Name: "skip-empty-2"},
+				},
+			},
+		}
+
+		got, err := GetEligibleContainersForNUMAPlacement(podRes, map[int]int{10: 0})
+		assert.NoError(t, err)
+
+		want := []numaplacement.ContainerAffinity{
+			{
+				ID: numaplacement.ContainerID{
+					Namespace:     "ns1",
+					PodName:       "pod-a",
+					ContainerName: "cpu-bound",
+				},
+				NUMANode: 0,
+			},
+			{
+				ID: numaplacement.ContainerID{
+					Namespace:     "ns1",
+					PodName:       "pod-a",
+					ContainerName: "dev-bound",
+				},
+				NUMANode: 1,
+			},
+			{
+				ID: numaplacement.ContainerID{
+					Namespace:     "ns2",
+					PodName:       "pod-b",
+					ContainerName: "mem-bound",
+				},
+				NUMANode: 0,
+			},
+		}
+		assert.Empty(t, cmp.Diff(want, got))
+	})
+
+	t.Run("returns_error_when_container_is_eligible_but_numa_node_cannot_be_resolved", func(t *testing.T) {
+		podRes := []*podresourcesapi.PodResources{
+			{
+				Namespace: "ns",
+				Name:      "pod",
+				Containers: []*podresourcesapi.ContainerResources{
+					{Name: "cpu-bound", CpuIds: []int64{99}},
+				},
+			},
+		}
+
+		got, err := GetEligibleContainersForNUMAPlacement(podRes, map[int]int{})
+		assert.Error(t, err)
+		assert.Empty(t, got)
+		assert.Contains(t, err.Error(), "failed to find NUMA node for container with exclusive resources cpu-bound")
+	})
+}
+
+func TestToString(t *testing.T) {
+	t.Run("nil_slice", func(t *testing.T) {
+		assert.Equal(t, "", toString(nil))
+	})
+	t.Run("empty_slice", func(t *testing.T) {
+		assert.Equal(t, "", toString([]numaplacement.ContainerAffinity{}))
+	})
+	t.Run("single_affinity", func(t *testing.T) {
+		got := toString([]numaplacement.ContainerAffinity{
+			{
+				ID: numaplacement.ContainerID{
+					Namespace:     "ns",
+					PodName:       "pod",
+					ContainerName: "c1",
+				},
+				NUMANode: 0,
+			},
+		})
+		assert.Equal(t, "ns/pod/c1 -> 0\n", got)
+	})
+	t.Run("multiple_affinities", func(t *testing.T) {
+		got := toString([]numaplacement.ContainerAffinity{
+			{
+				ID: numaplacement.ContainerID{
+					Namespace:     "a",
+					PodName:       "p",
+					ContainerName: "x",
+				},
+				NUMANode: 1,
+			},
+			{
+				ID: numaplacement.ContainerID{
+					Namespace:     "b",
+					PodName:       "q",
+					ContainerName: "y",
+				},
+				NUMANode: 2,
+			},
+		})
+		assert.Equal(t, "a/p/x -> 1\nb/q/y -> 2\n", got)
+	})
+}
+
 func getExpectedCoreToNodeMap() map[int]int {
 	return map[int]int{
 		0:  0,
