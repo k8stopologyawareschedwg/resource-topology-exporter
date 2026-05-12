@@ -212,7 +212,12 @@ func (te *NRTUpdater) patchNRT(ctx context.Context, cli topologyclientset.Interf
 	nrtUpdated, err := cli.TopologyV1alpha2().NodeResourceTopologies().Patch(ctx, te.prevNRT.Name, types.MergePatchType, patchInfo.Patch, metav1.PatchOptions{})
 	if err != nil {
 		metrics.UpdateNodeResourceTopologyPatchFailuresMetric("send_patch")
-		klog.Infof("failed to send a patch to the APIServer: %v", err)
+		if apierrors.IsConflict(err) {
+			te.prevNRT = nil
+			klog.Infof("conflict patching the APIServer, invalidating cached state: %v", err)
+		} else {
+			klog.Infof("failed to send a patch to the APIServer: %v", err)
+		}
 		return nil, err
 	}
 

@@ -71,6 +71,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	CommandLine.StringVar(&pArgs.RTE.PodResourcesSocketPath, "podresources-socket", pArgs.RTE.PodResourcesSocketPath, "Pod Resource Socket path to use.")
 	CommandLine.BoolVar(&pArgs.RTE.PodReadinessEnable, "podreadiness", pArgs.RTE.PodReadinessEnable, "Custom condition injection using Podreadiness.")
 	CommandLine.BoolVar(&pArgs.RTE.AddNRTOwnerEnable, "add-nrt-owner", pArgs.RTE.AddNRTOwnerEnable, "RTE will inject NRT's related node as OwnerReference to ensure cleanup if the node is deleted.")
+	CommandLine.StringVar(&pArgs.RTE.LeaseFilePath, "lease-file", pArgs.RTE.LeaseFilePath, "Path to the lease file. Use 'default' to derive from the notify file directory. Empty disables the lease.")
 	CommandLine.StringVar(&pArgs.RTE.MetricsMode, "metrics-mode", pArgs.RTE.MetricsMode, fmt.Sprintf("Select the mode to expose metrics endpoint. Valid options: %s", metricssrv.ServingModeSupported()))
 	CommandLine.IntVar(&pArgs.RTE.MetricsPort, "metrics-port", pArgs.RTE.MetricsPort, "Select the port to listen for the metrics endpoint.")
 	CommandLine.StringVar(&pArgs.RTE.MetricsAddress, "metrics-ip", pArgs.RTE.MetricsAddress, "Select the IP to listen for the metrics endpoint.")

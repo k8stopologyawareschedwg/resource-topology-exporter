@@ -9,6 +9,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/k8sannotations"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nodelease"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
@@ -22,9 +23,10 @@ type ResourceObserver struct {
 	infoChan        chan nrtupdater.MonitorInfo
 	stopChan        chan struct{}
 	exposeTiming    bool
+	nodeLease       nodelease.Lease
 }
 
-func NewResourceObserver(hnd resourcemonitor.Handle, args resourcemonitor.Args) (*ResourceObserver, error) {
+func NewResourceObserver(hnd resourcemonitor.Handle, args resourcemonitor.Args, nl nodelease.Lease) (*ResourceObserver, error) {
 	resMon, err := resourcemonitor.NewResourceMonitor(hnd, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ResourceMonitor: %w", err)
@@ -36,6 +38,7 @@ func NewResourceObserver(hnd resourcemonitor.Handle, args resourcemonitor.Args) 
 		stopChan:        make(chan struct{}),
 		infoChan:        make(chan nrtupdater.MonitorInfo),
 		exposeTiming:    args.ExposeTiming,
+		nodeLease:       nl,
 	}
 	resObs.Infos = resObs.infoChan
 	return &resObs, nil
@@ -78,6 +81,13 @@ func (rm *ResourceObserver) Run(eventsChan <-chan notification.Event, condChan c
 				podreadiness.SetCondition(condChan, podreadiness.PodresourcesFetched, condStatus)
 				continue
 			}
+
+			if !rm.nodeLease.TryLock() {
+				podreadiness.SetCondition(condChan, podreadiness.NodeUpdateLeaseHeld, v1.ConditionFalse)
+				continue
+			}
+			podreadiness.SetCondition(condChan, podreadiness.NodeUpdateLeaseHeld, v1.ConditionTrue)
+
 			rm.infoChan <- monInfo
 
 			tsDiff := tsEnd.Sub(tsBegin)

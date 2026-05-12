@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -650,6 +651,99 @@ func TestPatchModeFallbackOnError(t *testing.T) {
 	nrtObj := obj.(*v1alpha2.NodeResourceTopology)
 	if !nrtObj.Zones[0].Resources[0].Available.Equal(resource.MustParse("8")) {
 		t.Errorf("expected Available=8 after fallback, got %v", nrtObj.Zones[0].Resources[0].Available.String())
+	}
+}
+
+func TestPatchModeConflictInvalidatesCache(t *testing.T) {
+	nodeName := "test-node"
+
+	args := Args{
+		Hostname:  nodeName,
+		PatchMode: true,
+	}
+	tmConfig := TMConfig{
+		Scope:  "scope-test",
+		Policy: "policy-test",
+	}
+
+	cli := fake.NewSimpleClientset()
+	k8sClient := clientk8sfake.NewSimpleClientset()
+	nodeGetter, err := NewCachedNodeGetter(k8sClient, context.Background())
+	if err != nil {
+		t.Fatalf("failed to create node getter: %v", err)
+	}
+	nrtUpd, err := NewNRTUpdater(nodeGetter, cli, args, tmConfig)
+	if err != nil {
+		t.Fatalf("failed to create NRT updater: %v", err)
+	}
+
+	zones := v1alpha2.ZoneList{
+		{
+			Name: "zone-0",
+			Type: "node",
+			Resources: v1alpha2.ResourceInfoList{
+				{
+					Name:        string(corev1.ResourceCPU),
+					Capacity:    resource.MustParse("16"),
+					Allocatable: resource.MustParse("14"),
+					Available:   resource.MustParse("14"),
+				},
+			},
+		},
+	}
+
+	// Bootstrap: create the object and populate prevNRT
+	err = nrtUpd.Update(context.TODO(), MonitorInfo{Zones: zones})
+	if err != nil {
+		t.Fatalf("bootstrap update failed: %v", err)
+	}
+
+	// Inject a conflict error on patch AND fail the update fallback too
+	cli.PrependReactor("patch", "noderesourcetopologies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewConflict(nrtResource.GroupResource(), nodeName, fmt.Errorf("simulated conflict"))
+	})
+	cli.PrependReactor("update", "noderesourcetopologies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("simulated update failure")
+	})
+
+	cli.ClearActions()
+
+	// Both patch (conflict) and update fallback fail
+	err = nrtUpd.Update(context.TODO(), MonitorInfo{Zones: zones})
+	if err == nil {
+		t.Fatalf("expected error when both patch and update fail")
+	}
+
+	verbs := nrtVerbs(cli.Actions())
+	if !reflect.DeepEqual(verbs, []string{"patch", "get", "update"}) {
+		t.Errorf("expected patch then fallback get+update, got verbs: %v", verbs)
+	}
+
+	// Remove all reactors so the next call succeeds
+	cli.ReactionChain = cli.ReactionChain[2:]
+	cli.ClearActions()
+
+	// Next cycle: prevNRT was invalidated by the conflict, so patchNRT
+	// returns ErrMissingPreviousNRT and falls back to update path
+	zones[0].Resources[0].Available = resource.MustParse("8")
+	err = nrtUpd.Update(context.TODO(), MonitorInfo{Zones: zones})
+	if err != nil {
+		t.Fatalf("recovery update should succeed: %v", err)
+	}
+
+	verbs = nrtVerbs(cli.Actions())
+	if !reflect.DeepEqual(verbs, []string{"get", "update"}) {
+		t.Errorf("after conflict invalidation, expected get+update (no patch attempt), got verbs: %v", verbs)
+	}
+
+	// Verify final state
+	obj, err := cli.Tracker().Get(nrtResource, "", nodeName)
+	if err != nil {
+		t.Fatalf("failed to get NRT after recovery: %v", err)
+	}
+	nrtObj := obj.(*v1alpha2.NodeResourceTopology)
+	if !nrtObj.Zones[0].Resources[0].Available.Equal(resource.MustParse("8")) {
+		t.Errorf("expected Available=8 after recovery, got %v", nrtObj.Zones[0].Resources[0].Available.String())
 	}
 }
 

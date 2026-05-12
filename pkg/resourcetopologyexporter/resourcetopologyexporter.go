@@ -12,6 +12,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/kubeconf"
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nodelease"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/notification"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/nrtupdater"
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podreadiness"
@@ -32,6 +33,7 @@ type Args struct {
 	MaxEventsPerTimeUnit   int64                          `json:"maxEventPerTimeUnit,omitempty"`
 	TimeUnitToLimitEvents  time.Duration                  `json:"timeUnitToLimitEvents,omitempty"`
 	AddNRTOwnerEnable      bool                           `json:"addNRTOwnerEnable,omitempty"`
+	LeaseFilePath          string                         `json:"leaseFilePath,omitempty"`
 	MetricsMode            string                         `json:"metricsMode,omitempty"`
 	MetricsPort            int                            `json:"metricsPort,omitempty"`
 	MetricsAddress         string                         `json:"metricsAddress,omitempty"`
@@ -51,6 +53,7 @@ func (args Args) Clone() Args {
 		MaxEventsPerTimeUnit:   args.MaxEventsPerTimeUnit,
 		TimeUnitToLimitEvents:  args.TimeUnitToLimitEvents,
 		AddNRTOwnerEnable:      args.AddNRTOwnerEnable,
+		LeaseFilePath:          args.LeaseFilePath,
 		MetricsMode:            args.MetricsMode,
 		MetricsPort:            args.MetricsPort,
 		MetricsAddress:         args.MetricsAddress,
@@ -99,7 +102,13 @@ func Execute(hnd Handle, nrtupdaterArgs nrtupdater.Args, resourcemonitorArgs res
 		return err
 	}
 
-	resObs, err := NewResourceObserver(hnd.ResMon, resourcemonitorArgs)
+	nl, err := createNodeLease(rteArgs)
+	if err != nil {
+		return err
+	}
+	defer nl.Close()
+
+	resObs, err := NewResourceObserver(hnd.ResMon, resourcemonitorArgs, nl)
 	if err != nil {
 		return err
 	}
@@ -175,4 +184,18 @@ func getTopologyManagerSettings(rteArgs Args) (tmSettings, error) {
 		return tmConf, nil
 	}
 	return tmSettings{}, fmt.Errorf("cannot find the kubelet Topology Manager policy")
+}
+
+func createNodeLease(rteArgs Args) (nodelease.Lease, error) {
+	if rteArgs.LeaseFilePath == "" {
+		return nodelease.NewNull(), nil
+	}
+	leaseFile := rteArgs.LeaseFilePath
+	if leaseFile == nodelease.AutodetectLeaseFromNotify {
+		leaseFile = nodelease.LeaseFilePath(rteArgs.NotifyFilePath)
+		if leaseFile == "" {
+			return nil, fmt.Errorf("lease file %q requested but no notify file path is set (set --notify-file or provide an explicit --lease-file path)", nodelease.AutodetectLeaseFromNotify)
+		}
+	}
+	return nodelease.New(leaseFile)
 }

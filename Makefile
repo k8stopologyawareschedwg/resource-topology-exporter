@@ -100,10 +100,23 @@ dev-lint: _out/golangci-lint
 	$(GOLANGCI_LINT_BIN) run
 
 .PHONY: build-e2e
-build-e2e: _out/rte-e2e.test
+build-e2e: _out/rte-e2e.test _out/rte-lease-holder
 
 _out/rte-e2e.test: outdir test/e2e/*.go test/e2e/utils/*.go
 	go test -v -c -o _out/rte-e2e.test ./test/e2e/
+
+_out/rte-local-e2e.test: outdir test/e2e_local/*.go test/e2e/rte_local/*.go
+	go test -v -c -o _out/rte-local-e2e.test ./test/e2e_local/
+
+_out/rte-lease-holder: outdir test/e2e/tools/leaseholder/main.go
+	$(COMMONENVVAR) $(BUILDENVVAR) go build -o _out/rte-lease-holder ./test/e2e/tools/leaseholder/
+
+.PHONY: build-e2e-local
+build-e2e-local: _out/rte-local-e2e.test _out/rte-lease-holder
+
+.PHONY: test-e2e-local
+test-e2e-local: build-e2e-local build-rte
+	_out/rte-local-e2e.test -ginkgo.v -ginkgo.focus='\[RTE\]\[Local\]'
 
 .PHONY: test-e2e
 test-e2e: build-e2e

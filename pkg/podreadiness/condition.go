@@ -16,6 +16,9 @@ const (
 	PodresourcesFetched RTEConditionType = "PodresourcesFetched"
 	// NodeTopologyUpdated means that noderesourcetopology objects updated successfully.
 	NodeTopologyUpdated RTEConditionType = "NodeTopologyUpdated"
+	// NodeUpdateLeaseHeld means that this RTE instance holds the node-local lease
+	// and is actively pushing NRT updates.
+	NodeUpdateLeaseHeld RTEConditionType = "NodeUpdateLeaseHeld"
 )
 
 func SetCondition(condChan chan<- v1.PodCondition, condType RTEConditionType, condStatus v1.ConditionStatus) {
@@ -31,6 +34,9 @@ func SetCondition(condChan chan<- v1.PodCondition, condType RTEConditionType, co
 		case NodeTopologyUpdated:
 			cond.Reason = "UpdateFailed"
 			cond.Message = "failed to update noderesourcetopology object"
+		case NodeUpdateLeaseHeld:
+			cond.Reason = "LeaseNotHeld"
+			cond.Message = "waiting to acquire node-local lease"
 		}
 	}
 	condChan <- cond
