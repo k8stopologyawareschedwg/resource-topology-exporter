@@ -24,7 +24,9 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
@@ -1755,6 +1757,120 @@ func getExpectedCoreToNodeMap() map[int]int {
 		19: 1,
 		21: 1,
 		23: 1,
+	}
+}
+
+func TestCollectNonTopologyResourceNames(t *testing.T) {
+	logger := logr.Discard()
+
+	testCases := []struct {
+		name     string
+		devices  []*podresourcesapi.ContainerDevices
+		expected sets.Set[corev1.ResourceName]
+	}{
+		{
+			name:     "empty devices",
+			devices:  []*podresourcesapi.ContainerDevices{},
+			expected: sets.New[corev1.ResourceName](),
+		},
+		{
+			name: "devices with NUMA topology are excluded",
+			devices: []*podresourcesapi.ContainerDevices{
+				{
+					ResourceName: "fake.io/net",
+					DeviceIds:    []string{"net-0"},
+					Topology: &podresourcesapi.TopologyInfo{
+						Nodes: []*podresourcesapi.NUMANode{{ID: 0}},
+					},
+				},
+			},
+			expected: sets.New[corev1.ResourceName](),
+		},
+		{
+			name: "devices with nil topology are captured",
+			devices: []*podresourcesapi.ContainerDevices{
+				{
+					ResourceName: "fake.io/notopo",
+					DeviceIds:    []string{"dev-0"},
+					Topology:     nil,
+				},
+			},
+			expected: sets.New[corev1.ResourceName]("fake.io/notopo"),
+		},
+		{
+			name: "devices with empty nodes are captured",
+			devices: []*podresourcesapi.ContainerDevices{
+				{
+					ResourceName: "fake.io/emptynodes",
+					DeviceIds:    []string{"dev-0"},
+					Topology: &podresourcesapi.TopologyInfo{
+						Nodes: []*podresourcesapi.NUMANode{},
+					},
+				},
+			},
+			expected: sets.New[corev1.ResourceName]("fake.io/emptynodes"),
+		},
+		{
+			name: "devices with ID -1 are captured",
+			devices: []*podresourcesapi.ContainerDevices{
+				{
+					ResourceName: "fake.io/dontcare",
+					DeviceIds:    []string{"dev-0"},
+					Topology: &podresourcesapi.TopologyInfo{
+						Nodes: []*podresourcesapi.NUMANode{{ID: -1}},
+					},
+				},
+			},
+			expected: sets.New[corev1.ResourceName]("fake.io/dontcare"),
+		},
+		{
+			name: "native resources are excluded",
+			devices: []*podresourcesapi.ContainerDevices{
+				{
+					ResourceName: "cpu",
+					DeviceIds:    []string{"0"},
+					Topology:     nil,
+				},
+				{
+					ResourceName: "memory",
+					DeviceIds:    []string{"1024"},
+					Topology:     nil,
+				},
+			},
+			expected: sets.New[corev1.ResourceName](),
+		},
+		{
+			name: "mixed devices with and without topology",
+			devices: []*podresourcesapi.ContainerDevices{
+				{
+					ResourceName: "fake.io/with-topo",
+					DeviceIds:    []string{"dev-0"},
+					Topology: &podresourcesapi.TopologyInfo{
+						Nodes: []*podresourcesapi.NUMANode{{ID: 0}},
+					},
+				},
+				{
+					ResourceName: "fake.io/no-topo",
+					DeviceIds:    []string{"dev-1"},
+					Topology:     nil,
+				},
+				{
+					ResourceName: "fake.io/also-no-topo",
+					DeviceIds:    []string{"dev-2"},
+					Topology: &podresourcesapi.TopologyInfo{
+						Nodes: []*podresourcesapi.NUMANode{{ID: -1}},
+					},
+				},
+			},
+			expected: sets.New[corev1.ResourceName]("fake.io/no-topo", "fake.io/also-no-topo"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := collectNonTopologyResourceNames(logger, tc.devices)
+			assert.True(t, tc.expected.Equal(result), "expected %v, got %v", tc.expected, result)
+		})
 	}
 }
 

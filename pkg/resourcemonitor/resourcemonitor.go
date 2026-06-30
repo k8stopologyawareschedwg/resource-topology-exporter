@@ -59,6 +59,9 @@ const (
 
 	TopologyManagerPolicySingleNUMANode = "single-numa-node"
 
+	// AttributeNodeNonTopologyResources is the attribute name for resources which are not topology aware or not bound to any NUMA node on the node.
+	AttributeNodeNonTopologyResources = "nodeNonTopologyResources"
+
 	unsupportedConfigurationForNumaPlacement = "unsupported"
 	errorOccurredDuringNumaPlacementEncoding = "error occurred"
 )
@@ -181,16 +184,17 @@ func (nrc perNUMAResourceCounter) String() string {
 }
 
 type resourceMonitor struct {
-	nodeName          string
-	args              Args
-	tmPolicy          string
-	podResCli         podresourcesapi.PodResourcesListerClient
-	k8sCli            kubernetes.Interface
-	topo              *ghwtopology.Info
-	coreIDToNodeIDMap map[int]int
-	nodeCapacity      perNUMAResourceCounter
-	nodeAllocatable   perNUMAResourceCounter
-	scanIteration     uint64
+	nodeName             string
+	args                 Args
+	tmPolicy             string
+	podResCli            podresourcesapi.PodResourcesListerClient
+	k8sCli               kubernetes.Interface
+	topo                 *ghwtopology.Info
+	coreIDToNodeIDMap    map[int]int
+	nodeCapacity         perNUMAResourceCounter
+	nodeAllocatable      perNUMAResourceCounter
+	nonTopologyResources sets.Set[v1.ResourceName]
+	scanIteration        uint64
 }
 
 func NewResourceMonitor(hnd Handle, args Args, tmPolicy string, options ...func(*resourceMonitor)) *resourceMonitor {
@@ -550,6 +554,7 @@ func (rm *resourceMonitor) updateNodeAllocatable(ctx context.Context) error {
 
 	allDevs := NormalizeContainerDevices(logger, allocRes.GetDevices(), allocRes.GetMemory(), allocRes.GetCpuIds(), rm.coreIDToNodeIDMap)
 	rm.nodeAllocatable = ContainerDevicesToPerNUMAResourceCounters(logger, allDevs)
+	rm.nonTopologyResources = collectNonTopologyResourceNames(logger, allDevs)
 	return nil
 }
 
@@ -712,6 +717,22 @@ func ContainerDevicesToPerNUMAResourceCounters(logger logr.Logger, devices []*po
 	}
 	logger.V(6).Info("container devices to per-NUMA resource counters", "devices", len(devices), "counters", perNUMARc.String())
 	return perNUMARc
+}
+
+func collectNonTopologyResourceNames(logger logr.Logger, devices []*podresourcesapi.ContainerDevices) sets.Set[v1.ResourceName] {
+	res := sets.New[v1.ResourceName]()
+	for _, device := range devices {
+		if len(numaloclib.GetNUMAIDs(device.GetTopology())) > 0 {
+			continue
+		}
+		resName := v1.ResourceName(device.GetResourceName())
+		if isNativeResource(resName) {
+			continue
+		}
+		res.Insert(resName)
+	}
+	logger.V(6).Info("non-topology resource names from device plugins", "resources", res)
+	return res
 }
 
 func MakeCoreIDToNodeIDMap(topo *ghwtopology.Info) map[int]int {
