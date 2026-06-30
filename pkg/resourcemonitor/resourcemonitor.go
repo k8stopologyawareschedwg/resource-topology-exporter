@@ -29,6 +29,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -239,7 +240,7 @@ func (rm *resourceMonitor) Setup(ctx context.Context) error {
 	rm.coreIDToNodeIDMap = MakeCoreIDToNodeIDMap(rm.topo)
 	logger.V(4).Info("CPU mapping", "coreIDToNodeID", mapIntIntToString(rm.coreIDToNodeIDMap))
 
-	if err := rm.updateNodeResources(ctx); err != nil {
+	if err := rm.updateNodeResources(ctx, nil); err != nil {
 		return err
 	}
 	logger.V(2).Info("initial capacity", "capacity", rm.nodeCapacity)
@@ -536,7 +537,7 @@ func (rm *resourceMonitor) resUpdated(ctx context.Context, old, new any) {
 	if !reflect.DeepEqual(nOld.Status.Capacity, nNew.Status.Capacity) ||
 		!reflect.DeepEqual(nOld.Status.Allocatable, nNew.Status.Allocatable) {
 		logger.V(2).Info("update node resources")
-		if err := rm.updateNodeResources(ctx); err != nil {
+		if err := rm.updateNodeResources(ctx, nNew); err != nil {
 			logger.Error(err, "while updating node resources")
 		}
 	}
@@ -570,7 +571,8 @@ func (rm *resourceMonitor) updateDevicesCapacity() {
 	}
 }
 
-func (rm *resourceMonitor) updateNodeResources(ctx context.Context) error {
+func (rm *resourceMonitor) updateNodeResources(ctx context.Context, node *v1.Node) error {
+	logger := klog.FromContext(ctx)
 	if err := rm.updateNodeCapacity(); err != nil {
 		return fmt.Errorf("error while updating node capacity: %w", err)
 	}
@@ -580,7 +582,49 @@ func (rm *resourceMonitor) updateNodeResources(ctx context.Context) error {
 	// there is no trivial way to detect devices capacity from the node.
 	// hence, initialize capacity as allocatable
 	rm.updateDevicesCapacity()
+	if node == nil {
+		var err error
+		node, err = rm.getLocalNode(ctx)
+		if err != nil {
+			logger.V(1).Info("error fetching local node, continuing without non-device-plugin resource detection", "err", err)
+			return nil
+		}
+	}
+	rm.detectNonDevicePluginResources(logger, node)
 	return nil
+}
+
+func (rm *resourceMonitor) getLocalNode(ctx context.Context) (*v1.Node, error) {
+	nodes, err := rm.k8sCli.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("metadata.name=%s", rm.nodeName),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(nodes.Items) == 0 {
+		return nil, fmt.Errorf("node %q not found", rm.nodeName)
+	}
+	return &nodes.Items[0], nil
+}
+
+func (rm *resourceMonitor) detectNonDevicePluginResources(logger logr.Logger, node *v1.Node) {
+	knownResources := sets.New[v1.ResourceName]()
+	for _, rc := range rm.nodeAllocatable {
+		for name := range rc {
+			knownResources.Insert(name)
+		}
+	}
+	knownResources = knownResources.Union(rm.nonTopologyResources)
+	for name := range node.Status.Allocatable {
+		if isNativeResource(name) {
+			continue
+		}
+		if knownResources.Has(name) {
+			continue
+		}
+		rm.nonTopologyResources.Insert(name)
+		logger.V(4).Info("detected non-device-plugin resource", "resource", name)
+	}
 }
 
 // computePodFingerprintFromPodResources computes the pod fingerprint from the given pod resources after applying the filter function to the pod resources.

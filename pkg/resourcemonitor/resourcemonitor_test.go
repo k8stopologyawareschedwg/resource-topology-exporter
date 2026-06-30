@@ -1874,6 +1874,77 @@ func TestCollectNonTopologyResourceNames(t *testing.T) {
 	}
 }
 
+func TestDetectNonDevicePluginResources(t *testing.T) {
+	logger := logr.Discard()
+
+	testCases := []struct {
+		name                 string
+		nodeAllocatable      perNUMAResourceCounter
+		nonTopologyResources sets.Set[corev1.ResourceName]
+		nodeStatus           corev1.ResourceList
+		expected             sets.Set[corev1.ResourceName]
+	}{
+		{
+			name: "detects resources not in device plugins",
+			nodeAllocatable: perNUMAResourceCounter{
+				0: resourceCounter{"fake.io/net": 4},
+			},
+			nonTopologyResources: sets.New[corev1.ResourceName](),
+			nodeStatus: corev1.ResourceList{
+				"cpu":                                    resource.MustParse("24"),
+				"memory":                                 resource.MustParse("64Gi"),
+				"fake.io/net":                            resource.MustParse("4"),
+				"management.workload.openshift.io/cores": resource.MustParse("4000"),
+				"another.example.com/resource-without-dp": resource.MustParse("10"),
+			},
+			expected: sets.New[corev1.ResourceName](
+				"management.workload.openshift.io/cores",
+				"another.example.com/resource-without-dp",
+			),
+		},
+		{
+			name: "does not duplicate already known non-topology resources",
+			nodeAllocatable: perNUMAResourceCounter{
+				0: resourceCounter{"fake.io/net": 4},
+			},
+			nonTopologyResources: sets.New[corev1.ResourceName]("fake.io/notopo"),
+			nodeStatus: corev1.ResourceList{
+				"cpu":            resource.MustParse("24"),
+				"fake.io/net":    resource.MustParse("4"),
+				"fake.io/notopo": resource.MustParse("2"),
+			},
+			expected: sets.New[corev1.ResourceName]("fake.io/notopo"),
+		},
+		{
+			name:                 "no extended resources on node",
+			nodeAllocatable:      perNUMAResourceCounter{},
+			nonTopologyResources: sets.New[corev1.ResourceName](),
+			nodeStatus: corev1.ResourceList{
+				"cpu":    resource.MustParse("24"),
+				"memory": resource.MustParse("64Gi"),
+			},
+			expected: sets.New[corev1.ResourceName](),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rm := &resourceMonitor{
+				nodeAllocatable:      tc.nodeAllocatable,
+				nonTopologyResources: tc.nonTopologyResources,
+			}
+			node := &corev1.Node{
+				Status: corev1.NodeStatus{
+					Allocatable: tc.nodeStatus,
+				},
+			}
+			rm.detectNonDevicePluginResources(logger, node)
+			assert.True(t, tc.expected.Equal(rm.nonTopologyResources),
+				"expected %v, got %v", tc.expected, rm.nonTopologyResources)
+		})
+	}
+}
+
 // ghwc topology -f json
 var testTopology string = `{
     "nodes": [
