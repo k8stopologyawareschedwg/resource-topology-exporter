@@ -443,6 +443,22 @@ func (rm *resourceMonitor) Scan(ctx context.Context, excludeList ResourceExclude
 
 		zones = append(zones, zone)
 	}
+
+	if rm.nonTopologyResources.Len() > 0 {
+		resNames := make([]string, 0, rm.nonTopologyResources.Len())
+		for resName := range rm.nonTopologyResources {
+			if inExcludeSet(excludeSet, resName, rm.nodeName) {
+				continue
+			}
+			resNames = append(resNames, resName.String())
+		}
+		sort.Strings(resNames)
+		scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
+			Name:  AttributeNodeNonTopologyResources,
+			Value: strings.Join(resNames, ","),
+		})
+	}
+
 	scanRes.Zones = zones
 	return scanRes, nil
 }

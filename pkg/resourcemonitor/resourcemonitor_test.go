@@ -1945,6 +1945,67 @@ func TestDetectNonDevicePluginResources(t *testing.T) {
 	}
 }
 
+func TestScanNonTopologyResourcesAttribute(t *testing.T) {
+	fakeTopo := ghwtopology.Info{}
+	assert.NoError(t, json.Unmarshal([]byte(testTopology), &fakeTopo))
+
+	devicesWithTopo := getAllContainerDevices()
+	devicesWithNoTopo := append(devicesWithTopo,
+		&v1.ContainerDevices{
+			ResourceName: "fake.io/notopo-a",
+			DeviceIds:    []string{"dev-0", "dev-1"},
+			Topology:     nil,
+		},
+		&v1.ContainerDevices{
+			ResourceName: "fake.io/notopo-b",
+			DeviceIds:    []string{"dev-x"},
+			Topology:     nil,
+		},
+	)
+
+	availRes := &v1.AllocatableResourcesResponse{
+		Devices: devicesWithNoTopo,
+		CpuIds: []int64{
+			0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+			12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+		},
+	}
+
+	mockPodResClient := new(podres.MockPodResourcesListerClient)
+	mockPodResClient.On("GetAllocatableResources", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.AllocatableResourcesRequest")).Return(availRes, nil)
+	resMon := NewResourceMonitor(
+		Handle{PodResCli: mockPodResClient},
+		Args{},
+		"",
+		WithNodeName("TEST"),
+		WithTopology(&fakeTopo),
+		WithK8sClient(fake.NewSimpleClientset()),
+	)
+	err := resMon.Setup(context.TODO())
+	assert.NoError(t, err)
+
+	resp := &v1.ListPodResourcesResponse{
+		PodResources: []*v1.PodResources{},
+	}
+	mockPodResClient.On("List", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*v1.ListPodResourcesRequest")).Return(resp, nil)
+
+	scanRes, err := resMon.Scan(context.TODO(), ResourceExclude{})
+	assert.NoError(t, err)
+
+	var foundAttr *topologyv1alpha2.AttributeInfo
+	for i := range scanRes.Attributes {
+		if scanRes.Attributes[i].Name == AttributeNodeNonTopologyResources {
+			foundAttr = &scanRes.Attributes[i]
+			break
+		}
+	}
+	assert.NotNil(t, foundAttr, "nodeNonTopologyResources attribute should be present")
+
+	resNames := strings.Split(foundAttr.Value, ",")
+	sort.Strings(resNames)
+	assert.Equal(t, []string{"fake.io/notopo-a", "fake.io/notopo-b"}, resNames)
+}
+
 // ghwc topology -f json
 var testTopology string = `{
     "nodes": [
