@@ -21,6 +21,7 @@ import (
 
 	"github.com/k8stopologyawareschedwg/podfingerprint"
 	metricssrv "github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/metrics/server"
+	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/resourcemonitor"
 )
 
 const (
@@ -34,6 +35,7 @@ func SetDefaults(pArgs *ProgArgs) {
 	pArgs.Resourcemonitor.SysfsRoot = "/sys"
 	pArgs.Resourcemonitor.PodSetFingerprint = true
 	pArgs.Resourcemonitor.PodSetFingerprintMethod = podfingerprint.MethodWithExclusiveResources
+	pArgs.Resourcemonitor.NUMAPlacement = resourcemonitor.NUMAPlacementModeContainer
 	pArgs.RTE.SleepInterval = 60 * time.Second
 	pArgs.RTE.KubeletConfigFile = "/podresources/config.yaml"
 	pArgs.RTE.PodResourcesSocketPath = "unix:///podresources/kubelet.sock"

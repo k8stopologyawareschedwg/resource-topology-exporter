@@ -1540,6 +1540,7 @@ func TestScanNUMAPlacementAttributes(t *testing.T) {
 			Args{
 				PodSetFingerprint:       true,
 				PodSetFingerprintMethod: podfingerprint.MethodAll, // to ensure the containers are filtered also for this
+				NUMAPlacement:           NUMAPlacementModeContainer,
 			},
 			TopologyManagerPolicySingleNUMANode,
 			WithNodeName("TEST"),
@@ -1598,6 +1599,7 @@ func TestScanNUMAPlacementAttributes(t *testing.T) {
 			Args{
 				PodSetFingerprint:       true,
 				PodSetFingerprintMethod: podfingerprint.MethodAll,
+				NUMAPlacement:           NUMAPlacementModeContainer,
 			},
 			"none",
 			WithNodeName("TEST"),
@@ -1634,6 +1636,7 @@ func TestScanNUMAPlacementAttributes(t *testing.T) {
 			Args{
 				PodSetFingerprint:       true,
 				PodSetFingerprintMethod: podfingerprint.MethodAll,
+				NUMAPlacement:           NUMAPlacementModeContainer,
 			},
 			TopologyManagerPolicySingleNUMANode,
 			WithNodeName("TEST"),

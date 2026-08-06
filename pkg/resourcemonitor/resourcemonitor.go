@@ -58,6 +58,8 @@ const (
 	// obtained these values from node e2e tests : https://github.com/kubernetes/kubernetes/blob/82baa26905c94398a0d19e1b1ecf54eb8acb6029/test/e2e_node/util.go#L70
 
 	TopologyManagerPolicySingleNUMANode = "single-numa-node"
+
+	NUMAPlacementModeContainer = "container"
 )
 
 type ResourceExclude map[string][]string
@@ -81,6 +83,7 @@ type Args struct {
 	PodSetFingerprintStatusFile string          `json:"podSetFingerprintStatusFile,omitempty"`
 	PodExclude                  podexclude.List `json:"podExclude,omitempty"`
 	ExcludeTerminalPods         bool            `json:"excludeTerminalPods,omitempty"`
+	NUMAPlacement               string          `json:"numaPlacement,omitempty"`
 }
 
 func (args Args) Clone() Args {
@@ -95,6 +98,7 @@ func (args Args) Clone() Args {
 		PodSetFingerprintStatusFile: args.PodSetFingerprintStatusFile,
 		PodExclude:                  args.PodExclude.Clone(),
 		ExcludeTerminalPods:         args.ExcludeTerminalPods,
+		NUMAPlacement:               args.NUMAPlacement,
 	}
 }
 
@@ -310,6 +314,7 @@ func (rm *resourceMonitor) Scan(ctx context.Context, excludeList ResourceExclude
 		Annotations: map[string]string{},
 	}
 
+	containerNUMAPlacementEnabled := (rm.args.NUMAPlacement == NUMAPlacementModeContainer)
 	var payload numaplacement.Payload
 	if rm.args.PodSetFingerprint {
 		st := podfingerprint.MakeStatus(rm.nodeName)
@@ -334,15 +339,17 @@ func (rm *resourceMonitor) Scan(ctx context.Context, excludeList ResourceExclude
 		// numaplacement encoding is only done for pods that are eligible for NUMA placement (with
 		// exclusive resources), which are a subset of pods that are participating in PFP (it is
 		// not always the same pods as PFP because it depends on the filter function used)
-		payload, err = ComputeNUMAPlacementPayload(logger, numaEligiblePodRes, rm.tmPolicy, len(rm.topo.Nodes), rm.coreIDToNodeIDMap)
-		logger.V(2).Info("containers NUMA-placement detection", "error", err)
-		if err == nil {
-			metadata := payload.PackMetadata()
-			scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
-				Name:  numaplacement.AttributeMetadata,
-				Value: metadata,
-			})
-			logger.V(6).Info("numaplacement metadata", "metadata", metadata)
+		if containerNUMAPlacementEnabled {
+			payload, err = ComputeNUMAPlacementPayload(logger, numaEligiblePodRes, rm.tmPolicy, len(rm.topo.Nodes), rm.coreIDToNodeIDMap)
+			logger.V(2).Info("containers NUMA-placement detection", "error", err)
+			if err == nil {
+				metadata := payload.PackMetadata()
+				scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
+					Name:  numaplacement.AttributeMetadata,
+					Value: metadata,
+				})
+				logger.V(6).Info("numaplacement metadata", "metadata", metadata)
+			}
 		}
 	}
 	allDevs := GetAllContainerDevices(logger, respRawPodRes, rm.args.Namespace, rm.coreIDToNodeIDMap)
@@ -359,12 +366,14 @@ func (rm *resourceMonitor) Scan(ctx context.Context, excludeList ResourceExclude
 			Resources: make(topologyv1alpha2.ResourceInfoList, 0),
 		}
 
-		zoneVector, ok := payload.Vectors[nodeID]
-		if ok {
-			zone.Attributes = append(zone.Attributes, topologyv1alpha2.AttributeInfo{
-				Name:  numaplacement.AttributeVector,
-				Value: zoneVector,
-			})
+		if containerNUMAPlacementEnabled {
+			zoneVector, ok := payload.Vectors[nodeID]
+			if ok {
+				zone.Attributes = append(zone.Attributes, topologyv1alpha2.AttributeInfo{
+					Name:  numaplacement.AttributeVector,
+					Value: zoneVector,
+				})
+			}
 		}
 
 		costs, err := makeCostsPerNumaNode(rm.topo.Nodes, nodeID)
