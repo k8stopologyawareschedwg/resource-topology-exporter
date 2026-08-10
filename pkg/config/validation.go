@@ -40,6 +40,9 @@ func Validate(pArgs *ProgArgs) error {
 	if _, err := resourcemonitor.PFPMethodIsSupported(pArgs.Resourcemonitor.PodSetFingerprintMethod); err != nil {
 		return err
 	}
+	if _, err := resourcemonitor.NUMAPlacementModeIsSupported(pArgs.Resourcemonitor.NUMAPlacement); err != nil {
+		return err
+	}
 	return nil
 }
 

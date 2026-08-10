@@ -62,6 +62,7 @@ func FromFlags(pArgs *ProgArgs, args ...string) (string, string, error) {
 	CommandLine.BoolVar(&pArgs.Resourcemonitor.RefreshNodeResources, "refresh-node-resources", pArgs.Resourcemonitor.RefreshNodeResources, "If enable, track changes in node's resources")
 	CommandLine.StringVar(&pArgs.Resourcemonitor.PodSetFingerprintStatusFile, "pods-fingerprint-status-file", pArgs.Resourcemonitor.PodSetFingerprintStatusFile, "File to dump the pods fingerprint status. Use empty string to disable.")
 	CommandLine.BoolVar(&pArgs.Resourcemonitor.ExcludeTerminalPods, "exclude-terminal-pods", pArgs.Resourcemonitor.ExcludeTerminalPods, "If enable, exclude terminal pods from podresource API List call")
+	CommandLine.StringVar(&pArgs.Resourcemonitor.NUMAPlacement, "numa-placement", pArgs.Resourcemonitor.NUMAPlacement, fmt.Sprintf("Select the NUMA placement reporting mode. Use %q to enable container-level NUMA placement in NRT attributes. Use %q to disable.", resourcemonitor.NUMAPlacementModeContainer, resourcemonitor.NUMAPlacementModeNone))
 	CommandLine.StringVar(&pArgs.Resourcemonitor.PodSetFingerprintMethod, "pods-fingerprint-method", pArgs.Resourcemonitor.PodSetFingerprintMethod, fmt.Sprintf("Select the method to compute the pods fingerprint. Valid options: %s.", resourcemonitor.PFPMethodSupported()))
 
 	CommandLine.StringVar(&pArgs.RTE.TopologyManagerPolicy, "topology-manager-policy", pArgs.RTE.TopologyManagerPolicy, "Explicitly set the topology manager policy instead of reading from the kubelet.")
