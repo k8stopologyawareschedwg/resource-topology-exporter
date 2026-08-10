@@ -44,6 +44,46 @@ import (
 	"github.com/k8stopologyawareschedwg/resource-topology-exporter/pkg/podres"
 )
 
+func TestNUMAPlacementModeIsSupported(t *testing.T) {
+	for _, tcase := range []struct {
+		name          string
+		value         string
+		expectedError bool
+	}{
+		{
+			name:          "empty value is not valid",
+			value:         "",
+			expectedError: true,
+		},
+		{
+			name:  "container",
+			value: NUMAPlacementModeContainer,
+		},
+		{
+			name:  "none",
+			value: NUMAPlacementModeNone,
+		},
+		{
+			name:          "invalid",
+			value:         "bogus",
+			expectedError: true,
+		},
+		{
+			name:          "case sensitive",
+			value:         "None",
+			expectedError: true,
+		},
+	} {
+		t.Run(tcase.name, func(t *testing.T) {
+			_, err := NUMAPlacementModeIsSupported(tcase.value)
+			gotErr := (err != nil)
+			if gotErr != tcase.expectedError {
+				t.Errorf("NUMAPlacementModeIsSupported(%q) error = %v, expectedError=%v", tcase.value, err, tcase.expectedError)
+			}
+		})
+	}
+}
+
 func TestMakeCoreIDToNodeIDMap(t *testing.T) {
 	fakeTopo := ghwtopology.Info{}
 	Convey("When recovering test topology from JSON data", t, func() {

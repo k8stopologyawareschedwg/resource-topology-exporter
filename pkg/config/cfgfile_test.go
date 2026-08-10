@@ -99,6 +99,55 @@ func TestMetricsAddressFromConfig(t *testing.T) {
 	}
 }
 
+func TestNumaPlacementFromConfig(t *testing.T) {
+	for _, tcase := range []struct {
+		name     string
+		yaml     string
+		expected string
+	}{
+		{
+			name: "none overrides the default",
+			yaml: `resourceMonitor:
+  numaPlacement: none
+`,
+			expected: resourcemonitor.NUMAPlacementModeNone,
+		},
+		{
+			name: "container explicitly set",
+			yaml: `resourceMonitor:
+  numaPlacement: container
+`,
+			expected: resourcemonitor.NUMAPlacementModeContainer,
+		},
+	} {
+		t.Run(tcase.name, func(t *testing.T) {
+			testDir, closer := setupTest(t)
+			t.Cleanup(closer)
+
+			confRoot := filepath.Join(testDir, "test-numa-placement")
+			daemonDir := filepath.Join(confRoot, "daemon")
+			if err := os.MkdirAll(daemonDir, 0755); err != nil {
+				t.Fatalf("unexpected error creating daemon dir: %v", err)
+			}
+
+			if err := os.WriteFile(filepath.Join(daemonDir, "config.yaml"), []byte(tcase.yaml), 0644); err != nil {
+				t.Fatalf("unexpected error writing config: %v", err)
+			}
+
+			var pArgs ProgArgs
+			SetDefaults(&pArgs)
+			extraPath := FixExtraConfigPath(confRoot)
+			if err := FromFiles(&pArgs, confRoot, extraPath); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if pArgs.Resourcemonitor.NUMAPlacement != tcase.expected {
+				t.Errorf("NUMAPlacement: got %q expected %q", pArgs.Resourcemonitor.NUMAPlacement, tcase.expected)
+			}
+		})
+	}
+}
+
 func TestFromFiles(t *testing.T) {
 	testDir, closer := setupTest(t)
 	t.Cleanup(closer)

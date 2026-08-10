@@ -60,6 +60,7 @@ const (
 	TopologyManagerPolicySingleNUMANode = "single-numa-node"
 
 	NUMAPlacementModeContainer = "container"
+	NUMAPlacementModeNone      = "none"
 )
 
 type ResourceExclude map[string][]string
@@ -812,6 +813,17 @@ func PFPMethodIsSupported(value string) (string, error) {
 		return val, nil
 	}
 	return val, fmt.Errorf("unsupported method  %q", value)
+}
+
+// NUMAPlacementModeIsSupported checks that value is a recognised NUMA placement
+// reporting mode: NUMAPlacementModeContainer or NUMAPlacementModeNone. Unlike the
+// other IsSupported helpers, the empty string is not a valid value: the mode must
+// be set explicitly.
+func NUMAPlacementModeIsSupported(value string) (string, error) {
+	if value == NUMAPlacementModeContainer || value == NUMAPlacementModeNone {
+		return value, nil
+	}
+	return value, fmt.Errorf("unsupported numa placement mode %q: must be %q or %q", value, NUMAPlacementModeContainer, NUMAPlacementModeNone)
 }
 
 func mapIntIntToString(mii map[int]int) string {

@@ -45,6 +45,7 @@ func TestValidation(t *testing.T) {
 				},
 				Resourcemonitor: resourcemonitor.Args{
 					PodSetFingerprintMethod: "all",
+					NUMAPlacement:           resourcemonitor.NUMAPlacementModeContainer,
 				},
 			},
 			expectedError: false,
@@ -84,6 +85,58 @@ func TestValidation(t *testing.T) {
 				},
 			},
 			expectedError: true,
+		},
+		{
+			name: "invalid numa placement",
+			pArgs: ProgArgs{
+				RTE: resourcetopologyexporter.Args{
+					MetricsMode: "http",
+				},
+				Resourcemonitor: resourcemonitor.Args{
+					PodSetFingerprintMethod: "all",
+					NUMAPlacement:           "bogus",
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "numa placement empty is invalid",
+			pArgs: ProgArgs{
+				RTE: resourcetopologyexporter.Args{
+					MetricsMode: "http",
+				},
+				Resourcemonitor: resourcemonitor.Args{
+					PodSetFingerprintMethod: "all",
+					NUMAPlacement:           "",
+				},
+			},
+			expectedError: true,
+		},
+		{
+			name: "numa placement none is valid",
+			pArgs: ProgArgs{
+				RTE: resourcetopologyexporter.Args{
+					MetricsMode: "http",
+				},
+				Resourcemonitor: resourcemonitor.Args{
+					PodSetFingerprintMethod: "all",
+					NUMAPlacement:           resourcemonitor.NUMAPlacementModeNone,
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "numa placement container is valid",
+			pArgs: ProgArgs{
+				RTE: resourcetopologyexporter.Args{
+					MetricsMode: "http",
+				},
+				Resourcemonitor: resourcemonitor.Args{
+					PodSetFingerprintMethod: "all",
+					NUMAPlacement:           resourcemonitor.NUMAPlacementModeContainer,
+				},
+			},
+			expectedError: false,
 		},
 	} {
 		t.Run(tcase.name, func(t *testing.T) {

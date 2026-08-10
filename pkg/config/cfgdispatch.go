@@ -125,6 +125,7 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "resourceMonitor.exposeTiming", out: &pArgs.Resourcemonitor.ExposeTiming},
 		{key: "resourceMonitor.podSetFingerprintStatusFile", out: &pArgs.Resourcemonitor.PodSetFingerprintStatusFile},
 		{key: "resourceMonitor.excludeTerminalPods", out: &pArgs.Resourcemonitor.ExcludeTerminalPods},
+		{key: "resourceMonitor.numaPlacement", out: &pArgs.Resourcemonitor.NUMAPlacement},
 		{key: "topologyExporter.kubeletConfigFile", out: &pArgs.RTE.KubeletConfigFile},
 		{key: "topologyExporter.podResourcesSocketPath", out: &pArgs.RTE.PodResourcesSocketPath},
 		{key: "topologyExporter.sleepInterval", out: &pArgs.RTE.SleepInterval},
