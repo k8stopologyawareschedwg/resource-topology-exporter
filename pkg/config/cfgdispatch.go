@@ -99,16 +99,13 @@ func (cm configMap) Value(key string, out_ any) error {
 	}
 }
 
-type confBinding struct {
+type Binding struct {
 	key string
 	out any
 }
 
-func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
-	var err error
-	cm := configMap(obj)
-
-	cbs := []confBinding{
+func MakeBindings(pArgs *ProgArgs) []Binding {
+	return []Binding{
 		{key: "global.debug", out: &pArgs.Global.Debug},
 		{key: "global.verbose", out: &pArgs.Global.Verbose},
 		{key: "global.kubeconfig", out: &pArgs.Global.KubeConfig},
@@ -143,8 +140,13 @@ func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
 		{key: "topologyExporter.metricsTLS.minTLSVersion", out: &pArgs.RTE.MetricsTLSCfg.MinTLSVersion},
 		{key: "topologyExporter.metricsTLS.cipherSuites", out: &pArgs.RTE.MetricsTLSCfg.CipherSuites},
 	}
+}
 
-	for _, cb := range cbs {
+func dispatchConfObj(obj map[string]interface{}, pArgs *ProgArgs) error {
+	var err error
+	cm := configMap(obj)
+
+	for _, cb := range MakeBindings(pArgs) {
 		err = cm.Value(cb.key, cb.out)
 		if err != nil {
 			return err
