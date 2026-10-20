@@ -139,6 +139,7 @@ func MakeBindings(pArgs *ProgArgs) []Binding {
 		{key: "topologyExporter.metricsTLS.wantCliAuth", out: &pArgs.RTE.MetricsTLSCfg.WantCliAuth},
 		{key: "topologyExporter.metricsTLS.minTLSVersion", out: &pArgs.RTE.MetricsTLSCfg.MinTLSVersion},
 		{key: "topologyExporter.metricsTLS.cipherSuites", out: &pArgs.RTE.MetricsTLSCfg.CipherSuites},
+		{key: "topologyExporter.metricsTLS.curvePreferences", out: &pArgs.RTE.MetricsTLSCfg.CurvePreferences},
 	}
 }
 
