@@ -62,6 +62,10 @@ type TLSConfig struct {
 	// CipherSuites is a comma-separated list of TLS 1.2 cipher names as accepted by
 	// k8s.io/component-base/cli/flag.TLSCipherSuites (same as kube-apiserver --tls-cipher-suites).
 	CipherSuites string `json:"cipherSuites,omitempty"`
+	// CurvePreferences is a comma-separated list of curve IDs as accepted by
+	// k8s.io/component-base/cli/flag.TLSCipherPossibleValues (same as kube-apiserver --tls-curve-preferences).
+	// Numeric tls.CurveID values (e.g., "29,23,24" for X25519, P-256, P-384).
+	CurvePreferences string `json:"curvePreferences,omitempty"`
 }
 
 type Config struct {
@@ -84,12 +88,13 @@ func NewDefaultConfig() Config {
 
 func (conf TLSConfig) Clone() TLSConfig {
 	return TLSConfig{
-		CertsDir:      conf.CertsDir,
-		CertFile:      conf.CertFile,
-		KeyFile:       conf.KeyFile,
-		WantCliAuth:   conf.WantCliAuth,
-		MinTLSVersion: conf.MinTLSVersion,
-		CipherSuites:  conf.CipherSuites,
+		CertsDir:         conf.CertsDir,
+		CertFile:         conf.CertFile,
+		KeyFile:          conf.KeyFile,
+		WantCliAuth:      conf.WantCliAuth,
+		MinTLSVersion:    conf.MinTLSVersion,
+		CipherSuites:     conf.CipherSuites,
+		CurvePreferences: conf.CurvePreferences,
 	}
 }
 
