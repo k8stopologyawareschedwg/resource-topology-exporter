@@ -19,6 +19,7 @@ package metrics
 import (
 	"crypto/tls"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -97,9 +98,28 @@ func parseCurveIDs(curvePreferenceStr string) ([]tls.CurveID, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid curve ID %q: %w", curveStr, err)
 		}
-		curveIDs = append(curveIDs, tls.CurveID(curveID))
+
+		id := tls.CurveID(curveID)
+		if !isSupportedCurve(id) {
+			return nil, fmt.Errorf("unsupported curve ID %d: not in Go's supported curves list", curveID)
+		}
+		curveIDs = append(curveIDs, id)
 	}
 	return curveIDs, nil
+}
+
+// isSupportedCurve returns true if the curve ID is supported by Go's crypto/tls.
+func isSupportedCurve(id tls.CurveID) bool {
+	supported := []tls.CurveID{
+		tls.CurveP256, // 23
+		tls.CurveP384, // 24
+		tls.CurveP521, // 25
+		tls.X25519,    // 29
+		25497,         // X25519MLKEM768
+		25498,         // SecP256r1MLKEM768
+		25499,         // SecP384r1MLKEM1024
+	}
+	return slices.Contains(supported, id)
 }
 
 func splitNonEmptyCSV(s string) []string {
