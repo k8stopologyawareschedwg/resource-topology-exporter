@@ -243,9 +243,9 @@ func TestParseCurveIDs(t *testing.T) {
 			expected: []tls.CurveID{tls.CurveP256},
 		},
 		{
-			name:     "X25519MLKEM768 (25497)",
-			input:    "25497",
-			expected: []tls.CurveID{25497}, // tls.X25519MLKEM768
+			name:     "X25519MLKEM768 (4588)",
+			input:    "4588",
+			expected: []tls.CurveID{tls.X25519MLKEM768},
 		},
 		{
 			name:     "empty string",
@@ -295,6 +295,21 @@ func TestParseCurveIDs(t *testing.T) {
 		{
 			name:      "mixed valid and unsupported curves",
 			input:     "29,0,23",
+			expectErr: true,
+		},
+		{
+			name:      "obsolete MLKEM draft value (25497)",
+			input:     "25497",
+			expectErr: true,
+		},
+		{
+			name:      "obsolete MLKEM draft value (25498)",
+			input:     "25498",
+			expectErr: true,
+		},
+		{
+			name:      "obsolete MLKEM draft value (25499)",
+			input:     "25499",
 			expectErr: true,
 		},
 	}
