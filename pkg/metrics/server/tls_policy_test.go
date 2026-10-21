@@ -24,17 +24,18 @@ import (
 
 func TestMetricsTLSPolicyOpts(t *testing.T) {
 	type testCase struct {
-		name          string
-		minTLSVersion string
-		cipherSuites  string
-		expectErr     bool
-		wantOptCount  int
-		check         func(t *testing.T, cfg *tls.Config)
+		name             string
+		minTLSVersion    string
+		cipherSuites     string
+		curvePreferences string
+		expectErr        bool
+		wantOptCount     int
+		check            func(t *testing.T, cfg *tls.Config)
 	}
 
 	testCases := []testCase{
 		{
-			name:         "empty min and empty ciphers returns no opts",
+			name:         "empty min, empty ciphers, empty curves returns no opts",
 			wantOptCount: 0,
 		},
 		{
@@ -120,11 +121,72 @@ func TestMetricsTLSPolicyOpts(t *testing.T) {
 			cipherSuites:  "NOT_A_REAL_CIPHER",
 			expectErr:     true,
 		},
+		{
+			name:             "TLS 1.2 with curves",
+			minTLSVersion:    "VersionTLS12",
+			curvePreferences: "29,23,24",
+			wantOptCount:     1,
+			check: func(t *testing.T, cfg *tls.Config) {
+				t.Helper()
+				checkMinTLSVersion(t, cfg, tls.VersionTLS12)
+				if !reflect.DeepEqual(cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}) {
+					t.Errorf("CurvePreferences: got %#v, want %#v", cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384})
+				}
+			},
+		},
+		{
+			name:             "TLS 1.3 with curves",
+			minTLSVersion:    "VersionTLS13",
+			curvePreferences: "29,23",
+			wantOptCount:     1,
+			check: func(t *testing.T, cfg *tls.Config) {
+				t.Helper()
+				checkTLS13OnlyNoExplicitCiphers(t, cfg)
+				if !reflect.DeepEqual(cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256}) {
+					t.Errorf("CurvePreferences: got %#v, want %#v", cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256})
+				}
+			},
+		},
+		{
+			name:             "curves only defaults to TLS 1.2",
+			curvePreferences: "23",
+			wantOptCount:     1,
+			check: func(t *testing.T, cfg *tls.Config) {
+				t.Helper()
+				checkMinTLSVersion(t, cfg, tls.VersionTLS12)
+				if !reflect.DeepEqual(cfg.CurvePreferences, []tls.CurveID{tls.CurveP256}) {
+					t.Errorf("CurvePreferences: got %#v, want %#v", cfg.CurvePreferences, []tls.CurveID{tls.CurveP256})
+				}
+			},
+		},
+		{
+			name:             "TLS 1.2 with ciphers and curves",
+			minTLSVersion:    "VersionTLS12",
+			cipherSuites:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			curvePreferences: "29,23,24",
+			wantOptCount:     1,
+			check: func(t *testing.T, cfg *tls.Config) {
+				t.Helper()
+				checkMinTLSVersion(t, cfg, tls.VersionTLS12)
+				if len(cfg.CipherSuites) != 1 {
+					t.Errorf("CipherSuites: want 1 entry, got %d", len(cfg.CipherSuites))
+				}
+				if !reflect.DeepEqual(cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}) {
+					t.Errorf("CurvePreferences: got %#v, want %#v", cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384})
+				}
+			},
+		},
+		{
+			name:             "invalid curve ID",
+			minTLSVersion:    "VersionTLS12",
+			curvePreferences: "X25519",
+			expectErr:        true,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			opts, err := metricsTLSPolicyOpts(tc.minTLSVersion, tc.cipherSuites)
+			opts, err := metricsTLSPolicyOpts(tc.minTLSVersion, tc.cipherSuites, tc.curvePreferences)
 			if !checkTLSPolicyOutcome(t, err, tc.expectErr, opts, tc.wantOptCount) {
 				return
 			}
@@ -132,6 +194,81 @@ func TestMetricsTLSPolicyOpts(t *testing.T) {
 				cfg := &tls.Config{}
 				applyTLSOptionFuncs(cfg, opts[:1])
 				tc.check(t, cfg)
+			}
+		})
+	}
+}
+
+func TestParseCurveIDs(t *testing.T) {
+	type testCase struct {
+		name      string
+		input     string
+		expected  []tls.CurveID
+		expectErr bool
+	}
+
+	testCases := []testCase{
+		{
+			name:     "X25519, P-256, P-384",
+			input:    "29,23,24",
+			expected: []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384},
+		},
+		{
+			name:     "single curve P-256",
+			input:    "23",
+			expected: []tls.CurveID{tls.CurveP256},
+		},
+		{
+			name:     "X25519MLKEM768 (25497)",
+			input:    "25497",
+			expected: []tls.CurveID{25497}, // tls.X25519MLKEM768
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+		},
+		{
+			name:     "whitespace and commas only",
+			input:    " , , ",
+			expected: nil,
+		},
+		{
+			name:     "curves with whitespace",
+			input:    " 29 , 23 , 24 ",
+			expected: []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384},
+		},
+		{
+			name:      "invalid curve ID (non-numeric)",
+			input:     "X25519",
+			expectErr: true,
+		},
+		{
+			name:      "invalid curve ID (negative)",
+			input:     "-1",
+			expectErr: true,
+		},
+		{
+			name:      "invalid curve ID (too large for uint16)",
+			input:     "999999",
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseCurveIDs(tc.input)
+			if tc.expectErr {
+				if err == nil {
+					t.Errorf("parseCurveIDs(%q): expected error, got nil", tc.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseCurveIDs(%q): unexpected error: %v", tc.input, err)
+			}
+			if !reflect.DeepEqual(got, tc.expected) {
+				t.Errorf("parseCurveIDs(%q): got %#v, want %#v", tc.input, got, tc.expected)
 			}
 		})
 	}
@@ -217,6 +354,51 @@ func TestBuildSecureMetricsTLSOpts(t *testing.T) {
 			tlsConf: TLSConfig{
 				MinTLSVersion: "VersionTLS12",
 				CipherSuites:  "BAD_CIPHER",
+			},
+			expectErr: true,
+		},
+		{
+			name: "policy with curve preferences",
+			tlsConf: TLSConfig{
+				MinTLSVersion:    "VersionTLS12",
+				CipherSuites:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				CurvePreferences: "29,23,24",
+				WantCliAuth:      false,
+			},
+			wantOptCount: 3,
+			check: func(t *testing.T, cfg *tls.Config) {
+				t.Helper()
+				checkNextProtosHTTP11(t, cfg)
+				checkMinTLSVersion(t, cfg, tls.VersionTLS12)
+				if !reflect.DeepEqual(cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}) {
+					t.Errorf("CurvePreferences: got %#v, want %#v", cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384})
+				}
+				checkClientAuth(t, cfg, tls.NoClientCert)
+			},
+		},
+		{
+			name: "TLS 1.3 with curve preferences",
+			tlsConf: TLSConfig{
+				MinTLSVersion:    "VersionTLS13",
+				CurvePreferences: "29,23",
+				WantCliAuth:      true,
+			},
+			wantOptCount: 3,
+			check: func(t *testing.T, cfg *tls.Config) {
+				t.Helper()
+				checkNextProtosHTTP11(t, cfg)
+				checkTLS13OnlyNoExplicitCiphers(t, cfg)
+				if !reflect.DeepEqual(cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256}) {
+					t.Errorf("CurvePreferences: got %#v, want %#v", cfg.CurvePreferences, []tls.CurveID{tls.X25519, tls.CurveP256})
+				}
+				checkClientAuth(t, cfg, tls.RequireAndVerifyClientCert)
+			},
+		},
+		{
+			name: "invalid curve preferences surfaces error",
+			tlsConf: TLSConfig{
+				MinTLSVersion:    "VersionTLS12",
+				CurvePreferences: "invalid",
 			},
 			expectErr: true,
 		},

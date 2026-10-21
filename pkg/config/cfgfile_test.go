@@ -148,6 +148,38 @@ func TestNumaPlacementFromConfig(t *testing.T) {
 	}
 }
 
+func TestMetricsTLSCurvePreferencesFromConfig(t *testing.T) {
+	testDir, closer := setupTest(t)
+	t.Cleanup(closer)
+
+	confRoot := filepath.Join(testDir, "test-metrics-tls-curves")
+	daemonDir := filepath.Join(confRoot, "daemon")
+	if err := os.MkdirAll(daemonDir, 0755); err != nil {
+		t.Fatalf("unexpected error creating daemon dir: %v", err)
+	}
+
+	yamlContent := `topologyExporter:
+  metricsTLS:
+    curvePreferences: "29,23,24"
+`
+	expectedCurvePreferences := "29,23,24"
+
+	if err := os.WriteFile(filepath.Join(daemonDir, "config.yaml"), []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("unexpected error writing config: %v", err)
+	}
+
+	var pArgs ProgArgs
+	SetDefaults(&pArgs)
+	extraPath := FixExtraConfigPath(confRoot)
+	if err := FromFiles(&pArgs, confRoot, extraPath); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if pArgs.RTE.MetricsTLSCfg.CurvePreferences != expectedCurvePreferences {
+		t.Errorf("MetricsTLSCfg.CurvePreferences: got %q expected %q", pArgs.RTE.MetricsTLSCfg.CurvePreferences, expectedCurvePreferences)
+	}
+}
+
 func TestFromFiles(t *testing.T) {
 	testDir, closer := setupTest(t)
 	t.Cleanup(closer)
