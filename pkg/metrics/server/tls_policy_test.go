@@ -177,9 +177,33 @@ func TestMetricsTLSPolicyOpts(t *testing.T) {
 			},
 		},
 		{
-			name:             "invalid curve ID",
+			name:             "invalid curve ID (non-numeric)",
 			minTLSVersion:    "VersionTLS12",
 			curvePreferences: "X25519",
+			expectErr:        true,
+		},
+		{
+			name:             "unsupported curve ID (0)",
+			minTLSVersion:    "VersionTLS12",
+			curvePreferences: "0",
+			expectErr:        true,
+		},
+		{
+			name:             "unsupported curve ID (1)",
+			minTLSVersion:    "VersionTLS12",
+			curvePreferences: "1",
+			expectErr:        true,
+		},
+		{
+			name:             "unsupported curve ID (100)",
+			minTLSVersion:    "VersionTLS13",
+			curvePreferences: "100",
+			expectErr:        true,
+		},
+		{
+			name:             "mixed valid and unsupported curve IDs",
+			minTLSVersion:    "VersionTLS12",
+			curvePreferences: "29,0,23",
 			expectErr:        true,
 		},
 	}
@@ -251,6 +275,26 @@ func TestParseCurveIDs(t *testing.T) {
 		{
 			name:      "invalid curve ID (too large for uint16)",
 			input:     "999999",
+			expectErr: true,
+		},
+		{
+			name:      "unsupported curve ID (0)",
+			input:     "0",
+			expectErr: true,
+		},
+		{
+			name:      "unsupported curve ID (1)",
+			input:     "1",
+			expectErr: true,
+		},
+		{
+			name:      "unsupported curve ID (100)",
+			input:     "100",
+			expectErr: true,
+		},
+		{
+			name:      "mixed valid and unsupported curves",
+			input:     "29,0,23",
 			expectErr: true,
 		},
 	}
