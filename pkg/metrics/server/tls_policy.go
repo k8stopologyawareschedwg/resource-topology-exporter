@@ -109,15 +109,28 @@ func parseCurveIDs(curvePreferenceStr string) ([]tls.CurveID, error) {
 }
 
 // isSupportedCurve returns true if the curve ID is supported by Go's crypto/tls.
+//
+// Source: https://github.com/golang/go/blob/go1.25.0/src/crypto/tls/common.go#L147-L152
+//
+// DESIGN NOTE: This validation list must be maintained statically at compile-time.
+// Go's standard library does not expose a programmatic API (such as a public
+// tls.SupportedCurves() function) to enumerate or dynamically query the runtime's
+// internal key exchange / NamedGroup allowlist.
+//
+// By using Go's official tls.CurveID constants rather than magic integers, we ensure
+// that any discrepancies or deprecations across Go toolchain versions are caught safely
+// at compile-time rather than causing silent runtime handshake failures.
+//
+// Note: Go 1.26+ adds additional hybrid post-quantum curves (SecP256r1MLKEM768, SecP384r1MLKEM1024).
+// See https://github.com/golang/go/blob/go1.26.0/src/crypto/tls/common.go#L148-L156
+// This list should be updated when the project's minimum Go version increases.
 func isSupportedCurve(id tls.CurveID) bool {
 	supported := []tls.CurveID{
-		tls.CurveP256, // 23
-		tls.CurveP384, // 24
-		tls.CurveP521, // 25
-		tls.X25519,    // 29
-		25497,         // X25519MLKEM768
-		25498,         // SecP256r1MLKEM768
-		25499,         // SecP384r1MLKEM1024
+		tls.CurveP256,      // 23
+		tls.CurveP384,      // 24
+		tls.CurveP521,      // 25
+		tls.X25519,         // 29
+		tls.X25519MLKEM768, // 4588
 	}
 	return slices.Contains(supported, id)
 }
