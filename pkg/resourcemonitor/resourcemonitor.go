@@ -240,8 +240,7 @@ func (rm *resourceMonitor) Setup(ctx context.Context) error {
 	if err := rm.updateNodeResources(ctx); err != nil {
 		return err
 	}
-	logger.V(2).Info("initial capacity", "capacity", rm.nodeCapacity)
-	logger.V(2).Info("initial allocatable", "allocatable", rm.nodeAllocatable)
+	logger.V(2).Info("resource status", "capacity", rm.nodeCapacity, "allocatable", rm.nodeAllocatable)
 
 	if !rm.args.RefreshNodeResources {
 		logger.Info("getting node resources once")
@@ -342,7 +341,7 @@ func (rm *resourceMonitor) Scan(ctx context.Context, excludeList ResourceExclude
 		// not always the same pods as PFP because it depends on the filter function used)
 		if containerNUMAPlacementEnabled {
 			payload, err = ComputeNUMAPlacementPayload(logger, numaEligiblePodRes, rm.tmPolicy, len(rm.topo.Nodes), rm.coreIDToNodeIDMap)
-			logger.V(2).Info("containers NUMA-placement detection", "error", err)
+			logger.V(4).Info("containers NUMA-placement detection", "error", err)
 			if err == nil {
 				metadata := payload.PackMetadata()
 				scanRes.Attributes = append(scanRes.Attributes, topologyv1alpha2.AttributeInfo{
@@ -643,7 +642,6 @@ func ComputePodFingerprint(podRes []*podresourcesapi.PodResources, st *podfinger
 func NormalizeContainerDevices(logger logr.Logger, devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory, cpuIds []int64, coreIDToNodeIDMap map[int]int) []*podresourcesapi.ContainerDevices {
 	logger.V(4).Info("normalizing container devices", "devices", len(devices), "memoryBlocks", len(memoryBlocks), "CPUs", len(cpuIds))
 
-	logger.V(4).Info("normalize devices", "count", len(devices))
 	contDevs := append([]*podresourcesapi.ContainerDevices{}, devices...)
 
 	cpusPerNuma := make(map[int][]string)
